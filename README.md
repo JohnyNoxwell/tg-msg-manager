@@ -6,7 +6,7 @@ CLI-утилита на базе Telethon для удаления **своих**
 - Поддерживает **dry-run** (репетиция без реального удаления)
 - Фильтры:
   - по дате (например, только за последние 30 дней);
-  - по списку чатов (включить/исключить по ID);
+  - по списку чатов (включить/исключить по ID и по названию);
   - по типу сообщений (текст, медиа, пересланные).
 - Пакетное удаление и аккуратная работа с **FloodWait**.
 - Логирование в файл.
@@ -80,16 +80,23 @@ pip install .
 
 ### Запуск
 
-После установки (`pip install .`) доступна команда:
+Доступные команды (после `pip install .` или через `python -m`):
 
 ```bash
-tg-message-cleaner
+tg-message-cleaner --dry-run --yes
 ```
 
-Или без установки:
+Реальное удаление:
 
 ```bash
-python -m tg_message_cleaner.cli
+tg-message-cleaner --apply --yes
+```
+
+Если команда `tg-message-cleaner` недоступна в `PATH`, можно запускать без установки:
+
+```bash
+python -m tg_message_cleaner.cli --dry-run --yes
+python -m tg_message_cleaner.cli --apply --yes
 ```
 
 ### Возможности и улучшения
@@ -102,6 +109,10 @@ python -m tg_message_cleaner.cli
 - ищет `config.local.json` или `config.json` в текущей директории.
 - спрашивает подтверждение перед запуском.
 - в режиме `dry_run: true` только показывает количество сообщений.
+
+Примечание про прогресс/переходы:
+- сейчас каждый запуск делает полный проход по всем группам/каналам и `state` не используется.
+- опции `--no-resume` и `--reset-state` оставлены для совместимости.
 
 ---
 
@@ -134,19 +145,34 @@ Create `TG_CLEANER/config.local.json` (recommended) from `TG_CLEANER/config.exam
 
 The tool looks for `config.local.json` first, and then falls back to `config.json` in the **current working directory** (unless you set `TGMC_CONFIG_DIR`).
 
+Extra filtering:
+- `exclude_chats`: skip chats by ID
+- `exclude_chat_titles`: skip chats by name/title (case-insensitive; matches `dialog.name` / `dialog.title`)
+
 ### Run
 
-After installation:
+Dry-run (no deletion):
 
 ```bash
-tg-message-cleaner
+tg-message-cleaner --dry-run --yes
 ```
 
-Or without installation:
+Real deletion:
 
 ```bash
-python -m tg_message_cleaner.cli
+tg-message-cleaner --apply --yes
 ```
+
+If `tg-message-cleaner` is not in `PATH`, run without installation:
+
+```bash
+python -m tg_message_cleaner.cli --dry-run --yes
+python -m tg_message_cleaner.cli --apply --yes
+```
+
+Progress/resume note:
+- each run does a full sweep; `state` is not used
+- `--no-resume` / `--reset-state` are kept only for backward compatibility
 
 ### Key Improvements
 - **Async Fix:** Proper `FloodWait` handling without blocking the event loop.
