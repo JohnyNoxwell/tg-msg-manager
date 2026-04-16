@@ -9,7 +9,7 @@ from .exporter import run_export
 
 def main() -> None:
     # Обратная совместимость: если первый аргумент не является командой и это старые флаги, подставляем 'clean'
-    if len(sys.argv) > 1 and not sys.argv[1] in ('clean', 'export', '-h', '--help'):
+    if len(sys.argv) > 1 and not sys.argv[1] in ('clean', 'export', 'update', '-h', '--help'):
         # Если это старый формат вроде --apply или --dry-run
         sys.argv.insert(1, 'clean')
 
@@ -42,6 +42,9 @@ def main() -> None:
     export_parser.add_argument("--user-id", required=True, help="ID или username пользователя, сообщения которого нужно выгрузить.")
     export_parser.add_argument("--chat-id", default=None, help="ID или username конкретного чата (если не указано, ищет по всем чатам).")
     export_parser.add_argument("--out", default=None, help="Путь до файла выгрузки (по умолчанию 'Экспорт_{Ник}_{ID}.txt').")
+
+    # --- Подпарсер UPDATE ---
+    update_parser = subparsers.add_parser("update", help="Инкрементально обновить все собранные экспорты в папке EXPORTED_USRS")
 
     args = parser.parse_args()
 
@@ -76,6 +79,9 @@ def main() -> None:
             chat_id=args.chat_id,
             output_file=args.out
         )
+    elif command == "update":
+        from .exporter import run_export_update
+        run_export_update(config_dir=config_dir)
 
 
 if __name__ == "__main__":

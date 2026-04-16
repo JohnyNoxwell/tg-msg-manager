@@ -108,10 +108,17 @@ tg-message-cleaner export --user-id "spammer_username" --chat-id -1001234567
 tg-message-cleaner export --user-id 12345678 --out "my_export.txt"
 ```
 
+#### 3. Массовое обновление (update)
+Молниеносно проходит по всем ранее собранным экспортам в папке `EXPORTED_USRS`, ищет новые сообщения для каждого пользователя и дозаписывает их. Если пользователь поменял никнейм, это фиксируется в текстовом файле экспортов. Статистика обновления записывается в `changelog.txt`.
+```bash
+tg-message-cleaner update
+```
+
 Если команда `tg-message-cleaner` недоступна в `PATH`, можно запускать напрямую через Python:
 ```bash
 python -m tg_message_cleaner.cli clean --dry-run --yes
 python -m tg_message_cleaner.cli export --user-id 12345678
+python -m tg_message_cleaner.cli update
 ```
 
 ### Возможности и улучшения
