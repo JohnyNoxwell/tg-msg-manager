@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "tg-msg-manager"
 version = "0.1.0"
 description = "CLI-утилита для удаления своих сообщений из чатов Telegram (на базе Telethon)."
-authors = [{ name = "Your Name" }]
+authors = [{ name = "R.P." }]
 readme = "README.md"
 requires-python = ">=3.9"
 dependencies = [

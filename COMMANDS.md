@@ -51,7 +51,15 @@ tg-msg-manager export --user-id "spammer22" --chat-id -100123456789
 tg-msg-manager update
 ```
 
-### 🌍 4. Глобальные Флаги
+### ⏳ 4. Режим авто-очистки (`schedule`)
+Новейший механизм "таймера самоуничтожения". Единожды задав вопросы через консоль (интервал, исключения), утилита сама зарегистрирует себя системным фоновым демоном (через `launchd` на macOS, `cron` на Linux или Планировщик задач на Windows). Ваши сообщения будут стабильно удаляться полностью в фоновом режиме по расписанию!
+
+**Пример использования:**
+```bash
+tg-msg-manager schedule
+```
+
+### 🌍 5. Глобальные Флаги
 **`--config-dir`** — Задает путь к папке с вашим конфигурационным файлом. 
 ```bash
 tg-msg-manager --config-dir /etc/tg_cleaner export --user-id 12345
@@ -103,7 +111,15 @@ A magic bullet command. It automatically reads your `EXPORTED_USRS` cache and pe
 tg-msg-manager update
 ```
 
-### 🌍 4. Global Flags
+### ⏳ 4. Auto-Clean Daemon (`schedule`)
+The state-of-the-art "self-destruct timer" setup. By asking a few simple questions in the console (time intervals, exclusion tracking), the utility instantly wraps itself around a native OS background daemon (`launchd` on macOS, `cron` on Linux, Task Scheduler on Windows). Your messages will be relentlessly and seamlessly scrubbed from the internet autonomously in the background!
+
+**Examples:**
+```bash
+tg-msg-manager schedule
+```
+
+### 🌍 5. Global Flags
 **`--config-dir`** — Instructs the tool to fetch its configuration from a specific directory path.
 ```bash
 tg-msg-manager --config-dir /etc/tg_cleaner clean --apply --yes

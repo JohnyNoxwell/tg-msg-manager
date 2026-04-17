@@ -22,6 +22,9 @@ CLI-утилита на базе `telethon` для продвинутого уп
 * 🔄 **Массовое обновление (`update`)**
   Инкрементальное обновление базы экспортированных пользователей в один клик. Скрипт сам считывает профили из `EXPORTED_USRS` и докачивает только свежие сообщения, ведя подробный `changelog.txt`. За счет многопоточности работает в 10 раз быстрее!
 
+* ⏳ **Таймер самоуничтожения (`schedule`)**
+  Позволяет скрипту в один клик превратиться в невидимого системного демона. Укажите интервал (например, каждые 12 часов), и он сам зарегистрируется в `launchd` / `cron` / `Windows Task Scheduler` для методичного удаления ваших сообщений в полном фоне!
+
 ---
 
 ### 💻 Установка (Windows / macOS / Linux)
@@ -99,6 +102,9 @@ A `telethon`-based CLI utility for advanced Telegram message management. Forget 
   
 * 🔄 **Mass Updater (`update`)**
   One-click incremental update. The script automatically reads previously exported profiles from the `EXPORTED_USRS` folder and fetches only their newly written messages, logging all changes accurately to `changelog.txt`.
+
+* ⏳ **Self-Destruct Daemon (`schedule`)**
+  Instantly metamorphosize the tool into an invisible background orchestrator. You specify an interval (e.g. every 12 hours) and it registers natively with `launchd` / `cron` / `Task Scheduler` to scrub your footprint automatically in complete stealth mode.
 
 ---
 

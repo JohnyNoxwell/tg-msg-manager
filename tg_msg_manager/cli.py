@@ -9,7 +9,7 @@ from .exporter import run_export
 
 def main() -> None:
     # Обратная совместимость: если первый аргумент не является командой и это старые флаги, подставляем 'clean'
-    if len(sys.argv) > 1 and not sys.argv[1] in ('clean', 'export', 'update', '-h', '--help'):
+    if len(sys.argv) > 1 and not sys.argv[1] in ('clean', 'export', 'update', 'schedule', '-h', '--help'):
         # Если это старый формат вроде --apply или --dry-run
         sys.argv.insert(1, 'clean')
 
@@ -45,6 +45,9 @@ def main() -> None:
 
     # --- Подпарсер UPDATE ---
     update_parser = subparsers.add_parser("update", help="Инкрементально обновить все собранные экспорты в папке EXPORTED_USRS")
+
+    # --- Подпарсер SCHEDULE ---
+    schedule_parser = subparsers.add_parser("schedule", help="Настроить и запустить фоновый демон авто-очистки (OS Scheduler)")
 
     args = parser.parse_args()
 
@@ -82,6 +85,9 @@ def main() -> None:
     elif command == "update":
         from .exporter import run_export_update
         run_export_update(config_dir=config_dir)
+    elif command == "schedule":
+        from .scheduler import run_scheduler
+        run_scheduler(config_dir=config_dir)
 
 
 if __name__ == "__main__":
