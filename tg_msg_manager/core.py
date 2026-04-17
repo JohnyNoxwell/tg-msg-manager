@@ -178,6 +178,11 @@ def append_log(settings: Settings, line: str) -> None:
         f.write(f"[{timestamp}] {line}\n")
 
 
+def ts_print(msg: str) -> None:
+    now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    print(f"[{now}] {msg}")
+
+
 def message_passes_filters(msg, me_id: int, settings: Settings, min_date: Optional[datetime]) -> bool:
     # При выборке через `from_user=...` Telethon обычно уже ограничивает сообщения.
     # Но в некоторых типах чатов/сообщений `sender_id` может быть `None`,

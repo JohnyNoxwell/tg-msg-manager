@@ -15,7 +15,7 @@ from telethon.tl.types import (
     DocumentAttributeAnimated, DocumentAttributeFilename,
 )
 
-from .core import load_settings, Settings
+from .core import load_settings, Settings, ts_print
 
 # ────────────────────────────────────────────
 # Константы
@@ -227,10 +227,6 @@ async def export_pm_async(
     target_user_identifier: str,
     max_file_size: int = MAX_FILE_SIZE_BYTES,
 ):
-    def ts_print(msg):
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{now}] {msg}")
-
     client = TelegramClient(settings.session_name, settings.api_id, settings.api_hash)
     await client.start()
     me = await client.get_me()

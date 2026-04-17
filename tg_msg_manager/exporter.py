@@ -9,7 +9,7 @@ from typing import Optional, List, Set, Dict, Tuple
 from telethon import TelegramClient
 from telethon.tl.types import User, Message
 
-from .core import load_settings, Settings
+from .core import load_settings, Settings, ts_print
 
 
 @dataclass
@@ -442,10 +442,6 @@ async def export_messages_async(settings: Settings, target_user_identifier: str,
 
 
 async def export_update_async(settings: Settings):
-    def ts_print(msg):
-        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        print(f"[{now}] {msg}")
-
     export_dir = "PUBLIC_GROUPS"
     if not os.path.exists(export_dir):
         ts_print("Папка PUBLIC_GROUPS не найдена. Нечего обновлять.")
