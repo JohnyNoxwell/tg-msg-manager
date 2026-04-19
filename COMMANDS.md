@@ -32,7 +32,7 @@ python -m tg_msg_manager.cli clean --dry-run
 **Флаги и Аргументы:**
 * `--user-id` *(Обязательный)* — ID или username целевого пользователя.
 * `--flat` — ⚡️ **Плоский экспорт.** Отключить контекст (только сообщения автора). Удобно для быстрой выгрузки без лишних данных.
-* `--force-resync` — 🧨 **Сброс истории.** Игнорировать сохраненный прогресс и перекачать всю историю реплик заново (полезно при изменении глубины).
+* `--force-resync` — 🧨 **Сброс истории.** Игнорировать сохраненный прогресс и перекачать всю историю реплик заново. **Внимание:** существующие файлы экспорта для этого пользователя будут перезаписаны с нуля.
 * `--context-window` — Размер окна контекста (Золотой Стандарт: **3**).
 * `--max-cluster` — Макс. сообщений в одном кластере контекста (дефолт: **10**).
 * `--json` — Экспорт в формате **JSONL**.
@@ -51,8 +51,9 @@ tg-msg-manager export --user-id "spammer" --force-resync --context-window 5
 
 **Особенности:**
 * **Persistent Config**: Если вы один раз выгрузили пользователя с окном 5, `update` всегда будет использовать 5 для него.
-* **Force Update**: `update --force-resync` заставит скрипт перепроверить всю историю по всем отслеживаемым пользователям.
+* **Force Update**: `update --force-resync` заставит скрипт перепроверить всю историю по всем отслеживаемым пользователям и перезаписать файлы.
 * **Overrides**: Любой флаг (например, `--context-window`) переопределит настройки в базе для этого и всех последующих запусков.
+* **Dynamic Status**: В процессе работы отображается динамическая строка состояния: `🔄 Обновление: [Имя] | [Чат] | 📥 Собрано: [Всего] | [x/N] целей`.
 
 **Примеры использования:**
 ```bash
@@ -151,7 +152,7 @@ Locates target users and extracts their messages. **Deep Search Mode** (window 3
 **Flags & Arguments:**
 * `--user-id` *(Required)* — Numeric ID or username.
 * `--flat` — ⚡️ **Flat Export.** Disable context (author messages only). Saves space and time.
-* `--force-resync` — 🧨 **Re-scan History.** Ignores current progress and re-downloads the entire history (useful for updating depth).
+* `--force-resync` — 🧨 **Re-scan History.** Ignores current progress and re-downloads the entire history. **Note:** existing export files for this user will be overwritten from scratch.
 * `--context-window` — Context size (Gold Standard: **3**).
 * `--max-cluster` — Message limit per context fragment (default: **10**).
 * `--json` — Export in **JSONL** format.
@@ -170,8 +171,9 @@ A fully autonomous command. It retrieves targets and their individual configurat
 
 **Key Features:**
 * **Persistent Config**: Once an export is performed with a specific depth, `update` will remember and reuse those settings forever.
-* **Force Update**: `update --force-resync` triggers a full historical re-audit for all registered targets.
+* **Force Update**: `update --force-resync` triggers a full historical re-audit for all registered targets and overwrites existing files.
 * **Overrides**: Passing any flag (e.g., `--context-window`) will override the stored database setting for this and future runs.
+* **Dynamic Progress**: Displays a real-time status line: `🔄 Updating: [Name] | [Chat] | 📥 Collected: [Total] | [x/N] targets`.
 
 **Examples:**
 ```bash
