@@ -74,7 +74,7 @@ def sub_header(title):
 def interactive_menu(config_dir: str):
     """Главное интерактивное меню (TUI) с поддержкой подменю."""
     import asyncio
-    from .exporter import run_export_update_async, remove_user_data
+    from .exporter import run_export_update_async, remove_user_data, run_export_from_db
     from .pm_exporter import run_export_pm
     from .scheduler import run_scheduler
     from .setup import run_setup
@@ -86,14 +86,15 @@ def interactive_menu(config_dir: str):
         draw_banner()
         
         print(f"\033[1;36m{'='*60}\033[0m")
-        print(" [1] 📥 \033[1;37mЭкспорт\033[0m        - Выгрузить историю нового пользователя\n")
+        print(" [1] 📥 \033[1;37mЭкспорт\033[0m        - Выкачать историю сообщений пользователя из указанных по ID чатов (включая контекст)\n")
         print(" [2] 🔄 \033[1;37mОбновление\033[0m     - Синхронизировать все активные цели\n")
         print(" [3] 🧹 \033[1;37mОчистка\033[0m        - Удалить ваши сообщения из групп\n")
         print(" [4] 💬 \033[1;37mЛичка + Медиа\033[0m  - Полный архив приватного чата\n")
-        print(" [5] 🗑️  \033[1;37mУдалить данные\033[0m - Полная очистка по ID пользователя\n")
+        print(" [5] 🗑️  \033[1;37mУдалить данные\033[0m - Полное удаление скачанных данных пользователя по ID\n")
         print(" [6] ⏳ \033[1;37mРасписание\033[0m     - Настройка фоновых задач (launchd/cron)\n")
         print(" [7] ⚙️  \033[1;37mНастройка\033[0m      - Установка быстрых алиасов в терминал\n")
         print(" [8] ℹ️  \033[1;37mО программе\033[0m    - Помощь и описание функций\n")
+        print(" [9] 📂 \033[1;37mЭкспорт из БД\033[0m - Создать файлы (.txt/.json) на основе базы данных\n")
         print(f"\033[0;31m [0] ❌ Выход\033[0m")
         print(f"\033[1;36m{'='*60}\033[0m")
         
@@ -105,6 +106,7 @@ def interactive_menu(config_dir: str):
 
         elif choice == '1': # EXPORT
             sub_header("Экспорт пользователя")
+            print("\033[3;90mℹ️  Выкачка истории из чатов, где вы состоите и хотя бы раз пересекались с целью.\033[0m\n")
             uid = prompt_backable("👤 Введите ID или username", validator=validate_user_target)
             if uid == BACK_SIGNAL: continue
             
@@ -120,6 +122,7 @@ def interactive_menu(config_dir: str):
 
         elif choice == '2': # UPDATE
             sub_header("Обновление архивов")
+            print("\033[3;90mℹ️  Синхронизация новых сообщений для всех ранее выгруженных целей.\033[0m\n")
             print(" [1] 🔄 Запустить синхронизацию")
             print(" [0] 🔙 Назад")
             check = input("\n Ваш выбор: ").strip()
@@ -130,6 +133,7 @@ def interactive_menu(config_dir: str):
 
         elif choice == '3': # CLEAN
             sub_header("Очистка ваших сообщений")
+            print("\033[3;90mℹ️  Массовая очистка ваших сообщений по фильтрам из файла конфигурации.\033[0m\n")
             print(" [1] 🛡️ Репетиция (dry-run)")
             print(" [2] 🧨 Боевое удаление")
             print(" [0] 🔙 Назад")
@@ -150,6 +154,7 @@ def interactive_menu(config_dir: str):
 
         elif choice == '4': # EXPORT-PM
             sub_header("Архив личной переписки")
+            print("\033[3;90mℹ️  Полный экспорт чата с указанным по ID пользователем, включая кружки, видео, голосовые и прочие медиа.\033[0m\n")
             uid = prompt_backable("👤 Введите ID/username", validator=validate_user_target)
             if uid == BACK_SIGNAL: continue
             ts_print(f"🚀 Запуск выгрузки приватного чата {uid}...")
@@ -157,6 +162,7 @@ def interactive_menu(config_dir: str):
 
         elif choice == '5': # DELETE
             sub_header("Полное удаление данных")
+            print("\033[3;90mℹ️  Безвозвратное удаление всех локальных данных (БД + файлы) по ID пользователя.\033[0m\n")
             from .core import load_settings
             settings = load_settings(config_dir)
             db_name = f"{settings.account_name}_messages.db" if settings.account_name else "messages.db"
@@ -190,6 +196,7 @@ def interactive_menu(config_dir: str):
 
         elif choice == '6': # SCHEDULE
             sub_header("Планировщик задач")
+            print("\033[3;90mℹ️  Настройка системы для автоматической очистки сообщений в фоновом режиме.\033[0m\n")
             print(" [1] ⏳ Настроить расписание")
             print(" [0] 🔙 Назад")
             if input("\n Ваш выбор: ").strip() == '1':
@@ -198,6 +205,7 @@ def interactive_menu(config_dir: str):
         elif choice == '7': # SETUP
             while True:
                 sub_header("Настройка системы")
+                print("\033[3;90mℹ️  Установка быстрых алиасов (tg, tge, tgu) для удобного запуска из терминала.\033[0m\n")
                 print(" [1] ⚙️  Установить алиасы (tg, tge, tgu...)")
                 print(" [2] 🔑 Настроить Telegram API (ID/Hash)")
                 print("\n \033[0;31m[0] 🔙 Назад\033[0m")
@@ -215,8 +223,45 @@ def interactive_menu(config_dir: str):
         elif choice == '8': # HELP
             help_menu()
 
+        elif choice == '9': # EXPORT FROM DB
+            sub_header("Экспорт из базы данных")
+            print("\033[3;90mℹ️  Создать новые файлы (.txt/.json) на основе истории из SQLite.\033[0m\n")
+            
+            from .core import load_settings
+            settings = load_settings(config_dir)
+            db_name = f"{settings.account_name}_messages.db" if settings.account_name else "messages.db"
+            storage = SQLiteStorage(os.path.join(settings.config_dir, db_name))
+            users = storage.get_unique_sync_users()
+            
+            if not users:
+                print("\033[1;33mℹ️  В базе данных пока нет сохраненных пользователей.\033[0m")
+            else:
+                print("📋 \033[1;37mВыберите пользователя для выгрузки:\033[0m\n")
+                for i, u in enumerate(users, 1):
+                    print(f" [{i}] {u['author_name']} (ID: {u['user_id']})")
+                print(f"\n\033[0;31m [0] 🔙 Назад\033[0m")
+                
+                sel_idx = prompt_backable(
+                    "\n👉 Введите номер", 
+                    validator=lambda v: validate_int(v, "Номер", min_val=1, max_val=len(users))
+                )
+                
+                if sel_idx != BACK_SIGNAL:
+                    target = users[sel_idx - 1]
+                    uid, name = target['user_id'], target['author_name']
+                    
+                    print(f"\n📁 Выбран: \033[1;37m{name}\033[0m")
+                    print("⚙️  Выберите формат:")
+                    print(" [1] JSONL (продвинутый, с метаданными)")
+                    print(" [2] Plain Text (красивый, для чтения)")
+                    
+                    fmt_choice = input("\n Ваш выбор [1]: ").strip()
+                    as_json = (fmt_choice != '2')
+                    
+                    run_export_from_db(config_dir=config_dir, user_id=uid, as_json=as_json)
+
         else:
-            print("\033[1;31m⚠️ Некорректный выбор. Пожалуйста, выберите пункт от 0 до 8.\033[0m")
+            print("\033[1;31m⚠️ Некорректный выбор. Пожалуйста, выберите пункт от 0 до 9.\033[0m")
             import time
             time.sleep(1.5)
             continue

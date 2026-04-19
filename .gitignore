@@ -24,6 +24,7 @@ venv/
 .venv-test/
 PUBLIC_GROUPS/
 PRIVAT_DIALOGS/
+DB_EXPORTS/
 scratch/
 pm_export_state.json
 # Артефакты Python

@@ -601,3 +601,49 @@ def remove_user_data(config_dir: str, user_id: str):
     ts_print(f" --- Очистка файлов завершена ---")
     ts_print(f" Удалено объектов: {deleted_files}")
     ts_print(f"\nВсе данные для пользователя {u_id_int} стерты.")
+    return deleted_files
+
+def run_export_from_db(config_dir: str, user_id: int, as_json: bool = True):
+    """Выгружает все сообщения пользователя из БД в файлы (TXT или JSONL)."""
+    settings = load_settings(config_dir=config_dir)
+    db_name = f"{settings.account_name}_messages.db" if settings.account_name else "messages.db"
+    db_path = os.path.join(settings.config_dir, db_name)
+    storage = SQLiteStorage(db_path)
+    
+    # 1. Получаем сообщения
+    messages = storage.get_user_messages(user_id)
+    if not messages:
+        ts_print(f" [!] В базе данных не найдено сообщений для пользователя ID {user_id}.")
+        return None
+
+    u_name = messages[0].author_name
+    safe_name = re.sub(r'[^\w\s-]', '', u_name).strip().replace(' ', '_')
+    
+    # Создаем папку для экпортов из БД, если её нет
+    export_dir = "DB_EXPORTS"
+    if not os.path.exists(export_dir):
+        os.makedirs(export_dir)
+        
+    ext = ".jsonl" if as_json else ".txt"
+    base_filename = f"DB_Export_{safe_name}_{user_id}{ext}"
+    output_path = os.path.join(export_dir, base_filename)
+    
+    ts_print(f"📂 Запуск экспорта из БД для {u_name} ({len(messages)} сообщений)...")
+    
+    writer = FileRotateWriter(output_path, as_json=as_json, overwrite=True)
+    
+    count = 0
+    for m_data in messages:
+        block = format_export_block(m_data, as_json)
+        # format_export_block возвращает строку без завершающего переноса для JSONL, 
+        # но нам нужно разделение между блоками.
+        sep = "\n" if as_json else "\n\n" + "-" * 40 + "\n\n"
+        asyncio.run(writer.write_block(block + sep, 1))
+        count += 1
+        
+        if count % 100 == 0:
+            print(f"\r  💾 Обработано: {count}/{len(messages)}...", end="", flush=True)
+
+    print(f"\r  ✅ Экспорт завершен! Обработано {count} сообщений.")
+    ts_print(f"📄 Файлы сохранены в папку {export_dir}")
+    return output_path

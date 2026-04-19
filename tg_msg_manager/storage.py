@@ -233,6 +233,61 @@ class SQLiteStorage(BaseStorage):
             conn.commit()
             return msg_count, target_count
 
+    def get_user_messages(self, user_id: int) -> List[MessageData]:
+        """Возвращает все сообщения пользователя из всех чатов, отсортированные по дате."""
+        with self._get_connection() as conn:
+            rows = conn.execute("""
+                SELECT * FROM messages 
+                WHERE user_id = ? 
+                ORDER BY date ASC
+            """, (user_id,)).fetchall()
+            
+            results = []
+            for row in rows:
+                # Вспомогательная функция для сборки MessageData из словаря (для вложенных сообщений)
+                def dict_to_msg(d):
+                    if not d: return None
+                    try:
+                        return MessageData(
+                            date=datetime.fromisoformat(d['date']) if isinstance(d.get('date'), str) else d.get('date'),
+                            author_name=d.get('author_name', 'Unknown'),
+                            author_id=d.get('author_id', 0),
+                            author_username=d.get('author_username'),
+                            text=d.get('text', ''),
+                            msg_id=d.get('msg_id', 0),
+                            chat_id=d.get('chat_id', 0),
+                            chat_title=d.get('chat_title', '')
+                        )
+                    except Exception:
+                        return None
+
+                orig_json = row['original_msg_json']
+                orig_dict = json.loads(orig_json) if orig_json else None
+                
+                # Реконструкция основного MessageData
+                m = MessageData(
+                    date=datetime.fromisoformat(row['date']) if row['date'] else None,
+                    author_name=row['author_name'],
+                    author_id=row['user_id'],
+                    author_username=row['author_username'],
+                    text=row['text'],
+                    msg_id=row['msg_id'],
+                    chat_id=row['chat_id'],
+                    chat_title=row['chat_title'] or "",
+                    is_reply=bool(row['is_reply']),
+                    reply_to_msg_id=row['reply_to_msg_id'],
+                    is_forward=bool(row['is_forward']),
+                    fwd_from_id=row['fwd_from_id'],
+                    fwd_from_name=row['fwd_from_name'],
+                    media_type=row['media_type'],
+                    edit_date=datetime.fromisoformat(row['edit_date']) if row['edit_date'] else None,
+                    reactions=json.loads(row['reactions']) if row['reactions'] else [],
+                    original_msg=dict_to_msg(orig_dict),
+                    schema_version=row['schema_version'] or 1
+                )
+                results.append(m)
+            return results
+
     def close(self):
         # В этой реализации соединение открывается/закрывается при каждом вызове (через контекстный менеджер),
         # но мы оставляем метод для совместимости с интерфейсом.
