@@ -71,6 +71,8 @@ Transform the utility into a high-fidelity terminal application.
 - [x] **13.3** Interactive "Page-based" sub-menus with technical descriptions.
 - [x] **13.4** Silent Start: Default logs suppressed for cleaner App experience.
 - [x] **13.5** Modular refactoring into `core/`, `services/`, `infrastructure/`.
+- [x] **13.6** **Target Attribution**: Reference counting for messages/context.
+- [x] **13.7** **Smart Purge**: Guaranteed orphan deletion logic.
 
 ---
 

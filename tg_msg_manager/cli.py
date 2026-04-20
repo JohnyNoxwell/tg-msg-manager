@@ -194,28 +194,51 @@ async def run_cli():
         print(_("error_locked"))
         sys.exit(1)
     
-    pm.setup_signals()
+    # State for emergency export
+    state = {"active_uid": None}
     storage = SQLiteStorage(settings.db_path)
+    db_export_service = DBExportService(storage)
+
+    async def emergency_export_callback():
+        uid = state.get("active_uid")
+        storage.request_stop() # Signal all workers to halt
+        if uid:
+            sys.stdout.write(f"\n⚠️ Performing emergency JSON export for User ID: {uid}...\n")
+            sys.stdout.flush()
+            path = await db_export_service.export_user_messages(uid, as_json=True)
+            if path:
+                sys.stdout.write(f"✅ Emergency dump saved to: {path}\n")
+            else:
+                sys.stdout.write(f"❌ No messages found in DB for emergency dump.\n")
+            sys.stdout.flush()
+
+    # Register async signals
+    pm.setup_async_signals(asyncio.get_running_loop(), emergency_export_callback)
+    
     await storage.start()
     client = TelethonClientWrapper(settings.session_name, settings.api_id, settings.api_hash)
     
     export_service = ExportService(client, storage)
     cleaner_service = CleanerService(client, storage, whitelist=settings.whitelist_chats)
-    db_export_service = DBExportService(storage)
     pm_service = PrivateArchiveService(client, storage)
 
     try:
         await client.connect()
         if args.command == "export":
             uid = resolve_id(args.user_id)
-            user_ent, chat_ent = await get_safe_user_and_chat(client, args.user_id, args.chat_id)
+            state["active_uid"] = uid # Set for emergency export
             
+            user_ent, chat_ent = await get_safe_user_and_chat(client, args.user_id, args.chat_id)
+            if user_ent:
+                state["active_uid"] = user_ent.id # Update with real ID if resolved
+            
+            # Start sync
             try:
                 if chat_ent:
                     # Sync specific chat
                     await export_service.sync_chat(
                         chat_ent,
-                        from_user_id=user_ent.id if user_ent else uid,
+                        from_user_id=state["active_uid"],
                         deep_mode=args.deep,
                         force_resync=args.force_resync,
                         context_window=args.context_window,
@@ -225,7 +248,7 @@ async def run_cli():
                 elif user_ent:
                     # Global sync for user - constrained by config
                     await export_service.sync_all_dialogs_for_user(
-                        user_ent.id,
+                        state["active_uid"],
                         target_chat_ids=settings.chats_to_search_user_msgs,
                         deep_mode=args.deep,
                         force_resync=args.force_resync,
@@ -235,10 +258,10 @@ async def run_cli():
                     )
                 else:
                     print(f"❌ Error: Could not resolve target {args.user_id}")
-            except KeyboardInterrupt:
-                print("\n⚠️ Interrupted. Performing emergency JSON export of partial data...")
-                await db_export_service.export_user_messages(user_ent.id if user_ent else uid, as_json=True)
-                raise
+            except Exception as e:
+                # If shutdown requested, we don't log as error
+                if not pm.should_stop():
+                    logger.error(f"Error during export: {e}")
 
         elif args.command == "update":
             await export_service.sync_all_outdated()

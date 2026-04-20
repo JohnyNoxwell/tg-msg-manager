@@ -31,6 +31,10 @@ class ExportService:
             return getattr(entity, 'title', f"ID:{entity.id}")
         return f"ID:{getattr(entity, 'id', 'Unknown')}"
 
+    def request_stop(self):
+        """Sets the shutdown event to signal workers to stop."""
+        self.storage.request_stop()
+
     async def sync_chat(self, entity: Any, 
                         from_user_id: Optional[int] = None,
                         limit: Optional[int] = None, 
@@ -118,6 +122,8 @@ class ExportService:
             w_head_id = head_id
             
             async for msg_data in self.client.iter_messages(entity, limit=limit, offset_id=offset, from_user=from_user_id):
+                if self.storage.should_stop():
+                    break
                 # 1. Respect worker boundary
                 if msg_data.message_id <= stop_id:
                     break
@@ -131,6 +137,7 @@ class ExportService:
                     if len(w_context_batch) >= context_batch_size:
                         await self.context_engine.extract_batch_context(
                             entity, w_context_batch, 
+                            target_id=uid,
                             window_size=context_window,
                             max_cluster=max_cluster,
                             recursive_depth=recursive_depth,
@@ -150,7 +157,7 @@ class ExportService:
                     w_head_id = max(w_head_id, msg_data.message_id)
 
                 if len(w_batch) >= batch_size:
-                    await self.storage.save_messages(w_batch)
+                    await self.storage.save_messages(w_batch, target_id=uid)
                     # Update DB state
                     if role == "TAIL" and offset <= (tail_id or current_max):
                         self.storage.update_sync_tail(chat_id, uid, w_tail_id, is_complete=False)
@@ -165,13 +172,14 @@ class ExportService:
             if w_context_batch:
                 await self.context_engine.extract_batch_context(
                     entity, w_context_batch, 
+                    target_id=uid,
                     window_size=context_window,
                     max_cluster=max_cluster,
                     recursive_depth=recursive_depth,
                     on_progress=draw_status
                 )
             if w_batch:
-                await self.storage.save_messages(w_batch)
+                await self.storage.save_messages(w_batch, target_id=uid)
                 if role == "TAIL" and offset <= (tail_id or current_max):
                     self.storage.update_sync_tail(chat_id, uid, w_tail_id, is_complete=(w_tail_id <= 10))
                 elif role == "HEAD":

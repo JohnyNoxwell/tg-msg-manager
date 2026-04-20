@@ -2,6 +2,7 @@ import os
 import signal
 import logging
 import time
+import asyncio
 from typing import Optional, Callable
 
 logger = logging.getLogger(__name__)
@@ -109,6 +110,40 @@ class ProcessManager:
             signal.signal(signal.SIGHUP, handler)
         signal.signal(signal.SIGINT, handler)
         signal.signal(signal.SIGTERM, handler)
+
+    def setup_async_signals(self, loop: asyncio.AbstractEventLoop, on_interrupt_callback: Optional[Callable] = None):
+        """
+        Registers async-aware handlers for SIGINT using the event loop.
+        This is more reliable for async apps than signal.signal.
+        """
+        self._sig_count = 0
+        
+        def handle_async_sig():
+            self._sig_count += 1
+            # Ensure we start on a new line
+            print("\n", end="", flush=True)
+
+            if self._sig_count > 1:
+                print(f"🧨 Forceful exit triggered...")
+                os._exit(1)
+
+            logger.warning(f"SIGINT received. Requesting graceful shutdown...")
+            self.shutdown_requested = True
+            
+            # Schedule the async callback into the loop
+            if on_interrupt_callback:
+                if asyncio.iscoroutinefunction(on_interrupt_callback):
+                    asyncio.create_task(on_interrupt_callback())
+                else:
+                    on_interrupt_callback()
+
+        try:
+            loop.add_signal_handler(signal.SIGINT, handle_async_sig)
+            logger.debug("Async SIGINT handler registered.")
+        except NotImplementedError:
+            # Fallback for platforms that don't support add_signal_handler (like Windows)
+            logger.debug("add_signal_handler not supported on this platform, falling back to setup_signals.")
+            self.setup_signals()
 
     def should_stop(self) -> bool:
         return self.shutdown_requested

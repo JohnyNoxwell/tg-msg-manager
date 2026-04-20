@@ -20,6 +20,7 @@ class DeepModeEngine:
         self._processed_ids: Set[int] = set()
 
     async def extract_batch_context(self, entity: Any, target_messages: List[MessageData], 
+                                  target_id: Optional[int] = None,
                                   window_size: int = 3, max_cluster: int = 20, 
                                   recursive_depth: int = 3,
                                   on_progress: Optional[Any] = None):
@@ -40,7 +41,7 @@ class DeepModeEngine:
             self._processed_ids.add(msg.message_id)
             c_id = msg.context_group_id or str(uuid.uuid4())
             clusters[msg.message_id] = c_id
-            await self.storage.save_message(self._with_cluster(msg, c_id))
+            await self.storage.save_message(self._with_cluster(msg, c_id), target_id=target_id)
 
         if on_progress: await on_progress()
 
@@ -53,16 +54,16 @@ class DeepModeEngine:
         # We group targets into "Density Clusters" - ranges of IDs that can be fetched in one go
         ranges = self._calculate_ranges(list(clusters.keys()), window_size * 2 + 5) # Buffer for replies
         for start_id, end_id in ranges:
-            tasks.append(self._prefetch_context_slice(entity, start_id, end_id, clusters, window_size, on_progress))
+            tasks.append(self._prefetch_context_slice(entity, start_id, end_id, clusters, window_size, target_id, on_progress))
 
         # -- Task B: Fetch Parent Replies (Still needed if parents are far away) --
         parent_reply_ids = {m.reply_to_id for m in target_messages if m.reply_to_id and m.reply_to_id not in self._processed_ids}
         if parent_reply_ids:
             missing_parent_ids = self.storage.filter_existing_ids(chat_id, list(parent_reply_ids))
             if missing_parent_ids:
-                tasks.append(self._fetch_parent_replies(entity, missing_parent_ids, clusters, target_messages, on_progress))
+                tasks.append(self._fetch_parent_replies(entity, missing_parent_ids, clusters, target_messages, target_id, on_progress))
             else:
-                tasks.append(self._load_and_associate_parents(chat_id, list(parent_reply_ids), clusters, target_messages, on_progress))
+                tasks.append(self._load_and_associate_parents(chat_id, list(parent_reply_ids), clusters, target_messages, target_id, on_progress))
 
         # Run all tasks
         results = await asyncio.gather(*tasks, return_exceptions=True)
@@ -83,6 +84,7 @@ class DeepModeEngine:
             # but for this specific request we go full depth -3
             await self.extract_batch_context(
                 entity, newly_found[:100], # Limit branch width per step for stability
+                target_id=target_id,
                 window_size=max(1, window_size - 1), # Narrow window as we go deeper
                 max_cluster=max_cluster,
                 recursive_depth=recursive_depth - 1,
@@ -91,6 +93,7 @@ class DeepModeEngine:
 
     async def _prefetch_context_slice(self, entity: Any, start_id: int, end_id: int, 
                                     clusters: Dict[int, str], window: int, 
+                                    target_id: Optional[int] = None,
                                     on_progress: Optional[Any] = None) -> List[MessageData]:
         """
         Hyper-Acceleration: Fetches a bulk slice of history to find neighbors and replies LOCALLY.
@@ -127,13 +130,14 @@ class DeepModeEngine:
                 found_context.append(m)
         
         if found_context:
-            await self.storage.save_messages(found_context)
+            await self.storage.save_messages(found_context, target_id=target_id)
             if on_progress: await on_progress()
         
         return found_context
 
     async def _fetch_parent_replies(self, entity: Any, ids: List[int], 
                                      clusters: Dict[int, str], target_messages: List[MessageData], 
+                                     target_id: Optional[int] = None,
                                      on_progress: Optional[Any] = None) -> List[MessageData]:
         """Fetches the messages that the targets are replying to."""
         if not ids: return []
@@ -151,7 +155,7 @@ class DeepModeEngine:
                             if c_id:
                                 m_clustered = self._with_cluster(m, c_id)
                                 results.append(m_clustered)
-                                await self.storage.save_message(m_clustered)
+                                await self.storage.save_message(m_clustered, target_id=target_id)
             
             if results and on_progress: await on_progress()
             return results
@@ -164,6 +168,7 @@ class DeepModeEngine:
 
     async def _load_and_associate_parents(self, chat_id: int, ids: List[int], 
                                           clusters: Dict[int, str], target_messages: List[MessageData],
+                                          target_id: Optional[int] = None,
                                           on_progress: Optional[Any] = None) -> List[MessageData]:
         """Loads messages from storage and associates them with new clusters."""
         results = []
@@ -176,7 +181,7 @@ class DeepModeEngine:
                         if c_id:
                             m_clustered = self._with_cluster(m, c_id)
                             results.append(m_clustered)
-                            await self.storage.save_message(m_clustered)
+                            await self.storage.save_message(m_clustered, target_id=target_id)
         return results
 
     def _calculate_ranges(self, ids: List[int], window: int) -> List[tuple]:

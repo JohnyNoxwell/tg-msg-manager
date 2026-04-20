@@ -9,7 +9,7 @@ class BaseStorage(ABC):
     """
 
     @abstractmethod
-    def save_message(self, msg: MessageData) -> bool:
+    def save_message(self, msg: MessageData, target_id: Optional[int] = None) -> bool:
         """
         Save a single message.
         Returns True if successful, False otherwise.
@@ -17,7 +17,7 @@ class BaseStorage(ABC):
         pass
 
     @abstractmethod
-    def save_messages(self, msgs: List[MessageData]) -> int:
+    def save_messages(self, msgs: List[MessageData], target_id: Optional[int] = None) -> int:
         """
         Save multiple messages in a single transaction.
         Returns the number of messages successfully saved.

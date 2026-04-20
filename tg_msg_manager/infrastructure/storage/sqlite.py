@@ -33,6 +33,14 @@ class SQLiteStorage(BaseStorage):
         if not self._worker_task:
             self._worker_task = asyncio.create_task(self._background_writer())
 
+    def request_stop(self):
+        """Sets the shutdown event to signal workers to stop."""
+        self._shutdown_event.set()
+
+    def should_stop(self) -> bool:
+        """Returns True if a shutdown has been requested."""
+        return self._shutdown_event.is_set()
+
     async def close(self):
         """Flushes the queue and stops the background writer."""
         self._shutdown_event.set()
@@ -100,10 +108,19 @@ class SQLiteStorage(BaseStorage):
                 PRIMARY KEY (message_id, context_message_id)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS message_target_links (
+                chat_id INTEGER,
+                message_id INTEGER,
+                target_user_id INTEGER,
+                PRIMARY KEY (chat_id, message_id, target_user_id)
+            )
+        """)
         
         # New: Requested Indexes
         conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_user_chat_time ON messages (user_id, chat_id, timestamp)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_standalone_id ON messages (message_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_mt_link_target ON message_target_links (target_user_id)")
 
         # Table for tracking sync state per chat
         conn.execute("""
@@ -138,6 +155,7 @@ class SQLiteStorage(BaseStorage):
                 added_at INTEGER
             )
         """)
+        
         # Migration: Add new columns if they don't exist
         for col, col_type in [("last_msg_id", "INTEGER DEFAULT 0"), 
                               ("tail_msg_id", "INTEGER DEFAULT 0"), 
@@ -147,53 +165,54 @@ class SQLiteStorage(BaseStorage):
             except sqlite3.OperationalError:
                 pass # Already exists
             
+        self.migrate_existing_links()
         conn.commit()
-        logger.info(f"SQLite Storage initialized at {self.db_path} with resume support.")
+        logger.info(f"SQLite Storage initialized at {self.db_path} with target attribution support.")
 
-    async def save_message(self, msg: MessageData) -> bool:
+    async def save_message(self, msg: MessageData, target_id: Optional[int] = None) -> bool:
         """Queues a single message for background saving."""
-        await self._write_queue.put(msg)
+        await self._write_queue.put((msg, target_id))
         return True
 
-    def _save_message_sync(self, msg: MessageData) -> bool:
+    def _save_message_sync(self, msg: MessageData, target_id: Optional[int] = None) -> bool:
         try:
             with self._lock:
                 with self._conn:
-                    self._save_msg_internal(self._conn, msg)
+                    self._save_msg_internal(self._conn, msg, target_id)
             return True
         except Exception as e:
             logger.error(f"Error saving message {msg.message_id} in {msg.chat_id}: {e}")
             return False
 
-    async def save_messages(self, msgs: List[MessageData]) -> int:
+    async def save_messages(self, msgs: List[MessageData], target_id: Optional[int] = None) -> int:
         """Queues a batch of messages for background saving."""
         for msg in msgs:
-            await self._write_queue.put(msg)
+            await self._write_queue.put((msg, target_id))
         return len(msgs)
 
     async def _background_writer(self):
         """Background loop that commits queued messages in large batches."""
         logger.debug("SQLite Background Writer started.")
         while not self._shutdown_event.is_set() or not self._write_queue.empty():
-            batch = []
+            items = []
             try:
                 # 1. Collect a batch from the queue
                 timeout = 0.5 if not self._shutdown_event.is_set() else 0.05
                 try:
-                    # Wait for at least one message
+                    # Wait for at least one item (msg, target_id)
                     item = await asyncio.wait_for(self._write_queue.get(), timeout=timeout)
-                    batch.append(item)
-                    # Pull more messages if available immediately
-                    while len(batch) < 500 and not self._write_queue.empty():
-                        batch.append(self._write_queue.get_nowait())
+                    items.append(item)
+                    # Pull more items if available immediately
+                    while len(items) < 500 and not self._write_queue.empty():
+                        items.append(self._write_queue.get_nowait())
                 except (asyncio.TimeoutError, asyncio.QueueEmpty):
                     pass
 
-                if batch:
-                    await asyncio.to_thread(self._save_messages_sync, batch)
-                    for _ in range(len(batch)):
+                if items:
+                    await asyncio.to_thread(self._save_batches_by_target, items)
+                    for _ in range(len(items)):
                         self._write_queue.task_done()
-                    logger.debug(f"Background Writer committed {len(batch)} messages.")
+                    logger.debug(f"Background Writer committed {len(items)} items.")
                 
                 if self._shutdown_event.is_set() and self._write_queue.empty():
                     break
@@ -203,24 +222,25 @@ class SQLiteStorage(BaseStorage):
                 await asyncio.sleep(1)
         logger.debug("SQLite Background Writer stopped.")
 
-    def _save_messages_sync(self, msgs: List[MessageData]) -> int:
+    def _save_batches_by_target(self, items: List[tuple[MessageData, Optional[int]]]) -> int:
+        """Helper to save items efficiently."""
         try:
             saved_count = 0
             with self._lock:
                 with self._conn:
-                    for msg in msgs:
-                        self._save_msg_internal(self._conn, msg)
+                    for msg, target_id in items:
+                        self._save_msg_internal(self._conn, msg, target_id)
                         saved_count += 1
             return saved_count
         except Exception as e:
-            logger.error(f"Error saving batch of messages: {e}")
+            logger.error(f"Error saving batch of messages with attribution: {e}")
             return 0
 
-    def _save_msg_internal(self, conn, msg: MessageData):
+    def _save_msg_internal(self, conn, msg: MessageData, target_id: Optional[int] = None):
         """
         Helper to execute the UPSERT query.
         Implements selective update: only writes to DB if hash changed or message is new.
-        Populates normalized tables: users, chats, message_context_links.
+        Populates normalized tables: users, chats, message_target_links.
         """
         payload_hash = msg.get_payload_hash()
         
@@ -230,6 +250,13 @@ class SQLiteStorage(BaseStorage):
             (msg.chat_id, msg.message_id)
         ).fetchone()
         
+        # Step 1: Always ensure target attribution link exists
+        if target_id:
+            conn.execute("""
+                INSERT OR IGNORE INTO message_target_links (chat_id, message_id, target_user_id)
+                VALUES (?, ?, ?)
+            """, (msg.chat_id, msg.message_id, target_id))
+
         if existing_hash_row and existing_hash_row["payload_hash"] == payload_hash:
             # 3.1.2: Skip update if content is identical
             return
@@ -436,9 +463,9 @@ class SQLiteStorage(BaseStorage):
                 f"DELETE FROM messages WHERE chat_id = ? AND message_id IN ({placeholders})",
                 (chat_id, *message_ids)
             )
-            count = res.rowcount
+            self.migrate_existing_links()
             conn.commit()
-            return count
+            return res.rowcount
 
     def get_all_message_ids_for_chat(self, chat_id: int) -> List[int]:
         with self._get_connection() as conn:
@@ -480,21 +507,17 @@ class SQLiteStorage(BaseStorage):
 
     def get_user_messages(self, user_id: int) -> List[MessageData]:
         """
-        Returns all messages for a specific user AND their associated context clusters.
-        This provides a complete conversation history for the export.
+        Returns all messages explicitly linked to a sync target (Target Attribution).
+        This ensures both primary messages and all gathered context are exported.
         """
         with self._get_connection() as conn:
-            # We fetch everything in clusters where the user has at least one message
+            # We fetch all messages that have a link to this target_user_id
             rows = conn.execute("""
-                SELECT * FROM messages 
-                WHERE context_group_id IN (
-                    SELECT DISTINCT context_group_id 
-                    FROM messages 
-                    WHERE user_id = ? AND context_group_id IS NOT NULL
-                )
-                OR user_id = ?
-                ORDER BY timestamp ASC
-            """, (user_id, user_id)).fetchall()
+                SELECT m.* FROM messages m
+                JOIN message_target_links l ON m.chat_id = l.chat_id AND m.message_id = l.message_id
+                WHERE l.target_user_id = ?
+                ORDER BY m.timestamp ASC
+            """, (user_id,)).fetchall()
             
             results = []
             for row in rows:
@@ -516,37 +539,56 @@ class SQLiteStorage(BaseStorage):
 
     def delete_user_data(self, user_id: int) -> tuple[int, int]:
         """
-        Removes all messages for a user and CASCADE deletes their context clusters.
-        Ensures 'ghost' context messages from other users are also purged.
+        Removes all messages and tracking data for a user using Smart Cascading Deletion.
+        Ensures orphans (context messages) are also purged if no other targets use them.
         """
         with self._get_connection() as conn:
-            # 1. Find all clusters associated with this user
-            rows = conn.execute(
-                "SELECT DISTINCT context_group_id FROM messages WHERE user_id = ? AND context_group_id IS NOT NULL", 
-                (user_id,)
-            ).fetchall()
-            cluster_ids = [row["context_group_id"] for row in rows]
+            # 1. Delete all links for this target
+            conn.execute("DELETE FROM message_target_links WHERE target_user_id = ?", (user_id,))
             
-            deleted_msgs = 0
-            if cluster_ids:
-                # 2. Delete all messages in these clusters (Cascade)
-                placeholders = ', '.join(['?'] * len(cluster_ids))
-                res = conn.execute(
-                    f"DELETE FROM messages WHERE context_group_id IN ({placeholders})",
-                    tuple(cluster_ids)
+            # 2. Find and delete orphen messages (no links left to ANY target)
+            # This is the "Garbage Collection" pass
+            res = conn.execute("""
+                DELETE FROM messages 
+                WHERE NOT EXISTS (
+                    SELECT 1 FROM message_target_links 
+                    WHERE message_target_links.chat_id = messages.chat_id 
+                    AND message_target_links.message_id = messages.message_id
                 )
-                deleted_msgs += res.rowcount
-                logger.info(f"Purged {res.rowcount} messages from {len(cluster_ids)} context clusters for user {user_id}")
-
-            # 3. Delete messages authored by user (if any left outside clusters)
-            res_user = conn.execute("DELETE FROM messages WHERE user_id = ?", (user_id,))
-            deleted_msgs += res_user.rowcount
+            """)
+            deleted_msgs = res.rowcount
             
-            # 4. Remove from sync_targets
+            # 3. Remove from sync_targets
             conn.execute("DELETE FROM sync_targets WHERE user_id = ?", (user_id,))
             
             conn.commit()
             return deleted_msgs, 0
+
+    def migrate_existing_links(self):
+        """
+        Retroactively populates message_target_links for existing data.
+        1. Links all messages authored by X to target X.
+        2. Links all context messages to the target that authored the 'parent' in the same group.
+        """
+        with self._get_connection() as conn:
+            # Primary links: Messages belong to their author as a target
+            conn.execute("""
+                INSERT OR IGNORE INTO message_target_links (chat_id, message_id, target_user_id)
+                SELECT chat_id, message_id, user_id FROM messages
+                WHERE user_id IN (SELECT user_id FROM sync_targets)
+            """)
+            
+            # Context links: If message A belongs to Target X, and message B is in the same cluster as A, link B to X.
+            conn.execute("""
+                INSERT OR IGNORE INTO message_target_links (chat_id, message_id, target_user_id)
+                SELECT m2.chat_id, m2.message_id, l.target_user_id
+                FROM messages m1
+                JOIN message_target_links l ON m1.chat_id = l.chat_id AND m1.message_id = l.message_id
+                JOIN messages m2 ON m1.chat_id = m2.chat_id AND m1.context_group_id = m2.context_group_id
+                WHERE m1.context_group_id IS NOT NULL
+            """)
+            conn.commit()
+            logger.info("Database migration: Message attribution links populated.")
 
     def enqueue_retry_task(self, task_id: str, chat_id: int, task_type: str, error: str):
         """Adds or updates a task in the retry queue."""
