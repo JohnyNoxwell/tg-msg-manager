@@ -72,6 +72,11 @@ class ExportService:
         header = f"👤 Target: {target_name}{user_display_name} | Mode: {mode_str}{status_str}"
         print(f"\n{header}")
         
+        # 5. Determine Scan Boundaries
+        # Get the latest message to determine current max
+        latest_msg = await self.client.get_messages(entity, limit=1)
+        current_max = latest_msg[0].message_id if latest_msg else 1000000
+        
         # 6. Parallel Scanning Strategy (Advanced Range Partitioning)
         worker_count = 4
         batch_size = 200
