@@ -201,13 +201,45 @@ async def run_cli():
     
     export_service = ExportService(client, storage)
     cleaner_service = CleanerService(client, storage, whitelist=settings.whitelist_chats)
+    db_export_service = DBExportService(storage)
     pm_service = PrivateArchiveService(client, storage)
 
     try:
         await client.connect()
         if args.command == "export":
             uid = resolve_id(args.user_id)
-            await export_service.sync_chat(uid, from_user_id=uid) # Simplified for recovery
+            user_ent, chat_ent = await get_safe_user_and_chat(client, args.user_id, args.chat_id)
+            
+            try:
+                if chat_ent:
+                    # Sync specific chat
+                    await export_service.sync_chat(
+                        chat_ent,
+                        from_user_id=user_ent.id if user_ent else uid,
+                        deep_mode=args.deep,
+                        force_resync=args.force_resync,
+                        context_window=args.context_window,
+                        max_cluster=args.max_cluster,
+                        recursive_depth=args.depth
+                    )
+                elif user_ent:
+                    # Global sync for user - constrained by config
+                    await export_service.sync_all_dialogs_for_user(
+                        user_ent.id,
+                        target_chat_ids=settings.chats_to_search_user_msgs,
+                        deep_mode=args.deep,
+                        force_resync=args.force_resync,
+                        context_window=args.context_window,
+                        max_cluster=args.max_cluster,
+                        recursive_depth=args.depth
+                    )
+                else:
+                    print(f"❌ Error: Could not resolve target {args.user_id}")
+            except KeyboardInterrupt:
+                print("\n⚠️ Interrupted. Performing emergency JSON export of partial data...")
+                await db_export_service.export_user_messages(user_ent.id if user_ent else uid, as_json=True)
+                raise
+
         elif args.command == "update":
             await export_service.sync_all_outdated()
         elif args.command == "clean":
@@ -276,16 +308,33 @@ async def main_menu():
             if choice == "1":
                 print_submenu_header(
                     _("menu_1"),
-                    "Синхронизация истории сообщений. Программа сканирует указанные чаты,\n"
+                    "Синхронизация истории сообщений. Программа сканирует чаты,\n"
                     "находит сообщения целевого пользователя и сохраняет их вместе с \n"
                     "окружающим контекстом для последующего анализа."
                 )
                 target_str = TerminalInput.prompt_with_esc(_("prompt_target") + ": ")
                 if target_str is None or target_str == "0": continue
+                
+                chat_str = TerminalInput.prompt_with_esc("Chat ID (Leave empty for config-based scan): ")
+                if chat_str is None: continue
+                
                 await client.connect()
-                user_ent, chat_ent = await get_safe_user_and_chat(client, target_str.strip())
-                if user_ent:
-                    await export_service.sync_chat(user_ent, from_user_id=user_ent.id)
+                user_ent, chat_ent = await get_safe_user_and_chat(client, target_str.strip(), chat_str.strip() if chat_str else None)
+                
+                try:
+                    if chat_ent:
+                        await export_service.sync_chat(chat_ent, from_user_id=user_ent.id if user_ent else resolve_id(target_str), deep_mode=True)
+                    elif user_ent:
+                        if not settings.chats_to_search_user_msgs:
+                            print("⚠️ No chats defined in chats_to_search_user_msgs config. Scanning all dialogs...")
+                        await export_service.sync_all_dialogs_for_user(user_ent.id, target_chat_ids=settings.chats_to_search_user_msgs, deep_mode=True)
+                    else:
+                        print(f"❌ Error: Could not resolve target {target_str}")
+                except KeyboardInterrupt:
+                    print("\n⚠️ Interrupted. Performing emergency JSON export of partial data...")
+                    await db_export_service.export_user_messages(user_ent.id if user_ent else resolve_id(target_str), as_json=True)
+                    raise
+                
                 sys.stdout.write("\n" + _("press_enter"))
                 sys.stdout.flush()
                 TerminalInput.get_char()

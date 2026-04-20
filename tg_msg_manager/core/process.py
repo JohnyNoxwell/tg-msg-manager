@@ -84,8 +84,11 @@ class ProcessManager:
             self._sig_count += 1
             sig_name = "SIGHUP" if sig == signal.SIGHUP else ("SIGTERM" if sig == signal.SIGTERM else "SIGINT")
             
+            # Ensure we start on a new line if interrupting a progress bar
+            print("\n", end="", flush=True)
+
             if self._sig_count > 1:
-                print(f"\n🧨 Forceful exit triggered by {sig_name}...")
+                print(f"🧨 Forceful exit triggered by {sig_name}...")
                 os._exit(1) # Immediate hard exit
 
             logger.warning(f"Signal {sig_name} ({sig}) received. Requesting graceful shutdown...")

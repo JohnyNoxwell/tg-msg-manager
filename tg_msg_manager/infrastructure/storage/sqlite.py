@@ -133,17 +133,22 @@ class SQLiteStorage(BaseStorage):
                 author_name TEXT,
                 chat_id INTEGER,
                 last_msg_id INTEGER DEFAULT 0,
+                tail_msg_id INTEGER DEFAULT 0,
+                is_complete INTEGER DEFAULT 0,
                 added_at INTEGER
             )
         """)
-        # Migration: Add last_msg_id to sync_targets if it doesn't exist
-        try:
-            conn.execute("ALTER TABLE sync_targets ADD COLUMN last_msg_id INTEGER DEFAULT 0")
-        except sqlite3.OperationalError:
-            pass # Already exists
+        # Migration: Add new columns if they don't exist
+        for col, col_type in [("last_msg_id", "INTEGER DEFAULT 0"), 
+                              ("tail_msg_id", "INTEGER DEFAULT 0"), 
+                              ("is_complete", "INTEGER DEFAULT 0")]:
+            try:
+                conn.execute(f"ALTER TABLE sync_targets ADD COLUMN {col} {col_type}")
+            except sqlite3.OperationalError:
+                pass # Already exists
             
         conn.commit()
-        logger.info(f"SQLite Storage initialized at {self.db_path} with normalized schema.")
+        logger.info(f"SQLite Storage initialized at {self.db_path} with resume support.")
 
     async def save_message(self, msg: MessageData) -> bool:
         """Queues a single message for background saving."""
@@ -361,15 +366,32 @@ class SQLiteStorage(BaseStorage):
             return row["last_msg_id"]
         return 0
 
+    def get_sync_status(self, chat_id: int, user_id: int) -> dict:
+        """Returns complex sync status including tail and completion flag."""
+        row = self._conn.execute("""
+            SELECT last_msg_id, tail_msg_id, is_complete 
+            FROM sync_targets 
+            WHERE user_id = ? AND chat_id = ?
+        """, (user_id, chat_id)).fetchone()
+        
+        if row:
+            return dict(row)
+        return {"last_msg_id": 0, "tail_msg_id": 0, "is_complete": 0}
+
+    def update_sync_tail(self, chat_id: int, user_id: int, tail_id: int, is_complete: bool = False):
+        """Updates the historical scan boundary for resume support."""
+        with self._get_connection() as conn:
+            conn.execute("""
+                UPDATE sync_targets 
+                SET tail_msg_id = ?, is_complete = ?
+                WHERE user_id = ? AND chat_id = ?
+            """, (tail_id, 1 if is_complete else 0, user_id, chat_id))
+            conn.commit()
+
     def get_last_target_msg_id(self, chat_id: int, user_id: int) -> int:
         """Gets the highest known msg_id for a specific target user in a specific chat."""
-        row = self._conn.execute(
-            "SELECT last_msg_id FROM sync_targets WHERE user_id = ? AND chat_id = ?",
-            (user_id, chat_id)
-        ).fetchone()
-        if row:
-            return row["last_msg_id"]
-        return 0
+        status = self.get_sync_status(chat_id, user_id)
+        return status["last_msg_id"]
 
     def filter_existing_ids(self, chat_id: int, message_ids: List[int]) -> List[int]:
         """Returns only IDs that do NOT exist in the database."""
