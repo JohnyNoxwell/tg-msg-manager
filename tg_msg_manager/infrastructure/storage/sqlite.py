@@ -75,6 +75,36 @@ class SQLiteStorage(BaseStorage):
             )
         """)
         
+        # New: Normalized tables
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS users (
+                user_id INTEGER PRIMARY KEY,
+                first_name TEXT,
+                last_name TEXT,
+                username TEXT,
+                phone TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS chats (
+                chat_id INTEGER PRIMARY KEY,
+                title TEXT,
+                type TEXT
+            )
+        """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS message_context_links (
+                message_id INTEGER,
+                context_message_id INTEGER,
+                link_type TEXT,
+                PRIMARY KEY (message_id, context_message_id)
+            )
+        """)
+        
+        # New: Requested Indexes
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_user_chat_time ON messages (user_id, chat_id, timestamp)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_standalone_id ON messages (message_id)")
+
         # Table for tracking sync state per chat
         conn.execute("""
             CREATE TABLE IF NOT EXISTS sync_state (
@@ -113,7 +143,7 @@ class SQLiteStorage(BaseStorage):
             pass # Already exists
             
         conn.commit()
-        logger.info(f"SQLite Storage initialized at {self.db_path}")
+        logger.info(f"SQLite Storage initialized at {self.db_path} with normalized schema.")
 
     async def save_message(self, msg: MessageData) -> bool:
         """Queues a single message for background saving."""
@@ -185,6 +215,7 @@ class SQLiteStorage(BaseStorage):
         """
         Helper to execute the UPSERT query.
         Implements selective update: only writes to DB if hash changed or message is new.
+        Populates normalized tables: users, chats, message_context_links.
         """
         payload_hash = msg.get_payload_hash()
         
@@ -207,6 +238,53 @@ class SQLiteStorage(BaseStorage):
             return f"<<Unserializable: {type(obj)}>>"
 
         data = msg.to_dict()
+        
+        # --- Normalization: Users ---
+        raw = data.get("raw_payload", {})
+        # Note: raw is already a dict (deserialized in get_message or passed as dict in sync)
+        # However, it might be a JSON string if the caller didn't deserialize. 
+        # But in _save_messages_sync it comes directly from MessageData objects.
+        if isinstance(raw, str):
+            try: raw = json.loads(raw)
+            except: raw = {}
+
+        if data["user_id"]:
+            first_name = raw.get("first_name") or ""
+            last_name = raw.get("last_name") or ""
+            username = raw.get("username") or ""
+            phone = raw.get("phone") or ""
+            
+            # If name is missing from top level, try to find it in nested sender dict
+            # Telethon's to_dict() nested structure varies
+            sender = raw.get("sender") or raw.get("_sender") or {}
+            if isinstance(sender, dict):
+                first_name = first_name or sender.get("first_name", "")
+                last_name = last_name or sender.get("last_name", "")
+                username = username or sender.get("username", "")
+                phone = phone or sender.get("phone", "")
+
+            conn.execute("""
+                INSERT OR REPLACE INTO users (user_id, first_name, last_name, username, phone)
+                VALUES (?, ?, ?, ?, ?)
+            """, (data["user_id"], first_name, last_name, username, phone))
+
+        # --- Normalization: Chats ---
+        # Chat title is usually available during sync context or in raw
+        chat_title = raw.get("chat_title") or raw.get("title") or ""
+        chat_type = raw.get("chat_type") or raw.get("_") or "Channel/Group"
+        conn.execute("""
+            INSERT OR REPLACE INTO chats (chat_id, title, type)
+            VALUES (?, ?, ?)
+        """, (data["chat_id"], chat_title, chat_type))
+
+        # --- Normalization: Context Links ---
+        if data.get("reply_to_id"):
+            conn.execute("""
+                INSERT OR REPLACE INTO message_context_links (message_id, context_message_id, link_type)
+                VALUES (?, ?, ?)
+            """, (data["message_id"], data["reply_to_id"], "reply"))
+
+        # --- Main Message Save ---
         conn.execute("""
             INSERT OR REPLACE INTO messages (
                 chat_id, message_id, user_id, author_name, timestamp, text, 
@@ -215,23 +293,23 @@ class SQLiteStorage(BaseStorage):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
             data["chat_id"], data["message_id"], data["user_id"], data["author_name"],
-            int(data["timestamp"].timestamp()) if isinstance(data["timestamp"], datetime) else data["timestamp"], 
+            data["timestamp"], 
             data["text"],
             data["media_type"], data["reply_to_id"], data["fwd_from_id"],
             data["context_group_id"], json.dumps(data["raw_payload"], ensure_ascii=False, default=json_serial),
             payload_hash, SCHEMA_VERSION
         ))
         
-        # 1. Update global sync state to track the latest msg_id in the whole chat
+        # 1. Update global sync state
         conn.execute("""
             INSERT INTO sync_state (chat_id, last_msg_id, last_sync_timestamp)
             VALUES (?, ?, ?)
             ON CONFLICT(chat_id) DO UPDATE SET
                 last_msg_id = MAX(last_msg_id, excluded.last_msg_id),
                 last_sync_timestamp = excluded.last_sync_timestamp
-        """, (data["chat_id"], data["message_id"], int(datetime.now().timestamp())))
+        """, (data["chat_id"], data["message_id"], int(time.time())))
         
-        # 2. Update target-specific sync state if this message belongs to a primary target user
+        # 2. Update target-specific sync state
         conn.execute("""
             UPDATE sync_targets 
             SET last_msg_id = MAX(last_msg_id, ?)
