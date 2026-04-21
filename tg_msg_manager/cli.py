@@ -302,7 +302,8 @@ async def main_menu():
         print(_("error_locked"))
         sys.exit(1)
     
-    pm.setup_signals()
+    # Use async-native signals for reliable graceful shutdown
+    pm.setup_async_signals(asyncio.get_running_loop())
     storage = SQLiteStorage(settings.db_path)
     await storage.start()
     client = TelethonClientWrapper(settings.session_name, settings.api_id, settings.api_hash)
@@ -381,25 +382,24 @@ async def main_menu():
                         username=getattr(user_ent, 'username', None)
                     )
                 
+                final_uid = user_ent.id if user_ent else resolve_id(target_str)
+                
                 try:
                     if chat_ent:
-                        await export_service.sync_chat(chat_ent, from_user_id=user_ent.id if user_ent else resolve_id(target_str), deep_mode=active_deep, recursive_depth=active_depth)
+                        await export_service.sync_chat(chat_ent, from_user_id=final_uid, deep_mode=active_deep, recursive_depth=active_depth)
                     elif user_ent:
                         if not settings.chats_to_search_user_msgs:
                             print("⚠️ No chats defined in chats_to_search_user_msgs config. Scanning all dialogs...")
-                        await export_service.sync_all_dialogs_for_user(user_ent.id, target_chat_ids=settings.chats_to_search_user_msgs, deep_mode=active_deep, recursive_depth=active_depth)
+                        await export_service.sync_all_dialogs_for_user(final_uid, target_chat_ids=settings.chats_to_search_user_msgs, deep_mode=active_deep, recursive_depth=active_depth)
                     else:
                         print(f"❌ Error: Could not resolve target {target_str}")
-                except KeyboardInterrupt:
-                    print("\n⚠️ Interrupted. Performing emergency JSON export of partial data...")
-                    await db_export_service.export_user_messages(user_ent.id if user_ent else resolve_id(target_str), as_json=True, include_date=False)
-                    raise
-                
-                # Automatically Refresh JSON after success
-                final_uid = user_ent.id if user_ent else resolve_id(target_str)
-                if final_uid:
-                    print(f"\n🔄 Refreshing local JSON file for target {final_uid}...")
-                    await db_export_service.export_user_messages(final_uid, as_json=True, include_date=False)
+                finally:
+                    # If stopped manually or finished, we ensure a local JSON dump is updated
+                    if pm.should_stop():
+                        print(f"\n⚠️ Interrupted. Performing emergency JSON export of partial data for {final_uid}...")
+                    
+                    if final_uid:
+                        await db_export_service.export_user_messages(final_uid, as_json=True, include_date=False)
                 
                 sys.stdout.write("\n" + _("press_enter"))
                 sys.stdout.flush()

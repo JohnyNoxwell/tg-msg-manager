@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file in both Engl
 - **Chat-like TXT Export**: Completely redesigned the plain text output with message grouping, date headers, and reply quotes for better readability.
 - **Metadata Integrity**: Added explicit chat metadata tracking (`upsert_chat`) and fixed name mix-ups in the storage layer.
 - **Infrastructure**: Optimized `.gitignore` for better protection of session and database artifacts.
+- **Reliability**: Fixed a critical issue where emergency JSON exports were bypassed on Ctrl+C by switching to async-native signal handling.
 
 ### Изменения (RU)
 - **Улучшенный интерфейс CLI**: Переработаны списки выбора пользователей: теперь отображается `Имя автора (ID) | Название группы`.
@@ -18,6 +19,7 @@ All notable changes to this project will be documented in this file in both Engl
 - **TXT-экспорт в стиле чата**: Полностью изменен формат текстовых файлов — теперь сообщения группируются по автору, добавлены заголовки дат и цитаты ответов.
 - **Целостность данных**: Добавлено отслеживание метаданных групп и исправлена путаница имен пользователей и чатов.
 - **Инфраструктура**: Оптимизирован `.gitignore` для надежного исключения файлов сессий и баз данных.
+- **Надежность**: Исправлена критическая проблема, из-за которой аварийный экспорт в JSON не срабатывал при нажатии Ctrl+C.
 
 ### Fixed
 - Resolved `AttributeError` in `DBExportService` related to wrong message ID attribute.
