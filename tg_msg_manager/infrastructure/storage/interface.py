@@ -82,6 +82,12 @@ class BaseStorage(ABC):
         Returns: List of dicts with 'user_id' and 'author_name'.
         """
         pass
+    @abstractmethod
+    def get_user(self, user_id: int) -> Optional[dict]:
+        """
+        Retrieves user metadata (name, etc.) from storage.
+        """
+        pass
 
     @abstractmethod
     def get_user_messages(self, user_id: int) -> List[MessageData]:
@@ -96,4 +102,39 @@ class BaseStorage(ABC):
         Removes all messages and tracking data for a user.
         Returns: (messages_deleted, targets_deleted).
         """
+        pass
+
+    @abstractmethod
+    def register_target(self, user_id: int, author_name: str, chat_id: int,
+                        first_name: Optional[str] = None, 
+                        last_name: Optional[str] = None, 
+                        username: Optional[str] = None,
+                        deep_mode: bool = False,
+                        recursive_depth: int = 0):
+        """Registers a primary sync target with metadata and settings."""
+        pass
+
+    @abstractmethod
+    def get_primary_targets(self) -> List[dict]:
+        """Returns only manually requested targets."""
+        pass
+
+    @abstractmethod
+    def upsert_user(self, user_id: int, first_name: Optional[str] = None, last_name: Optional[str] = None, username: Optional[str] = None, phone: Optional[str] = None):
+        """Persists or updates user metadata."""
+        pass
+
+    @abstractmethod
+    def get_sync_status(self, chat_id: int, user_id: int) -> dict:
+        """Retrieves synchronization status for a specific chat/user pair."""
+        pass
+
+    @abstractmethod
+    def upsert_chat(self, chat_id: int, title: str, chat_type: Optional[str] = None):
+        """Persists or updates chat metadata in the storage."""
+        pass
+
+    @abstractmethod
+    def close(self):
+        """Closes the storage connection."""
         pass

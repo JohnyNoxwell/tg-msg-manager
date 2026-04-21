@@ -121,6 +121,7 @@ class SQLiteStorage(BaseStorage):
         conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_user_chat_time ON messages (user_id, chat_id, timestamp)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_standalone_id ON messages (message_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_mt_link_target ON message_target_links (target_user_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_context_group ON messages (context_group_id)")
 
         # Table for tracking sync state per chat
         conn.execute("""
@@ -146,26 +147,56 @@ class SQLiteStorage(BaseStorage):
         # Table for primary sync targets
         conn.execute("""
             CREATE TABLE IF NOT EXISTS sync_targets (
-                user_id INTEGER PRIMARY KEY,
-                author_name TEXT,
+                user_id INTEGER,
                 chat_id INTEGER,
+                author_name TEXT,
                 last_msg_id INTEGER DEFAULT 0,
                 tail_msg_id INTEGER DEFAULT 0,
                 is_complete INTEGER DEFAULT 0,
-                added_at INTEGER
+                deep_mode INTEGER DEFAULT 0,
+                recursive_depth INTEGER DEFAULT 0,
+                added_at INTEGER,
+                PRIMARY KEY (user_id, chat_id)
             )
         """)
         
         # Migration: Add new columns if they don't exist
         for col, col_type in [("last_msg_id", "INTEGER DEFAULT 0"), 
                               ("tail_msg_id", "INTEGER DEFAULT 0"), 
-                              ("is_complete", "INTEGER DEFAULT 0")]:
+                              ("is_complete", "INTEGER DEFAULT 0"),
+                              ("deep_mode", "INTEGER DEFAULT 0"),
+                              ("recursive_depth", "INTEGER DEFAULT 0")]:
             try:
                 conn.execute(f"ALTER TABLE sync_targets ADD COLUMN {col} {col_type}")
             except sqlite3.OperationalError:
                 pass # Already exists
             
-        self.migrate_existing_links()
+        # Version-based Migration Engine
+        current_version = conn.execute("PRAGMA user_version").fetchone()[0]
+        if current_version < 2:
+            logger.info("Running Database Migration: Version 2 (Target Attribution)...")
+            self.migrate_existing_links()
+            conn.execute("PRAGMA user_version = 2")
+            logger.info("Database migration to Version 2 successful.")
+        
+        if current_version < 3:
+            logger.info("Running Database Migration: Version 3 (Composite PK for sync_targets)...")
+            self._migrate_sync_targets_to_composite_pk()
+            conn.execute("PRAGMA user_version = 3")
+            logger.info("Database migration to Version 3 successful.")
+
+        if current_version < 4:
+            logger.info("Running Database Migration: Version 4 (Persistent Sync Settings)...")
+            try:
+                conn.execute("ALTER TABLE sync_targets ADD COLUMN deep_mode INTEGER DEFAULT 0")
+                conn.execute("ALTER TABLE sync_targets ADD COLUMN recursive_depth INTEGER DEFAULT 0")
+            except Exception as e:
+                logger.debug(f"Columns might already exist: {e}")
+            conn.execute("PRAGMA user_version = 4")
+            logger.info("Database migration to Version 4 successful.")
+        else:
+            logger.debug(f"Database migration skipped (already at version {current_version}).")
+
         conn.commit()
         logger.info(f"SQLite Storage initialized at {self.db_path} with target attribution support.")
 
@@ -394,16 +425,16 @@ class SQLiteStorage(BaseStorage):
         return 0
 
     def get_sync_status(self, chat_id: int, user_id: int) -> dict:
-        """Returns complex sync status including tail and completion flag."""
+        """Returns complex sync status including tail, completion flag and saved settings."""
         row = self._conn.execute("""
-            SELECT last_msg_id, tail_msg_id, is_complete 
+            SELECT last_msg_id, tail_msg_id, is_complete, deep_mode, recursive_depth 
             FROM sync_targets 
             WHERE user_id = ? AND chat_id = ?
         """, (user_id, chat_id)).fetchone()
         
         if row:
             return dict(row)
-        return {"last_msg_id": 0, "tail_msg_id": 0, "is_complete": 0}
+        return {"last_msg_id": 0, "tail_msg_id": 0, "is_complete": 0, "deep_mode": 0, "recursive_depth": 0}
 
     def update_sync_tail(self, chat_id: int, user_id: int, tail_id: int, is_complete: bool = False):
         """Updates the historical scan boundary for resume support."""
@@ -435,23 +466,47 @@ class SQLiteStorage(BaseStorage):
         existing = {row['message_id'] for row in rows}
         return [mid for mid in message_ids if mid not in existing]
 
-    def get_outdated_chats(self, threshold_seconds: int) -> List[int]:
-        """Returns chat_ids where last_sync_timestamp is older than threshold."""
+    def get_outdated_chats(self, threshold_seconds: int) -> List[tuple]:
+        """Returns list of (chat_id, user_id) that need update (old or incomplete)."""
         cutoff = int(datetime.now().timestamp()) - threshold_seconds
         with self._get_connection() as conn:
-            rows = conn.execute(
-                "SELECT chat_id FROM sync_state WHERE last_sync_timestamp < ?",
-                (cutoff,)
-            ).fetchall()
-            return [row["chat_id"] for row in rows]
+            # 1. Look for incomplete target scans
+            rows = conn.execute("""
+                SELECT chat_id, user_id FROM sync_targets 
+                WHERE is_complete = 0 OR added_at < ?
+            """, (cutoff,)).fetchall()
+            
+            # 2. Also check whole-chat syncs
+            chat_rows = conn.execute("""
+                SELECT chat_id FROM sync_state 
+                WHERE last_sync_timestamp < ?
+            """, (cutoff,)).fetchall()
+            
+            results = set()
+            for r in rows:
+                results.add((r['chat_id'], r['user_id']))
+            for r in chat_rows:
+                # Whole chat scan is represented by user_id = chat_id
+                results.add((r['chat_id'], r['chat_id']))
+                
+            return list(results)
 
-    def get_message_count(self, chat_id: int) -> int:
-        """Returns total messages for a chat."""
+    def get_message_count(self, chat_id: int, target_id: Optional[int] = None) -> int:
+        """Returns total messages for a chat, optionally filtered by target user."""
         with self._get_connection() as conn:
-            row = conn.execute(
-                "SELECT COUNT(*) as count FROM messages WHERE chat_id = ?",
-                (chat_id,)
-            ).fetchone()
+            if target_id:
+                # Count only messages linked to this target via attribution table
+                row = conn.execute("""
+                    SELECT COUNT(*) as count 
+                    FROM message_target_links 
+                    WHERE chat_id = ? AND target_user_id = ?
+                """, (chat_id, target_id)).fetchone()
+            else:
+                # Count all messages in chat
+                row = conn.execute(
+                    "SELECT COUNT(*) as count FROM messages WHERE chat_id = ?",
+                    (chat_id,)
+                ).fetchone()
             return row['count'] if row else 0
 
     def delete_messages(self, chat_id: int, message_ids: List[int]) -> int:
@@ -485,25 +540,118 @@ class SQLiteStorage(BaseStorage):
                 ORDER BY author_name ASC
             """).fetchall()
             return [{"user_id": row["user_id"], "author_name": row["author_name"]} for row in rows]
+    def get_user(self, user_id: int) -> Optional[dict]:
+        """Retrieves user metadata from the users table."""
+        with self._get_connection() as conn:
+            row = conn.execute(
+                "SELECT * FROM users WHERE user_id = ?",
+                (user_id,)
+            ).fetchone()
+            return dict(row) if row else None
 
-    def register_target(self, user_id: int, author_name: str, chat_id: int):
-        """Registers a primary target for sync."""
+    def upsert_user(self, user_id: int, first_name: Optional[str] = None, last_name: Optional[str] = None, username: Optional[str] = None, phone: Optional[str] = None):
+        """Persists or updates user metadata in the users table."""
+        with self._get_connection() as conn:
+            conn.execute("""
+                INSERT INTO users (user_id, first_name, last_name, username, phone)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT(user_id) DO UPDATE SET
+                    first_name = COALESCE(excluded.first_name, users.first_name),
+                    last_name = COALESCE(excluded.last_name, users.last_name),
+                    username = COALESCE(excluded.username, users.username),
+                    phone = COALESCE(excluded.phone, users.phone)
+            """, (user_id, first_name, last_name, username, phone))
+            conn.commit()
+
+    def register_target(self, user_id: int, author_name: str, chat_id: int, 
+                        first_name: Optional[str] = None, 
+                        last_name: Optional[str] = None, 
+                        username: Optional[str] = None,
+                        deep_mode: bool = False,
+                        recursive_depth: int = 0):
+        """Registers a primary target for sync and saves its metadata and scan settings."""
         now = int(time.time())
         with self._get_connection() as conn:
             conn.execute("""
-                INSERT INTO sync_targets (user_id, author_name, chat_id, added_at)
-                VALUES (?, ?, ?, ?)
-                ON CONFLICT(user_id) DO UPDATE SET
+                INSERT INTO sync_targets (user_id, chat_id, author_name, added_at, deep_mode, recursive_depth)
+                VALUES (?, ?, ?, ?, ?, ?)
+                ON CONFLICT(user_id, chat_id) DO UPDATE SET
                     author_name = excluded.author_name,
-                    chat_id = excluded.chat_id
-            """, (user_id, author_name, chat_id, now))
+                    deep_mode = MAX(sync_targets.deep_mode, excluded.deep_mode),
+                    recursive_depth = MAX(sync_targets.recursive_depth, excluded.recursive_depth)
+            """, (user_id, chat_id, author_name, now, 1 if deep_mode else 0, recursive_depth))
+            conn.commit()
+            
+        # Also ensure metadata is saved
+        self.upsert_user(user_id, first_name, last_name, username)
+
+    def upsert_chat(self, chat_id: int, title: str, chat_type: Optional[str] = None):
+        """Persists or updates chat metadata in the chats table."""
+        with self._get_connection() as conn:
+            conn.execute("""
+                INSERT INTO chats (chat_id, title, type)
+                VALUES (?, ?, ?)
+                ON CONFLICT(chat_id) DO UPDATE SET
+                    title = COALESCE(NULLIF(excluded.title, ''), chats.title),
+                    type = COALESCE(excluded.type, chats.type)
+            """, (chat_id, title, chat_type))
             conn.commit()
 
+    def _migrate_sync_targets_to_composite_pk(self):
+        """Migration helper to move sync_targets to composite PRIMARY KEY."""
+        # Using the existing connection to avoid locking issues
+        conn = self._conn
+        try:
+            # 1. Get existing columns to preserve them
+            cursor = conn.execute("PRAGMA table_info(sync_targets)")
+            cols = [row[1] for row in cursor.fetchall()]
+            
+            # 2. Create temp table with NEW structure (Composite PK)
+            # We MUST include all columns we know about
+            col_defs = []
+            for c in cols:
+                if c in ("user_id", "chat_id"):
+                    col_defs.append(f"{c} INTEGER")
+                elif c in ("last_msg_id", "tail_msg_id", "is_complete", "deep_mode", "recursive_depth", "added_at"):
+                    col_defs.append(f"{c} INTEGER DEFAULT 0")
+                else:
+                    col_defs.append(f"{c} TEXT")
+            
+            col_list = ", ".join(col_defs)
+            conn.execute(f"CREATE TABLE sync_targets_new ({col_list}, PRIMARY KEY (user_id, chat_id))")
+            
+            # 3. Copy data
+            col_names = ", ".join(cols)
+            conn.execute(f"INSERT INTO sync_targets_new ({col_names}) SELECT {col_names} FROM sync_targets")
+            
+            # 4. Swap tables
+            conn.execute("DROP TABLE sync_targets")
+            conn.execute("ALTER TABLE sync_targets_new RENAME TO sync_targets")
+            conn.commit()
+            logger.info("Sync targets successfully migrated to composite Primary Key.")
+        except Exception as e:
+            logger.error(f"Migration error during PK update: {e}")
+            # Try to recover
+            try: conn.execute("DROP TABLE IF EXISTS sync_targets_new")
+            except: pass
+            raise 
+
     def get_primary_targets(self) -> List[dict]:
-        """Returns only manually requested targets."""
-        with self._get_connection() as conn:
-            rows = conn.execute("SELECT * FROM sync_targets ORDER BY author_name ASC").fetchall()
-            return [dict(row) for row in rows]
+        """Returns only manually requested targets. Handles cases where the table may not exist yet."""
+        try:
+            with self._get_connection() as conn:
+                rows = conn.execute("""
+                    SELECT t.*, u.username, u.first_name, u.last_name, c.title as chat_title
+                    FROM sync_targets t
+                    LEFT JOIN users u ON t.user_id = u.user_id
+                    LEFT JOIN chats c ON t.chat_id = c.chat_id
+                    ORDER BY t.author_name ASC
+                """).fetchall()
+                return [dict(row) for row in rows]
+        except sqlite3.OperationalError as e:
+            if "no such table" in str(e):
+                return []
+            raise
 
     def get_user_messages(self, user_id: int) -> List[MessageData]:
         """
@@ -516,7 +664,7 @@ class SQLiteStorage(BaseStorage):
                 SELECT m.* FROM messages m
                 JOIN message_target_links l ON m.chat_id = l.chat_id AND m.message_id = l.message_id
                 WHERE l.target_user_id = ?
-                ORDER BY m.timestamp ASC
+                ORDER BY m.timestamp ASC, m.message_id ASC
             """, (user_id,)).fetchall()
             
             results = []
@@ -578,14 +726,19 @@ class SQLiteStorage(BaseStorage):
                 WHERE user_id IN (SELECT user_id FROM sync_targets)
             """)
             
-            # Context links: If message A belongs to Target X, and message B is in the same cluster as A, link B to X.
+            # Context links: Linear approach
+            # 1. Identify all unique (context_id, target_id) pairs
+            # 2. Link all messages shared in those contexts to the target
             conn.execute("""
                 INSERT OR IGNORE INTO message_target_links (chat_id, message_id, target_user_id)
-                SELECT m2.chat_id, m2.message_id, l.target_user_id
-                FROM messages m1
-                JOIN message_target_links l ON m1.chat_id = l.chat_id AND m1.message_id = l.message_id
-                JOIN messages m2 ON m1.chat_id = m2.chat_id AND m1.context_group_id = m2.context_group_id
-                WHERE m1.context_group_id IS NOT NULL
+                SELECT m.chat_id, m.message_id, t.target_user_id
+                FROM messages m
+                JOIN (
+                    SELECT DISTINCT m1.context_group_id, l.target_user_id, l.chat_id
+                    FROM message_target_links l
+                    JOIN messages m1 ON l.chat_id = m1.chat_id AND l.message_id = m1.message_id
+                    WHERE m1.context_group_id IS NOT NULL
+                ) t ON m.chat_id = t.chat_id AND m.context_group_id = t.context_group_id
             """)
             conn.commit()
             logger.info("Database migration: Message attribution links populated.")

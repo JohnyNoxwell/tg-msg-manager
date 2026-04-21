@@ -205,7 +205,7 @@ async def run_cli():
         if uid:
             sys.stdout.write(f"\n⚠️ Performing emergency JSON export for User ID: {uid}...\n")
             sys.stdout.flush()
-            path = await db_export_service.export_user_messages(uid, as_json=True)
+            path = await db_export_service.export_user_messages(uid, as_json=True, include_date=False)
             if path:
                 sys.stdout.write(f"✅ Emergency dump saved to: {path}\n")
             else:
@@ -231,6 +231,12 @@ async def run_cli():
             user_ent, chat_ent = await get_safe_user_and_chat(client, args.user_id, args.chat_id)
             if user_ent:
                 state["active_uid"] = user_ent.id # Update with real ID if resolved
+                storage.upsert_user(
+                    user_id=user_ent.id,
+                    first_name=getattr(user_ent, 'first_name', None),
+                    last_name=getattr(user_ent, 'last_name', None),
+                    username=getattr(user_ent, 'username', None)
+                )
             
             # Start sync
             try:
@@ -258,6 +264,13 @@ async def run_cli():
                     )
                 else:
                     print(f"❌ Error: Could not resolve target {args.user_id}")
+                
+                # Perform FINAL export from DB to Filesystem
+                print(f"\n📂 Finalizing export to filesystem...")
+                path = await db_export_service.export_user_messages(state["active_uid"], as_json=True)
+                if path:
+                    print(f"✅ Export successfully saved to: {path}")
+
             except Exception as e:
                 # If shutdown requested, we don't log as error
                 if not pm.should_stop():
@@ -341,22 +354,52 @@ async def main_menu():
                 chat_str = TerminalInput.prompt_with_esc("Chat ID (Leave empty for config-based scan): ")
                 if chat_str is None: continue
                 
+                # New: Ask for Deep Mode and Depth
+                deep_choice = TerminalInput.prompt_with_esc("Enable Deep Mode? (y/n) [Default: y]: ")
+                if deep_choice is None: continue
+                active_deep = deep_choice.lower() != 'n'
+                
+                active_depth = 3
+                if active_deep:
+                    print("\n--- Глубина рекурсии (Recursive Depth) ---")
+                    print(" 1: Только прямое сообщение, на которое ответили")
+                    print(" 2-3: Оптимально (цепочки ответов в обсуждении)")
+                    print(" 5: Максимальный контекст (длинные ветки диалогов)")
+                    
+                    depth_str = TerminalInput.prompt_with_esc("\nRecursive Depth (1-5) [Default: 3]: ")
+                    if depth_str is None: continue
+                    if depth_str.isdigit():
+                        active_depth = int(depth_str)
+                
                 await client.connect()
                 user_ent, chat_ent = await get_safe_user_and_chat(client, target_str.strip(), chat_str.strip() if chat_str else None)
+                if user_ent:
+                    storage.upsert_user(
+                        user_id=user_ent.id,
+                        first_name=getattr(user_ent, 'first_name', None),
+                        last_name=getattr(user_ent, 'last_name', None),
+                        username=getattr(user_ent, 'username', None)
+                    )
                 
                 try:
                     if chat_ent:
-                        await export_service.sync_chat(chat_ent, from_user_id=user_ent.id if user_ent else resolve_id(target_str), deep_mode=True)
+                        await export_service.sync_chat(chat_ent, from_user_id=user_ent.id if user_ent else resolve_id(target_str), deep_mode=active_deep, recursive_depth=active_depth)
                     elif user_ent:
                         if not settings.chats_to_search_user_msgs:
                             print("⚠️ No chats defined in chats_to_search_user_msgs config. Scanning all dialogs...")
-                        await export_service.sync_all_dialogs_for_user(user_ent.id, target_chat_ids=settings.chats_to_search_user_msgs, deep_mode=True)
+                        await export_service.sync_all_dialogs_for_user(user_ent.id, target_chat_ids=settings.chats_to_search_user_msgs, deep_mode=active_deep, recursive_depth=active_depth)
                     else:
                         print(f"❌ Error: Could not resolve target {target_str}")
                 except KeyboardInterrupt:
                     print("\n⚠️ Interrupted. Performing emergency JSON export of partial data...")
-                    await db_export_service.export_user_messages(user_ent.id if user_ent else resolve_id(target_str), as_json=True)
+                    await db_export_service.export_user_messages(user_ent.id if user_ent else resolve_id(target_str), as_json=True, include_date=False)
                     raise
+                
+                # Automatically Refresh JSON after success
+                final_uid = user_ent.id if user_ent else resolve_id(target_str)
+                if final_uid:
+                    print(f"\n🔄 Refreshing local JSON file for target {final_uid}...")
+                    await db_export_service.export_user_messages(final_uid, as_json=True, include_date=False)
                 
                 sys.stdout.write("\n" + _("press_enter"))
                 sys.stdout.flush()
@@ -369,7 +412,13 @@ async def main_menu():
                     "для всех пользователей, чьи сообщения вы когда-либо выгружали."
                 )
                 await client.connect()
-                await export_service.sync_all_outdated()
+                updated_uids = await export_service.sync_all_outdated()
+                
+                if updated_uids:
+                    print(f"\n💾 Updating JSON files for {len(updated_uids)} targets...")
+                    for uid in updated_uids:
+                        await db_export_service.export_user_messages(uid, as_json=True, include_date=False)
+                    print("✅ All exports updated.")
                 sys.stdout.write("\n" + _("press_enter"))
                 sys.stdout.flush()
                 TerminalInput.get_char()
@@ -413,7 +462,10 @@ async def main_menu():
                 users = storage.get_primary_targets()
                 if users:
                     print("\nSelect user to purge:")
-                    for i, u in enumerate(users): print(f" [{i+1}] {u['author_name']} ({u['user_id']})")
+                    for i, u in enumerate(users):
+                        display_name = u['author_name']
+                        chat_info = f" | {u['chat_title']}" if u.get('chat_title') else ""
+                        print(f" [{i+1}] {display_name} ( ID: {u['user_id']} ){chat_info}")
                     idx = TerminalInput.prompt_with_esc("\nChoice: ")
                     if idx and idx.isdigit() and 1 <= int(idx) <= len(users):
                         u = users[int(idx)-1]
@@ -441,20 +493,43 @@ async def main_menu():
             elif choice == "9":
                 print_submenu_header(
                     _("menu_9"),
-                    "Экспорт из локальной базы. Позволяет выгрузить сохраненные сообщения\n"
-                    "пользователя в JSON или текстовый формат для стороннего просмотра\n"
-                    "и дальнейшей обработки."
+                    _("sub_db_export_info")
                 )
-                users = storage.get_unique_sync_users()
+                users = storage.get_primary_targets()
                 if users:
-                    print("\nSelect user to export:")
-                    for i, u in enumerate(users): print(f" [{i+1}] {u['author_name']} (ID: {u['user_id']})")
-                    idx = TerminalInput.prompt_with_esc("\nChoice: ")
-                    if idx and idx.isdigit() and 1 <= int(idx) <= len(users):
-                        u = users[int(idx)-1]
-                        await db_export_service.export_user_messages(u['user_id'])
+                    print("\n" + _("select_user_export") + ":")
+                    for i, u in enumerate(users):
+                        display_name = u['author_name']
+                        chat_info = f" | {u['chat_title']}" if u.get('chat_title') else ""
+                        print(f" [{i+1}] {display_name} ( ID: {u['user_id']} ){chat_info}")
+                    
+                    idx_str = TerminalInput.prompt_with_esc("\n" + _("choice_prompt") + " (0 - " + _("back") + "): ")
+                    if idx_str is None or idx_str == "0": continue
+                    
+                    if idx_str.isdigit() and 1 <= int(idx_str) <= len(users):
+                        u = users[int(idx_str)-1]
+                        
+                        # Внутреннее меню выбора формата
+                        print("\n" + _("select_format") + ":")
+                        print(f" [1] JSON - {_('fmt_json')}")
+                        print(f" [2] TXT  - {_('fmt_txt')}")
+                        print(f" [0] {_('back')}")
+                        
+                        sys.stdout.write(_("choice_prompt") + ": ")
+                        sys.stdout.flush()
+                        fmt_char = TerminalInput.get_char()
+                        sys.stdout.write(fmt_char + "\n")
+                        
+                        if fmt_char == "1":
+                            await db_export_service.export_user_messages(u['user_id'], as_json=True)
+                        elif fmt_char == "2":
+                            await db_export_service.export_user_messages(u['user_id'], as_json=False)
+                        elif fmt_char == "0" or fmt_char == '\x1b':
+                            continue
+                        else:
+                            print(_("error") + ": " + _("invalid_choice", start=0, end=2))
                     else:
-                        print("Invalid selection.")
+                        print(_("error") + ": " + _("invalid_choice", start=1, end=len(users)))
                 else:
                     print(_("no_targets"))
                 sys.stdout.write("\n" + _("press_enter"))

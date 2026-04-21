@@ -4,32 +4,46 @@
 *.session-wal
 *.session-journal
 
-# Локальный конфиг и логи (не коммитить)
+# Базы данных (включая тестовые и временные файлы SQLite)
+*.db
+*.db-shm
+*.db-wal
+*.db-journal
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.sqlite-journal
+messages.db*
+test_*.db*
+
+# Локальный конфиг и логи
 config.json
 config.local.json
 delete_log.txt
 *.log
-messages.db
-messages.db-shm
-messages.db-wal
 LOGS/
 TASKS/
-.tg_msg_manager.lock
+
+# Состояние экспорта и временные файлы
 export_state.json
 deep_export_state.json
 deep_json_export_state.json
-export_improvement_plan.md
 json_export_state.json
-.DS_store
+pm_export_state.json
+export_improvement_plan.md
+.tg_msg_manager.lock
+export.txt
+
+# Директории экспорта (архивы сообщений)
+DB_EXPORTS/
+PUBLIC_GROUPS/
+PRIVAT_DIALOGS/
+
 # Виртуальные окружения
 venv/
 .venv/
 .venv-test/
-PUBLIC_GROUPS/
-PRIVAT_DIALOGS/
-DB_EXPORTS/
-scratch/
-pm_export_state.json
+
 # Артефакты Python
 __pycache__/
 *.py[cod]
@@ -41,5 +55,8 @@ dist/
 build/
 *.egg-info/
 
-export.txt
-export_state.json
+# Системные файлы и черновики
+.DS_Store
+scratch/
+BRAINSTORM.md
+

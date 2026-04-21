@@ -42,38 +42,62 @@ class ExportService:
                         force_resync: bool = False,
                         context_window: int = 3,
                         max_cluster: int = 20,
-                        recursive_depth: int = 3):
+                        recursive_depth: int = 0):
         """
         Synchronizes a specific chat with a clean real-time global status counter.
         Now supports Resume and Dual-Sync (New + Historical).
         """
         # 1. Resolve entity info
         chat_id = getattr(entity, 'id', 0)
-        target_name = self._get_entity_name(entity)
+        chat_title = self._get_entity_name(entity)
         set_chat_id(chat_id)
-        uid = from_user_id or chat_id
         
-        # 2. Get Sync Status
+        # Save chat metadata immediately
+        self.storage.upsert_chat(chat_id, chat_title, chat_type=getattr(entity, '_', None))
+        
+        uid = from_user_id or chat_id
+        target_name = chat_title # Default
+        user_label = ""
+        
+        # 2. Resolve User Name if this is a user-specific sync
+        if from_user_id:
+            try:
+                user_ent = await self.client.get_entity(from_user_id)
+                target_name = self._get_entity_name(user_ent)
+                user_label = f" | User: {target_name}"
+                # Save user metadata
+                self.storage.upsert_user(
+                    user_id=user_ent.id,
+                    first_name=getattr(user_ent, 'first_name', None),
+                    last_name=getattr(user_ent, 'last_name', None),
+                    username=getattr(user_ent, 'username', None)
+                )
+            except Exception as e:
+                logger.warning(f"Could not resolve user {from_user_id}: {e}")
+                user_label = f" | User: {from_user_id}"
+        
+        # 3. Get Sync Status
         status = self.storage.get_sync_status(chat_id, uid)
+        
+        # 3.1 Use saved settings if not explicitly overridden
+        saved_deep = bool(status.get("deep_mode", 0))
+        saved_depth = status.get("recursive_depth", 0)
+        
+        active_deep = deep_mode or saved_deep
+        active_depth = recursive_depth if recursive_depth > 0 else (saved_depth if saved_depth > 0 else 3)
+
         head_id = 0 if force_resync else status["last_msg_id"]
         tail_id = 0 if force_resync else status["tail_msg_id"]
         is_complete = 0 if force_resync else status["is_complete"]
         
-        # 3. Register as primary target
-        self.storage.register_target(uid, target_name, chat_id)
-        
-        # 4. Resolve Target Name (User name)
-        user_display_name = ""
-        if from_user_id:
-            try:
-                user_ent = await self.client.get_entity(from_user_id)
-                user_display_name = f" | User: {self._get_entity_name(user_ent)}"
-            except:
-                user_display_name = f" | User: {from_user_id}"
+        # 4. Register as primary target with correct name and settings
+        self.storage.register_target(uid, target_name, chat_id, 
+                                     deep_mode=active_deep, 
+                                     recursive_depth=active_depth)
 
-        mode_str = f"DEEP (Depth {recursive_depth})" if deep_mode else "FLAT"
-        status_str = " (Resuming history...)" if tail_id > 0 and not is_complete else ""
-        header = f"👤 Target: {target_name}{user_display_name} | Mode: {mode_str}{status_str}"
+        mode_str = f"DEEP (Depth {active_depth})" if active_deep else "FLAT"
+        status_str = " (Resuming history...)" if tail_id > 0 and not is_complete else (" (Updating...)" if head_id > 0 else "")
+        header = f"👤 Target: {chat_title}{user_label} | Mode: {mode_str}{status_str}"
         print(f"\n{header}")
         
         # 5. Determine Scan Boundaries
@@ -109,9 +133,10 @@ class ExportService:
         if hasattr(self.context_engine, '_processed_ids'):
             self.context_engine._processed_ids.clear()
 
-        async def draw_status():
-            db_total = self.storage.get_message_count(chat_id)
-            sys.stdout.write(f"\r   📊 Total Exported: {db_total} messages...                    ")
+        async def draw_status(extra=""):
+            db_total = self.storage.get_message_count(chat_id, target_id=uid)
+            # Add a bit of movement even if count doesn't change
+            sys.stdout.write(f"\r   📊 Total Exported: {db_total} messages {extra}                   ")
             sys.stdout.flush()
 
         async def scan_worker(offset, stop_id, role="TAIL"):
@@ -132,7 +157,7 @@ class ExportService:
                 if not force_resync and role == "TAIL" and tail_id > 0 and tail_id < msg_data.message_id <= head_id:
                     continue 
 
-                if deep_mode:
+                if active_deep:
                     w_context_batch.append(msg_data)
                     if len(w_context_batch) >= context_batch_size:
                         await self.context_engine.extract_batch_context(
@@ -140,11 +165,11 @@ class ExportService:
                             target_id=uid,
                             window_size=context_window,
                             max_cluster=max_cluster,
-                            recursive_depth=recursive_depth,
-                            on_progress=draw_status
+                            recursive_depth=active_depth,
+                            on_progress=lambda: draw_status(f"(ID: {msg_data.message_id})")
                         )
                         w_context_batch = []
-                        await draw_status()
+                        await draw_status(f"(ID: {msg_data.message_id})")
                 else:
                     w_batch.append(msg_data)
                 
@@ -155,6 +180,10 @@ class ExportService:
                     w_tail_id = msg_data.message_id
                 else:
                     w_head_id = max(w_head_id, msg_data.message_id)
+                
+                # Periodically update status even if not saving yet
+                if w_processed % 20 == 0:
+                    await draw_status(f"(ID: {msg_data.message_id})")
 
                 if len(w_batch) >= batch_size:
                     await self.storage.save_messages(w_batch, target_id=uid)
@@ -169,13 +198,13 @@ class ExportService:
                     await draw_status()
 
             # Final flushes for worker
-            if w_context_batch:
+            if active_deep and w_context_batch:
                 await self.context_engine.extract_batch_context(
                     entity, w_context_batch, 
                     target_id=uid,
                     window_size=context_window,
                     max_cluster=max_cluster,
-                    recursive_depth=recursive_depth,
+                    recursive_depth=active_depth,
                     on_progress=draw_status
                 )
             if w_batch:
@@ -184,23 +213,6 @@ class ExportService:
                     self.storage.update_sync_tail(chat_id, uid, w_tail_id, is_complete=(w_tail_id <= 10))
                 elif role == "HEAD":
                     self.storage.update_last_msg_id(chat_id, uid, w_head_id)
-                telemetry.track_messages(len(w_batch))
-            
-            return w_processed
-
-            # Final flushes for worker
-            if w_context_batch:
-                await self.context_engine.extract_batch_context(
-                    entity, w_context_batch, 
-                    window_size=context_window,
-                    max_cluster=max_cluster,
-                    recursive_depth=recursive_depth,
-                    on_progress=draw_status
-                )
-            if w_batch:
-                await self.storage.save_messages(w_batch)
-                if offset <= (tail_id or current_max):
-                    self.storage.update_sync_tail(chat_id, uid, w_tail_id, is_complete=(w_tail_id <= 10))
                 telemetry.track_messages(len(w_batch))
             
             return w_processed
@@ -223,7 +235,7 @@ class ExportService:
             await draw_status()
             
         # 4. Final summary
-        db_count = self.storage.get_message_count(chat_id)
+        db_count = self.storage.get_message_count(chat_id, target_id=uid)
         sys.stdout.write(f"\r   ✅ Export Finished! Total in DB: {db_count} messages.               \n")
         sys.stdout.flush()
         
@@ -268,6 +280,9 @@ class ExportService:
         total_processed = 0
         for i, dialog in enumerate(targets):
             try:
+                dialog_title = self._get_entity_name(dialog)
+                print(f"\n   --- [{i+1}/{len(targets)}] Scan: \"{dialog_title}\" ---")
+                
                 processed = await self.sync_chat(
                     dialog,
                     from_user_id=from_user_id,
@@ -287,23 +302,21 @@ class ExportService:
         print(f"\n✅ Global Export Finished! Total synced: {total_processed} messages across all dialogs.")
         return total_processed
 
-    async def sync_all_outdated(self, threshold_hours: int = 48):
-        """Finds chats that haven't been synced recently and runs sync."""
-        threshold_seconds = threshold_hours * 3600
-        outdated_chat_ids = self.storage.get_outdated_chats(threshold_seconds)
+    async def sync_all_outdated(self) -> Set[int]:
+        """Runs synchronization for all chats that haven't been updated in a while or are incomplete."""
+        outdated = self.storage.get_outdated_chats()
+        updated_uids = set()
         
-        if not outdated_chat_ids:
-            print("\n✅ All chats are already up to date.")
-            return
+        if not outdated:
+            return updated_uids
 
-        print(f"\n🔄 [Updating {len(outdated_chat_ids)} chats...]")
+        print(f"\n🔄 [Updating {len(outdated)} items...]")
         
-        for chat_id in outdated_chat_ids:
-            try:
-                entity = await self.client.get_entity(chat_id)
-                await self.sync_chat(entity)
-            except Exception as e:
-                logger.error(f"Failed to sync chat {chat_id}: {e}")
-                telemetry.track_error()
-        
+        for chat_id, from_user_id in outdated:
+            entity = await self.client.get_entity(chat_id)
+            if entity:
+                await self.sync_chat(entity, from_user_id=from_user_id)
+                updated_uids.add(from_user_id)
+                
         telemetry.log_summary()
+        return updated_uids

@@ -33,7 +33,7 @@ class DBExportService:
         
         return f"{header}\n{m.text or '(пусто)'}"
 
-    async def export_user_messages(self, user_id: int, output_dir: str = "DB_EXPORTS", as_json: bool = False) -> str:
+    async def export_user_messages(self, user_id: int, output_dir: str = "DB_EXPORTS", as_json: bool = False, include_date: bool = False) -> str:
         """
         Fetches all messages for a user from storage and writes them to parts using FileRotateWriter.
         Returns the base output path.
@@ -46,28 +46,85 @@ class DBExportService:
         if not os.path.exists(output_dir):
             os.makedirs(output_dir)
 
-        # Find the correct author name for the filename (from the target user, not just the first message)
+        # Find the correct author name for the filename
+        # Priority: 1. Target's author_name captured in DB, 2. Users table, 3. Fallback
         target_author = "Unknown"
+        
+        # Try to find author_name from messages first (most reliable capture)
         for m in messages:
             if m.user_id == user_id and m.author_name:
                 target_author = m.author_name
                 break
+        
+        if target_author == "Unknown":
+            db_user = self.storage.get_user(user_id)
+            if db_user:
+                target_author = f"{db_user.get('first_name') or ''} {db_user.get('last_name') or ''}".strip() or db_user.get('username') or "Unknown"
+        
         if target_author == "Unknown" and messages:
-            target_author = messages[0].author_name or "Unknown"
+            target_author = f"User_{user_id}"
 
         safe_name = target_author.replace(" ", "_")
-        date_str = datetime.now().strftime("%m-%d")
-        filename = f"{safe_name}_{user_id}_date({date_str})" + (".jsonl" if as_json else ".txt")
+        date_suffix = f"_date({datetime.now().strftime('%m-%d')})" if include_date else ""
+        filename = f"{safe_name}_{user_id}{date_suffix}" + (".jsonl" if as_json else ".txt")
         output_path = os.path.join(output_dir, filename)
+
+        # Sort messages by date to ensure chronological chat flow
+        messages.sort(key=lambda x: x.timestamp)
+        
+        # Message lookup for resolving replies (only for TXT format)
+        msg_lookup = {m.message_id: m for m in messages} if not as_json else {}
 
         writer = FileRotateWriter(output_path, as_json=as_json, overwrite=True)
         
-        sep = "\n" if as_json else "\n\n----------------------------------------\n\n"
+        last_date = None
+        last_author_id = None
         
         count = 0
         for m in messages:
-            block = self.format_message(m, as_json=as_json)
-            await writer.write_block(block + sep, 1)
+            if as_json:
+                block = self.format_message(m, as_json=True)
+                await writer.write_block(block + "\n", 1)
+            else:
+                # Chat-like TXT formatting
+                current_date = m.timestamp.date()
+                formatted_block = ""
+                
+                # 1. Date Header
+                if current_date != last_date:
+                    date_header = current_date.strftime("%d %B %Y")
+                    formatted_block += f"\n\n{'=' * 20} {date_header} {'=' * 20}\n\n"
+                    last_date = current_date
+                    last_author_id = None # Reset author grouping on new day
+                
+                # 2. Reply Context
+                reply_context = ""
+                if m.reply_to_id and m.reply_to_id in msg_lookup:
+                    target = msg_lookup[m.reply_to_id]
+                    clean_text = (target.text or "").replace("\n", " ").strip()
+                    snippet = (clean_text[:40] + "...") if len(clean_text) > 40 else clean_text
+                    if snippet:
+                        reply_context = f"        re: \"{snippet}\"\n"
+                
+                # 3. Message Body (Grouping)
+                author = m.author_name or f"User_{m.user_id}"
+                time_str = m.timestamp.strftime("%H:%M:%S")
+                
+                if m.user_id == last_author_id and not reply_context:
+                    # Same author and NO reply context - condensed grouping
+                    formatted_block += f"        {m.text or '(пусто)'}\n"
+                else:
+                    # New author OR same author but with a reply context (needs full block or separator)
+                    if m.user_id == last_author_id:
+                        # Add a small gap to separate the grouped message with context
+                        formatted_block += "\n"
+                    
+                    header = f"[{time_str}] <{author} ({m.user_id})>:"
+                    formatted_block += f"{header}\n{reply_context}        {m.text or '(пусто)'}\n\n"
+                    last_author_id = m.user_id
+                
+                await writer.write_block(formatted_block, 1)
+
             count += 1
             if count % 100 == 0:
                 logger.debug(f"Exported {count}/{len(messages)} messages from DB...")
