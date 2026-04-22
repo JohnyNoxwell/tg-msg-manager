@@ -12,14 +12,17 @@
 ### 💎 Преимущества версии 4.0 (UX Revolution)
 
 * 🎨 **Cyberpunk UI**: Полноцветная 24-битная ANSI градиентная шапка и премиальный дизайн интерфейса.
-* ⚡ **Интерактивность**: Навигация в одно касание (нажатие цифры сразу выполняет действие) и поддержка клавиши **ESC** для мгновенной отмены или возврата назад.
-* 🏗️ **Модульная архитектура**: Полностью переписанное ядро на базе сервисов (`ExportService`, `CleanerService`, `ArchiveService`), что гарантирует стабильность и легкость обновлений.
+* ⚡ **Интерактивность**: Навигация в одно касание и поддержка клавиши **ESC** для оперативной отмены.
+* 📊 **Terminal Feedback**: Реальное время отображения прогресса очистки и экспорта с наглядными счетчиками в консоли.
+* 🏗️ **Модульная архитектура**: Сервисно-ориентированное ядро для максимальной стабильности.
+
 * 📖 **Контекстное обучение**: Каждое подменю снабжено краткой справкой о том, как работает конкретный алгоритм.
 
 ### 🌟 Главные функции
 
 * 🧹 **Глобальная очистка (`clean`)**
-  Удаляет **только ваши** сообщения изо всех чатов. Поддерживает белые списки и умный обход FloodWait.
+  Удаляет **только ваши** сообщения изо всех чатов. Поддерживает группы, каналы и (опционально) **личные переписки (PM)**. Включает белые списки и умный обход FloodWait.
+
   
 * 📥 **Умный экспорт с контекстом (`export`)**
   Собирает сообщения цели вместе с «окном» беседы (реплики до и после), восстанавливая полную картину диалога.
@@ -53,15 +56,18 @@
 
 ### 💎 Version 4.0 Highlights (UX Revolution)
 
-* 🎨 **Cyberpunk UI**: Vibrant 24-bit ANSI gradient banners and a premium, high-fidelity interface design.
-* ⚡ **Ultra-Responsive**: Single-key navigation (press a number to act immediately) and full **ESC** key support for instant cancellation or "back" navigation.
-* 🏗️ **Service-Oriented Core**: Completely refactored modular architecture (`ExportService`, `CleanerService`, `ArchiveService`) ensuring long-term stability and easier auditing.
+* 🎨 **Cyberpunk UI**: Vibrant 24-bit ANSI gradient banners and a premium interface design.
+* ⚡ **Ultra-Responsive**: Single-key navigation and full **ESC** key support for instant cancellation.
+* 📊 **Live Telemetry**: Real-time progress indicators and message counters for all cleanup and sync operations.
+* 🏗️ **Service-Oriented Core**: Refactored modular architecture ensuring long-term stability and easier auditing.
+
 * 📖 **In-App Guidance**: Every sub-menu features technical descriptions of how the specific engine works.
 
 ### 🌟 Core Features
 
 * 🧹 **Global Cleanup (`clean`)**
-  Removes **your own** messages from all currently joined group chats. Respects whitelists and handles FloorWait errors gracefully.
+  Removes **your own** messages from all chats. Supports groups, channels, and optionally **Private Dialogues (PM)**. Respects whitelists and handles FloodWait.
+
   
 * 📥 **Deep Context Export (`export`)**
   Automatically retrieves target messages along with the "surrounding" conversation window, providing a complete picture of the dialogue.
