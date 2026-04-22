@@ -90,6 +90,11 @@ STRINGS = {
         "clean_dry": "Репетиция (dry-run)",
         "clean_real": "Боевое удаление",
         "clean_confirm": "Уверены? Сообщения будут удалены.",
+        "prompt_clean_pms": "Включить очистку в ЛИЧНЫХ переписках (PM)? [y/N]",
+        "clean_progress": " 🔍 [{n}/{total}] Сканирование: {name}",
+        "clean_found_messages": "    ✨ Найдено сообщений для удаления: {count}",
+
+
         
         # Подменю Удаление данных
         "sub_delete_title": "Полное удаление данных",
@@ -288,6 +293,11 @@ STRINGS = {
         "clean_dry": "Dry Run (safe)",
         "clean_real": "Live Deletion",
         "clean_confirm": "Are you sure? Messages will be deleted.",
+        "prompt_clean_pms": "Include PRIVATE dialogues (PM) in cleanup? [y/N]",
+        "clean_progress": " 🔍 [{n}/{total}] Scanning: {name}",
+        "clean_found_messages": "    ✨ Found messages to delete: {count}",
+
+
         
         # Submenu Delete Data
         "sub_delete_title": "Complete Data Removal",

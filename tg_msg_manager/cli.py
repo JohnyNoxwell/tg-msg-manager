@@ -279,7 +279,21 @@ async def run_cli():
         elif args.command == "update":
             await export_service.sync_all_outdated()
         elif args.command == "clean":
-            await cleaner_service.global_self_cleanup(dry_run=True)
+            # Decide dry_run: Safe default is True. If --apply or --yes is set, it becomes False.
+            # If --dry-run is explicitly passed, it stays True.
+            is_dry = True
+            if args.apply or args.yes:
+                is_dry = False
+            if args.dry_run is True:
+                is_dry = True
+            
+            deleted = await cleaner_service.global_self_cleanup(dry_run=is_dry)
+            print(f"\n{_('summary_header')}")
+            print(_("total_deleted_msgs", count=deleted))
+            if is_dry:
+                print(f"\033[93m{_('dry_run_info')}\033[0m")
+
+
     finally:
         await client.disconnect()
         await storage.close()
@@ -317,6 +331,7 @@ async def main_menu():
         await client.connect()
         me = await client.get_me()
         me_id = me.id if me else "Unknown"
+        final_uid = 0
         
         while True:
             clear_screen()
@@ -432,15 +447,28 @@ async def main_menu():
             elif choice == "3":
                 print_submenu_header(
                     _("menu_3"),
-                    "Глобальная очистка ваших сообщений. Позволяет массово удалить ваши\n"
-                    "собственные сообщения из всех групп и чатов, где вы участвуете\n"
-                    "(кроме тех, что находятся в белом списке)."
+                    _("sub_clean_info")
                 )
+                
+                print(f" \033[91m⚠️  {_('sub_clean_confirm')}\033[0m")
+                
+                # PM Toggle
+                pm_choice = TerminalInput.prompt_with_esc(_("prompt_clean_pms") + ": ")
+                if pm_choice is None: continue
+                include_pms = pm_choice.lower() == 'y'
+                
+                # Safety Confirmation
+                print(f"\n \033[1;31m{_('clean_confirm')}\033[0m")
                 confirm = TerminalInput.prompt_with_esc("Proceed? (y/n): ")
                 if confirm and confirm.lower() == "y":
                     await client.connect()
-                    await cleaner_service.global_self_cleanup(dry_run=True)
+                    deleted = await cleaner_service.global_self_cleanup(dry_run=False, include_pms=include_pms)
+                    print(f"\n{_('summary_header')}")
+                    print(_("total_deleted_msgs", count=deleted))
+
+                
                 sys.stdout.write("\n" + _("press_enter"))
+
                 sys.stdout.flush()
                 TerminalInput.get_char()
 
@@ -561,6 +589,12 @@ async def main_menu():
             elif choice == "0":
                 break
     finally:
+        # If stopped manually or finished, we ensure a local JSON dump is updated
+        if pm.should_stop() and final_uid > 0:
+            print(f"\n⚠️ Interrupted. Performing emergency JSON export of partial data for {final_uid}...")
+            await db_export_service.export_user_messages(final_uid, as_json=True)
+            print(f"✅ Emergency export saved.")
+            
         await client.disconnect()
         await storage.close()
         pm.release_lock()

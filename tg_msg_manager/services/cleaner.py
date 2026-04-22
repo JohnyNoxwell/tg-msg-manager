@@ -73,38 +73,61 @@ class CleanerService:
         # Delegate to batch deletion
         return await self.delete_chat_messages(entity, message_ids, dry_run=dry_run)
 
-    async def global_self_cleanup(self, dry_run: bool = True) -> int:
+    async def global_self_cleanup(self, dry_run: bool = True, include_pms: bool = False) -> int:
         """
-        Scans all group/supergroup dialogs and deletes all messages from 'me'.
-        Strictly avoids private dialogues.
+        Scans dialogs and deletes all messages from 'me'.
+        By default, skips private dialogues unless include_pms=True.
         """
-        logger.info(f"Starting Global Self-Clean (Dry Run: {dry_run})...")
+        from ..i18n import _
+        import sys
+
+        mode_str = "DRY RUN" if dry_run else "REAL DELETION"
+        target_str = "Groups & PMs" if include_pms else "Groups only"
+        logger.info(f"Starting Global Self-Clean ({mode_str}) | Scope: {target_str}...")
         
         dialogs = await self.client.get_dialogs()
-        total_deleted = 0
         
-        for dialog in dialogs:
-            # Filter: ONLY Groups and Supergroups
-            if not (dialog.is_group or dialog.is_channel):
-                continue
+        # Pre-filter eligible dialogs for accurate counter
+        eligible_dialogs = []
+        for d in dialogs:
+            is_eligible = d.is_group or d.is_channel
+            if include_pms and d.is_user:
+                is_eligible = True
+            if is_eligible and d.id not in self.whitelist:
+                eligible_dialogs.append(d)
+
+        total = len(eligible_dialogs)
+        total_deleted = 0
+        total_found = 0
+        
+        for i, dialog in enumerate(eligible_dialogs):
+            name = dialog.name or str(dialog.id)
+            # Print progress to terminal
+            sys.stdout.write(_("clean_progress", n=i+1, total=total, name=name) + "\n")
+            sys.stdout.flush()
             
-            chat_id = dialog.id
-            if chat_id in self.whitelist:
-                logger.debug(f"Skipping whitelisted chat {chat_id} ({dialog.name})")
-                continue
-                
-            logger.info(f"Scanning chat {chat_id} ({dialog.name}) for your messages...")
+            logger.info(f"Scanning chat {dialog.id} ({name}) for your messages...")
             
             my_msg_ids = []
             async for msg_data in self.client.iter_messages(dialog.entity, from_user='me'):
+                # Essential Fix: Skip service messages (like 'Channel created' ID 1)
+                # They often show up as from 'me' but cannot be deleted via the standard API.
+                if msg_data.is_service:
+                    continue
                 my_msg_ids.append(msg_data.message_id)
                 
             if my_msg_ids:
+
+                total_found += len(my_msg_ids)
+                sys.stdout.write(_("clean_found_messages", count=len(my_msg_ids)) + "\n")
+                sys.stdout.flush()
+                
                 count = await self.delete_chat_messages(dialog.entity, my_msg_ids, dry_run=dry_run)
                 total_deleted += count
                 
-        logger.info(f"Global Self-Clean finished. Total deleted: {total_deleted}")
+        logger.info(f"Global Self-Clean finished. Total found: {total_found}, Total deleted: {total_deleted}")
         return total_deleted
+
 
     async def purge_user_data(self, user_id: int):
         """

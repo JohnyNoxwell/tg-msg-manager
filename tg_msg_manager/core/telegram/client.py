@@ -1,7 +1,8 @@
 import asyncio
 import logging
 from typing import AsyncGenerator, List, Optional, Any
-from telethon import TelegramClient
+from telethon import TelegramClient, types
+
 from telethon.errors import FloodWaitError
 from .interface import TelegramClientInterface
 from .throttler import RateThrottler
@@ -73,19 +74,23 @@ class TelethonClientWrapper(TelegramClientInterface):
         if msg.sender:
             author_name = " ".join(filter(None, [getattr(msg.sender, 'first_name', ''), getattr(msg.sender, 'last_name', '')]))
         
+        is_service = isinstance(msg, types.MessageService)
+        
         return MessageData(
             message_id=msg.id,
             chat_id=getattr(entity, 'id', 0),
             user_id=msg.sender_id or 0,
             author_name=author_name,
             timestamp=msg.date,
-            text=msg.message or "",
-            media_type=type(msg.media).__name__ if msg.media else None,
-            reply_to_id=msg.reply_to.reply_to_msg_id if msg.reply_to else None,
-            fwd_from_id=msg.fwd_from.from_id.user_id if (msg.fwd_from and msg.fwd_from.from_id and hasattr(msg.fwd_from.from_id, 'user_id')) else None,
+            text=msg.message if hasattr(msg, 'message') else "",
+            media_type=type(msg.media).__name__ if (hasattr(msg, 'media') and msg.media) else None,
+            reply_to_id=msg.reply_to.reply_to_msg_id if (hasattr(msg, 'reply_to') and msg.reply_to) else None,
+            fwd_from_id=msg.fwd_from.from_id.user_id if (hasattr(msg, 'fwd_from') and msg.fwd_from and msg.fwd_from.from_id and hasattr(msg.fwd_from.from_id, 'user_id')) else None,
             context_group_id=None,
-            raw_payload=msg.to_dict()
+            raw_payload=msg.to_dict(),
+            is_service=is_service
         )
+
 
     async def iter_messages(self, entity, limit: Optional[int] = None, 
                             offset_id: int = 0, from_user: Optional[Any] = None, **kwargs) -> AsyncGenerator[MessageData, None]:

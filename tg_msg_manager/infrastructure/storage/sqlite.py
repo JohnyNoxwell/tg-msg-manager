@@ -521,9 +521,9 @@ class SQLiteStorage(BaseStorage):
                 f"DELETE FROM messages WHERE chat_id = ? AND message_id IN ({placeholders})",
                 (chat_id, *message_ids)
             )
-            self.migrate_existing_links()
             conn.commit()
             return res.rowcount
+
 
     def get_all_message_ids_for_chat(self, chat_id: int) -> List[int]:
         with self._get_connection() as conn:

@@ -19,6 +19,7 @@ class MessageData:
     fwd_from_id: Optional[int]
     context_group_id: Optional[str]
     raw_payload: Dict[str, Any]
+    is_service: bool = False
 
     def __post_init__(self):
         # Strict type validation
@@ -32,6 +33,8 @@ class MessageData:
             raise TypeError(f"timestamp must be datetime, not {type(self.timestamp)}")
         if not isinstance(self.raw_payload, dict):
             raise TypeError(f"raw_payload must be dict, not {type(self.raw_payload)}")
+        if not isinstance(self.is_service, bool):
+            raise TypeError(f"is_service must be bool, not {type(self.is_service)}")
 
     def to_dict(self) -> Dict[str, Any]:
         return {
@@ -45,8 +48,10 @@ class MessageData:
             "reply_to_id": self.reply_to_id,
             "fwd_from_id": self.fwd_from_id,
             "context_group_id": self.context_group_id,
-            "raw_payload": self.raw_payload
+            "raw_payload": self.raw_payload,
+            "is_service": self.is_service
         }
+
 
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'MessageData':
@@ -61,8 +66,10 @@ class MessageData:
             reply_to_id=data.get("reply_to_id"),
             fwd_from_id=data.get("fwd_from_id"),
             context_group_id=data.get("context_group_id"),
-            raw_payload=data.get("raw_payload", {})
+            raw_payload=data.get("raw_payload", {}),
+            is_service=data.get("is_service", False)
         )
+
 
     def get_payload_hash(self) -> str:
         """Deterministic SHA256 of core fields and raw_payload."""

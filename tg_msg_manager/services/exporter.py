@@ -112,30 +112,36 @@ class ExportService:
         latest_msg = await self.client.get_messages(entity, limit=1)
         current_max = latest_msg[0].message_id if latest_msg else 1000000
         
-        # 6. Parallel Scanning Strategy (Advanced Range Partitioning)
-        worker_count = 4
+        # 5. AUTO-CORRECTION: If tail reached the bottom but flag is missing, fix it
+        if not is_complete and tail_id <= 10 and head_id > 0:
+            is_complete = True
+            self.storage.update_sync_tail(chat_id, uid, 0, is_complete=True)
+            logger.info(f"Target {uid} in {chat_id} auto-marked as complete (tail was 0).")
+
+        # 6. Parallel Scanning Strategy
         batch_size = 200
         context_batch_size = 50
         ranges = []
         
-        # Phase A: Update (Newest -> head_id)
-        if head_id > 0 and current_max > head_id:
+        # A. ALWAYS check for NEW messages (HEAD)
+        if current_max > head_id:
             ranges.append({"offset": current_max, "stop": head_id, "role": "HEAD"})
         
-        # Phase B: Resume (tail_id or head_id -> 0)
+        # B. If history is not yet fully synced, check the TAIL
         if not is_complete:
+            # We scan from tail_id down to 0
+            # If tail_id is 0 but we need history, we start from head_id or current_max
             h_start = tail_id if tail_id > 0 else (head_id if head_id > 0 else current_max)
-            h_workers = worker_count - len(ranges)
-            h_chunk = h_start // h_workers if h_workers > 0 else h_start
-            
-            for i in range(h_workers):
-                w_offset = 0 if i == 0 else h_start - (i * h_chunk)
-                w_stop = h_start - ((i + 1) * h_chunk) if i < h_workers - 1 else 0
-                ranges.append({"offset": w_offset, "stop": w_stop, "role": "TAIL"})
+            stride = h_start // 4
+            for i in range(4):
+                w_offset = h_start - (i * stride)
+                w_stop = max(0, h_start - ((i + 1) * stride))
+                # Only add if there's actually a range to scan (avoid duplicates with HEAD)
+                if w_offset > 0:
+                    ranges.append({"offset": w_offset, "stop": w_stop, "role": "TAIL"})
 
-        # Fallback if everything is complete
         if not ranges:
-            ranges.append({"offset": current_max, "stop": head_id, "role": "HEAD"})
+            return 0
 
         # ANSI Colors
         CLR_USER = "\033[93m"  # Yellow
@@ -234,12 +240,12 @@ class ExportService:
             if w_batch:
                 await self.storage.save_messages(w_batch, target_id=uid)
                 if role == "TAIL" and offset <= (tail_id or current_max):
-                    self.storage.update_sync_tail(chat_id, uid, w_tail_id, is_complete=(w_tail_id <= 10))
+                    self.storage.update_sync_tail(chat_id, uid, w_tail_id, is_complete=False)
                 elif role == "HEAD":
                     self.storage.update_last_msg_id(chat_id, uid, w_head_id)
                 telemetry.track_messages(len(w_batch))
             
-            return w_processed
+            return {"processed": w_processed, "tail": w_tail_id, "head": w_head_id}
 
         async def draw_status_loop():
             """Periodic UI updates to avoid terminal lag."""
@@ -252,7 +258,17 @@ class ExportService:
         
         try:
             results = await asyncio.gather(*[scan_worker(r["offset"], r["stop"], role=r["role"]) for r in ranges])
-            total_processed = sum(results)
+            total_processed = sum(r["processed"] for r in results)
+            
+            # FINAL COMPLETION CHECK:
+            # Hit 0 only if ALL workers finished and we were scanning history
+            if not self.storage.should_stop() and not is_complete:
+                tails = [r["tail"] for r in results if r["tail"] is not None]
+                if tails:
+                    min_tail = min(tails)
+                    if min_tail <= 10:
+                        self.storage.update_sync_tail(chat_id, uid, 0, is_complete=True)
+                        print(f"\n✨ History fully synced for target in this chat.")
         finally:
             done_event.set()
             await status_task
