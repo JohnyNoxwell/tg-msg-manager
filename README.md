@@ -70,8 +70,12 @@
 
 ### 💻 Установка и быстрый старт
 
-1. **Клонируйте репозиторий** и установите зависимости через `pip install .`
-2. **Алиасы**: Выполните `tg-msg-manager setup`, чтобы получить короткую команду `tg` и быстрые алиасы.
+1. **Клонируйте репозиторий** и установите зависимости: `pip install .`
+2. **Алиасы**: Выполните команду установки из основной папки:
+   ```bash
+   python3 -m tg_msg_manager.cli setup
+   ```
+   Это создаст короткую команду `tg` и быстрые алиасы (`tgd`, `tgr`, `tgu` и др.).
 3. **Запуск**: Просто введите `tg` в терминале для входа в интерактивное меню.
 
 > 💡 **Навигация в меню**: Используйте цифры **1-9** для выбора, **ESC** — назад/отмена, **0** — выход.
@@ -146,7 +150,11 @@ After running `tg-msg-manager setup`, these shortcuts are available:
 ### 💻 Installation & Quick Start
 
 1. **Clone & Install**: Run `pip install .` in the root directory.
-2. **Aliases**: Execute `tg-msg-manager setup` to register `tg` and power-user aliases.
+2. **Aliases**: Execute the setup command from the project folder:
+   ```bash
+   python3 -m tg_msg_manager.cli setup
+   ```
+   This registers the `tg` shortcut and all power-user aliases.
 3. **Launch**: Simply type `tg` in your terminal to enter the premium interactive menu.
 
 > 💡 **Menu Navigation**: Use numbers **1-9** to select, **ESC** to go back/cancel, and **0** to exit.
