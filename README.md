@@ -31,7 +31,9 @@
 
 ### 📊 Подробный CLI Reference
 
-Для продвинутых пользователей доступны команды напрямую (в примерах ниже используется полный вызов модуля, но если вы настроили алиасы, можно использовать просто `tg` вместо `python3 -m tg_msg_manager.cli`):
+Для продвинутых пользователей доступны команды напрямую. 
+
+> ⚠️ **Важно**: Прямые команды `python3 -m ...` необходимо запускать из корня проекта. Если вы используете настроенные алиасы (`tg`, `tge` и т.д.), они будут работать из любой директории, так как автоматически переключаются в нужную папку.
 
 *   **Экспорт сообщений (`export`)**
     *   Алиас: `tge --user-id ID`
@@ -111,7 +113,9 @@
 
 ### 📊 Detailed CLI Reference
 
-For power users, subcommands can be executed directly (if you have installed aliases, you can use `tg` instead of `python3 -m tg_msg_manager.cli`):
+For power users, subcommands can be executed directly.
+
+> ⚠️ **Note**: Full `python3 -m ...` commands must be executed from the project root. If you use the installed aliases (`tg`, `tge`, etc.), they will work from any directory as they handle the path resolution automatically.
 
 *   **Message Export (`export`)**
     *   Alias: `tge --user-id ID`
