@@ -52,7 +52,7 @@ STRINGS = {
         "prompt_dry_run": "Режим Dry Run (безопасно)? [Y/n]",
         "prompt_pm_target": "Введите ID цели для архива лички (0 - Назад)",
         "prompt_purge_id": "Введите ID пользователя для ПОЛНОГО удаления (0 - Назад)",
-        "about_text": "TG.MSG.CLEANER v3.0 — Мощный инструмент для управления историей сообщений Telegram.\nПоддерживает инкрементальный экспорт, глубокий поиск контекста и безопасную очистку.",
+        "about_text": "TG_MSG_MNGR — профессиональный инструмент для управления данными в Telegram.\n\nКлючевые возможности:\n  1. 📥 Инкрементальный экспорт: Сканирование чатов и выгрузка сообщений цели.\n  2. 🧠 Deep Mode: Рекурсивный поиск контекста (цепочки ответов и соседи).\n  3. 🧨 Глобальная очистка: Массовое удаление ВАШИХ сообщений из всех групп.\n  4. 💬 Личный Архив: Полная выгрузка PM-чатов с сохранением всех медиафайлов.\n  5. 📊 Экспорт из БД: Генерация красивых TXT или JSONL отчетов из локальной базы.\n  6. ⏱️ Автоматизация: Планировщик фоновых задач (launchd/cron).\n\nПостроен на базе Telethon. Использует SQLite с WAL-режимом для максимальной скорости.",
         "goodbye": "До свидания!",
         "error_locked": "Ошибка: Процесс уже запущен (файл блокировки активен).",
         
@@ -256,7 +256,7 @@ STRINGS = {
         "prompt_dry_run": "Dry Run mode (safe)? [Y/n]",
         "prompt_pm_target": "Enter target ID for PM archive (0 - Back)",
         "prompt_purge_id": "Enter user ID for COMPLETE removal (0 - Back)",
-        "about_text": "TG.MSG.CLEANER v3.0 — Powerful tool for Telegram message history management.\nSupports incremental export, deep context search, and safe cleaning.",
+        "about_text": "TG_MSG_MNGR — a professional tool for Telegram data management.\n\nKey Features:\n  1. 📥 Incremental Export: Scan chats and download target user's history.\n  2. 🧠 Deep Mode: Recursive context search (reply chains and neighbors).\n  3. 🧨 Global Cleanup: Mass delete YOUR messages from all groups.\n  4. 💬 Private Archive: Full PM chat backup with media (photos, videos, voices).\n  5. 📊 DB Export: Generate beautiful TXT or structured JSONL reports from local storage.\n  6. ⏱️ Automation: Background task scheduler (launchd/cron) support.\n\nBuilt with Telethon. Uses SQLite with WAL mode for extreme performance.",
         "goodbye": "Goodbye!",
         "error_locked": "Error: Process already running (lock file active).",
         

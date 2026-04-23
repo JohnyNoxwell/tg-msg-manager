@@ -5,6 +5,7 @@ from typing import List, Optional
 from .file_writer import FileRotateWriter
 from ..infrastructure.storage.interface import BaseStorage
 from ..core.models.message import MessageData
+from ..utils.ui import UI
 
 logger = logging.getLogger(__name__)
 
@@ -47,21 +48,18 @@ class DBExportService:
             os.makedirs(output_dir)
 
         # Find the correct author name for the filename
-        # Priority: 1. Target's author_name captured in DB, 2. Users table, 3. Fallback
         target_author = "Unknown"
-        
-        # Try to find author_name from messages first (most reliable capture)
-        for m in messages:
-            if m.user_id == user_id and m.author_name:
-                target_author = m.author_name
-                break
-        
-        if target_author == "Unknown":
-            db_user = self.storage.get_user(user_id)
-            if db_user:
-                target_author = f"{db_user.get('first_name') or ''} {db_user.get('last_name') or ''}".strip() or db_user.get('username') or "Unknown"
+        db_user = self.storage.get_user(user_id)
+        if db_user:
+            target_author = UI.format_name(db_user)
         
         if target_author == "Unknown" and messages:
+            for m in messages:
+                if m.user_id == user_id and m.author_name:
+                    target_author = m.author_name
+                    break
+        
+        if target_author == "Unknown":
             target_author = f"User_{user_id}"
 
         safe_name = target_author.replace(" ", "_")

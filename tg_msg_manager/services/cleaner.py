@@ -2,6 +2,7 @@ import logging
 from typing import List, Set, Any
 from ..core.telegram.interface import TelegramClientInterface
 from ..infrastructure.storage.interface import BaseStorage
+from ..utils.ui import UI
 
 logger = logging.getLogger(__name__)
 
@@ -140,8 +141,7 @@ class CleanerService:
         for i, dialog in enumerate(eligible_dialogs):
             name = dialog.name or str(dialog.id)
             # Print progress to terminal
-            sys.stdout.write(_("clean_progress", n=i+1, total=total, name=name) + "\n")
-            sys.stdout.flush()
+            UI.print_status("Cleaning", f"[{i+1}/{total}] {name}")
             
             logger.info(f"Scanning chat {dialog.id} ({name}) for your messages...")
             
@@ -156,7 +156,8 @@ class CleanerService:
             if my_msg_ids:
 
                 total_found += len(my_msg_ids)
-                sys.stdout.write(_("clean_found_messages", count=len(my_msg_ids)) + "\n")
+                UI.print_status("Found", len(my_msg_ids), extra=f"messages in {name}")
+                sys.stdout.write("\n")
                 sys.stdout.flush()
                 
                 count = await self.delete_chat_messages(dialog.entity, my_msg_ids, dry_run=dry_run)

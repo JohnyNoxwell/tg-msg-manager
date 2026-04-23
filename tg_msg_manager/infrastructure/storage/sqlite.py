@@ -382,6 +382,26 @@ class SQLiteStorage(BaseStorage):
             WHERE user_id = ? AND chat_id = ?
         """, (data["message_id"], data["user_id"], data["chat_id"]))
 
+    def _row_to_message(self, row: sqlite3.Row) -> MessageData:
+        """Helper to reconstruct MessageData from a database row."""
+        data = dict(row)
+        # Handle cases where column names might differ slightly (legacy support)
+        msg_id = data.get("message_id") if "message_id" in data else data.get("msg_id")
+        
+        return MessageData(
+            message_id=msg_id,
+            chat_id=data["chat_id"],
+            user_id=data["user_id"],
+            author_name=data.get("author_name"),
+            timestamp=datetime.fromtimestamp(data["timestamp"]),
+            text=data.get("text"),
+            media_type=data.get("media_type"),
+            reply_to_id=data.get("reply_to_id"),
+            fwd_from_id=data.get("fwd_from_id"),
+            context_group_id=data.get("context_group_id"),
+            raw_payload=json.loads(data["raw_payload"])
+        )
+
     def get_message(self, chat_id: int, message_id: int) -> Optional[MessageData]:
         """Retrieves a message and reconstructs the MessageData object."""
         with self._get_connection() as conn:
@@ -390,23 +410,7 @@ class SQLiteStorage(BaseStorage):
                 (chat_id, message_id)
             ).fetchone()
             
-            if not row:
-                return None
-            
-            data = dict(row)
-            return MessageData(
-                message_id=data["message_id"],
-                chat_id=data["chat_id"],
-                user_id=data["user_id"],
-                author_name=data.get("author_name"),
-                timestamp=datetime.fromtimestamp(data["timestamp"]),
-                text=data.get("text"),
-                media_type=data.get("media_type"),
-                reply_to_id=data.get("reply_to_id"),
-                fwd_from_id=data.get("fwd_from_id"),
-                context_group_id=data.get("context_group_id"),
-                raw_payload=json.loads(data["raw_payload"])
-            )
+            return self._row_to_message(row) if row else None
 
     def message_exists(self, chat_id: int, message_id: int) -> bool:
         """Quickly check for existence."""
@@ -710,20 +714,7 @@ class SQLiteStorage(BaseStorage):
             
             results = []
             for row in rows:
-                data = dict(row)
-                results.append(MessageData(
-                    message_id=data["msg_id"] if "msg_id" in data else data["message_id"],
-                    chat_id=data["chat_id"],
-                    user_id=data["user_id"],
-                    author_name=data.get("author_name"),
-                    timestamp=datetime.fromtimestamp(data["timestamp"]),
-                    text=data.get("text"),
-                    media_type=data.get("media_type"),
-                    reply_to_id=data.get("reply_to_id"),
-                    fwd_from_id=data.get("fwd_from_id"),
-                    context_group_id=data.get("context_group_id"),
-                    raw_payload=json.loads(data["raw_payload"])
-                ))
+                results.append(self._row_to_message(row))
             return results
 
     def delete_user_data(self, user_id: int) -> tuple[int, int]:

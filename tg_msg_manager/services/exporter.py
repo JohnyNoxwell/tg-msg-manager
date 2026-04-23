@@ -7,6 +7,7 @@ from ..infrastructure.storage.interface import BaseStorage
 from ..core.context import set_chat_id
 from ..core.telemetry import telemetry
 from .context_engine import DeepModeEngine
+from ..utils.ui import UI
 
 logger = logging.getLogger(__name__)
 
@@ -21,15 +22,7 @@ class ExportService:
         self.storage = storage
         self.context_engine = DeepModeEngine(client, storage)
 
-    def _get_entity_name(self, entity: Any) -> str:
-        """Helper to get a human readable name from a Telethon entity."""
-        if hasattr(entity, 'first_name'):
-            first = getattr(entity, 'first_name', '') or ''
-            last = getattr(entity, 'last_name', '') or ''
-            return f"{first} {last}".strip() or f"ID:{entity.id}"
-        elif hasattr(entity, 'title'):
-            return getattr(entity, 'title', f"ID:{entity.id}")
-        return f"ID:{getattr(entity, 'id', 'Unknown')}"
+    # UI.format_name handles entity formatting
 
     def request_stop(self):
         """Sets the shutdown event to signal workers to stop."""
@@ -49,7 +42,7 @@ class ExportService:
         """
         # 1. Resolve entity info
         chat_id = getattr(entity, 'id', 0)
-        chat_title = self._get_entity_name(entity)
+        chat_title = UI.format_name(entity)
         set_chat_id(chat_id)
         
         # Save chat metadata immediately
@@ -63,7 +56,7 @@ class ExportService:
         if from_user_id:
             try:
                 user_ent = await self.client.get_entity(from_user_id)
-                target_name = self._get_entity_name(user_ent)
+                target_name = UI.format_name(user_ent)
                 user_label = f" | User: {target_name}"
                 # Save user metadata
                 self.storage.upsert_user(
@@ -98,14 +91,10 @@ class ExportService:
         mode_str = f"DEEP (Depth {active_depth})" if active_deep else "FLAT"
         status_str = " (Resuming history...)" if tail_id > 0 and not is_complete else (" (Updating...)" if head_id > 0 else "")
         
-        CLR_CHAT = "\033[95m"  # Magenta
-        CLR_USER = "\033[93m"  # Yellow
-        CLR_RESET = "\033[0m"
-        
-        colored_title = f"{CLR_CHAT}{chat_title}{CLR_RESET}"
-        colored_user = f"{CLR_USER}{user_label}{CLR_RESET}"
+        colored_title = f"{UI.CLR_CHAT}{chat_title}{UI.CLR_RESET}"
+        colored_user = f"{UI.CLR_USER}{user_label}{UI.CLR_RESET}"
         header = f"💬 Chat: {colored_title}{colored_user} | Mode: {mode_str}{status_str}"
-        if sys.stdout.isatty():
+        if UI.is_tty():
             print(f"\n{header}")
         
         # 5. Determine Scan Boundaries
@@ -152,13 +141,8 @@ class ExportService:
         CLR_RESET = "\033[0m"
 
         async def draw_status(extra=""):
-            # Suppress progress messages if not in a TTY (e.g., background logs)
-            if not sys.stdout.isatty():
-                return
             db_total = self.storage.get_message_count(chat_id, target_id=uid)
-            # Live counter line with colors + \033[K to clear leftover characters
-            sys.stdout.write(f"\r   📊 [{CLR_ID}Syncing{CLR_RESET}] Total in DB: {CLR_COUNT}{db_total}{CLR_RESET} messages {extra}\033[K")
-            sys.stdout.flush()
+            UI.print_status("Syncing", db_total, extra=extra)
 
         async def scan_worker(offset, stop_id, role="TAIL"):
             w_processed = 0
@@ -282,8 +266,9 @@ class ExportService:
             
         # 4. Final summary
         db_count = self.storage.get_message_count(chat_id, target_id=uid)
-        if sys.stdout.isatty():
-            sys.stdout.write(f"\r   ✅ Export Finished! Total in DB: {db_count} messages.               \n")
+        if UI.is_tty():
+            UI.print_status("Finished", db_count)
+            sys.stdout.write("\n")
             sys.stdout.flush()
         
         # 5. Mark as synced now
@@ -331,14 +316,12 @@ class ExportService:
             print(f"   Scanning {len(targets)} dialogues...")
         
         total_processed = 0
-        CLR_CHAT = "\033[95m"  # Magenta
-        CLR_RESET = "\033[0m"
 
         for i, dialog in enumerate(targets):
             try:
-                dialog_title = self._get_entity_name(dialog)
-                if sys.stdout.isatty():
-                    print(f"\n   --- [{i+1}/{len(targets)}] Scan: {CLR_CHAT}\"{dialog_title}\"{CLR_RESET} ---")
+                dialog_title = UI.format_name(dialog)
+                if UI.is_tty():
+                    print(f"\n   --- [{i+1}/{len(targets)}] Scan: {UI.CLR_CHAT}\"{dialog_title}\"{UI.CLR_RESET} ---")
                 
                 processed = await self.sync_chat(
                     dialog,
@@ -356,10 +339,8 @@ class ExportService:
             except Exception as e:
                 logger.error(f"Error scanning dialog {getattr(dialog, 'name', 'Unknown')}: {e}")
         
-        CLR_COUNT = "\033[92m" # Green
-        CLR_RESET = "\033[0m"
-        if sys.stdout.isatty():
-            print(f"\n{CLR_COUNT}✅ Global Export Finished!{CLR_RESET} Total synced: {CLR_COUNT}{total_processed}{CLR_RESET} messages across all dialogs.")
+        if UI.is_tty():
+            print(f"\n{UI.CLR_SUCCESS}✅ Global Export Finished!{UI.CLR_RESET} Total synced: {UI.CLR_SUCCESS}{total_processed}{UI.CLR_RESET} messages across all dialogs.")
         return total_processed
 
     async def sync_all_outdated(self, threshold_seconds: int = 86400) -> dict:
@@ -370,7 +351,7 @@ class ExportService:
         if not outdated:
             return user_stats
 
-        if sys.stdout.isatty():
+        if UI.is_tty():
             print(f"\n🔄 [Updating {len(outdated)} items...]")
         
         for chat_id, from_user_id in outdated:

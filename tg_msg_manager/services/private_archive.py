@@ -10,6 +10,7 @@ from ..infrastructure.storage.interface import BaseStorage
 from ..core.telegram.interface import TelegramClientInterface
 from ..core.telemetry import telemetry
 from ..core.models.message import MessageData
+from ..utils.ui import UI
 
 logger = logging.getLogger(__name__)
 
@@ -27,7 +28,7 @@ class PrivateArchiveService:
         self.download_semaphore = asyncio.Semaphore(3)
 
     def _get_user_folder_name(self, user_id: int, first_name: str, last_name: str, username: str) -> str:
-        name = " ".join(filter(None, [first_name, last_name])) or f"User_{user_id}"
+        name = UI.format_name({'first_name': first_name, 'last_name': last_name, 'username': username, 'user_id': user_id})
         safe_name = "".join(c for c in name if c.isalnum() or c in (' ', '_')).strip().replace(' ', '_')
         return f"{safe_name}_{user_id}"
 
@@ -40,8 +41,7 @@ class PrivateArchiveService:
         last_name = getattr(user_entity, 'last_name', '') or ''
         username = getattr(user_entity, 'username', '') or ''
         
-        target_name = f"{first_name} {last_name}".strip() or f"User_{user_id}"
-        
+        target_name = UI.format_name(user_entity)
         folder_name = self._get_user_folder_name(user_id, first_name, last_name, username)
         user_dir = os.path.join(self.base_dir, folder_name)
         media_dir = os.path.join(user_dir, "media")
@@ -57,8 +57,9 @@ class PrivateArchiveService:
         # Register as primary target
         self.storage.register_target(user_id, target_name, user_id)
         
-        print(f"\n📂 [PM Archive: {target_name} ({user_id})]")
-        print(f"   Saving to: {user_dir}")
+        if UI.is_tty():
+            print(f"\n📂 [PM Archive: {target_name} ({user_id})]")
+            print(f"   Saving to: {user_dir}")
         logger.info(f"PM Archive start for {user_id}. Last ID: {last_id}")
         
         count = 0
@@ -86,11 +87,13 @@ class PrivateArchiveService:
             
             if count % 5 == 0:
                 media_str = f"P:{stats['Photo']} V:{stats['Video']} S:{stats['Voice']} D:{stats['Document']}"
-                sys.stdout.write(f"\r   📥 Processed: {count} messages | Media: {media_str} ...")
-                sys.stdout.flush()
+                UI.print_status("Archiving", count, extra=f"messages | Media: {media_str}")
             
         media_total = f"P:{stats['Photo']} V:{stats['Video']} S:{stats['Voice']} D:{stats['Document']}"
-        sys.stdout.write(f"\r   ✅ Archive Complete! Total messages: {count} | Final Media: {media_total}\n")
+        if UI.is_tty():
+            UI.print_status("Complete", count, extra=f"messages | Final Media: {media_total}")
+            sys.stdout.write("\n")
+            sys.stdout.flush()
         logger.info(f"PM Archive complete for {user_id}. {count} messages, {sum(stats.values())} media.")
         return user_dir
 
