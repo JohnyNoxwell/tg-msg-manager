@@ -4,6 +4,7 @@ import logging
 import sys
 import argparse
 import platform
+from datetime import datetime
 from typing import Optional, Any
 try:
     import tty
@@ -368,13 +369,17 @@ def print_sync_summary(stats: dict):
     if not stats:
         return
     
+    is_tty = sys.stdout.isatty()
+    now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
     print("\n" + "="*45)
-    print(f" 📊 {_('sync_summary_title')}")
+    print(f" 📊 {_('sync_summary_title')} [{now_str}]")
     print("="*45)
     
-    CLR_USER = "\033[93m"  # Yellow
-    CLR_COUNT = "\033[92m" # Green
-    CLR_RESET = "\033[0m"
+    # Use colors only if we are in a terminal
+    CLR_USER = "\033[93m" if is_tty else ""
+    CLR_COUNT = "\033[92m" if is_tty else ""
+    CLR_RESET = "\033[0m" if is_tty else ""
     
     for uid, info in stats.items():
         name = info["name"]

@@ -105,7 +105,8 @@ class ExportService:
         colored_title = f"{CLR_CHAT}{chat_title}{CLR_RESET}"
         colored_user = f"{CLR_USER}{user_label}{CLR_RESET}"
         header = f"💬 Chat: {colored_title}{colored_user} | Mode: {mode_str}{status_str}"
-        print(f"\n{header}")
+        if sys.stdout.isatty():
+            print(f"\n{header}")
         
         # 5. Determine Scan Boundaries
         # Get the latest message to determine current max
@@ -151,6 +152,9 @@ class ExportService:
         CLR_RESET = "\033[0m"
 
         async def draw_status(extra=""):
+            # Suppress progress messages if not in a TTY (e.g., background logs)
+            if not sys.stdout.isatty():
+                return
             db_total = self.storage.get_message_count(chat_id, target_id=uid)
             # Live counter line with colors + \033[K to clear leftover characters
             sys.stdout.write(f"\r   📊 [{CLR_ID}Syncing{CLR_RESET}] Total in DB: {CLR_COUNT}{db_total}{CLR_RESET} messages {extra}\033[K")
@@ -269,7 +273,8 @@ class ExportService:
                     min_tail = min(tails)
                     if min_tail <= 10:
                         self.storage.update_sync_tail(chat_id, uid, 0, is_complete=True)
-                        print(f"\n✨ History fully synced for target in this chat.")
+                        if sys.stdout.isatty():
+                            print(f"\n✨ History fully synced for target in this chat.")
         finally:
             done_event.set()
             await status_task
@@ -277,8 +282,9 @@ class ExportService:
             
         # 4. Final summary
         db_count = self.storage.get_message_count(chat_id, target_id=uid)
-        sys.stdout.write(f"\r   ✅ Export Finished! Total in DB: {db_count} messages.               \n")
-        sys.stdout.flush()
+        if sys.stdout.isatty():
+            sys.stdout.write(f"\r   ✅ Export Finished! Total in DB: {db_count} messages.               \n")
+            sys.stdout.flush()
         
         return total_processed
 
@@ -294,7 +300,8 @@ class ExportService:
         Scans specified dialogs (from config or all) for a specific user's messages.
         """
         if target_chat_ids:
-            print(f"\n🎯 [Targeted Search for User ID: {from_user_id} in {len(target_chat_ids)} pre-defined chats]")
+            if sys.stdout.isatty():
+                print(f"\n🎯 [Targeted Search for User ID: {from_user_id} in {len(target_chat_ids)} pre-defined chats]")
             # Resolve specific entities from IDs/usernames
             targets = []
             for cid in target_chat_ids:
@@ -311,12 +318,14 @@ class ExportService:
                 except Exception as e:
                     logger.warning(f"Could not resolve config chat {cid}: {e}")
         else:
-            print(f"\n🌍 [Searching all dialogs for User ID: {from_user_id}]")
+            if sys.stdout.isatty():
+                print(f"\n🌍 [Searching all dialogs for User ID: {from_user_id}]")
             dialogs = await self.client.get_dialogs()
             # Filter for groups and supergroups only
             targets = [d.entity for d in dialogs if (d.is_group or d.is_channel) and not getattr(d.entity, 'broadcast', False)]
         
-        print(f"   Scanning {len(targets)} dialogues...")
+        if sys.stdout.isatty():
+            print(f"   Scanning {len(targets)} dialogues...")
         
         total_processed = 0
         CLR_CHAT = "\033[95m"  # Magenta
@@ -325,7 +334,8 @@ class ExportService:
         for i, dialog in enumerate(targets):
             try:
                 dialog_title = self._get_entity_name(dialog)
-                print(f"\n   --- [{i+1}/{len(targets)}] Scan: {CLR_CHAT}\"{dialog_title}\"{CLR_RESET} ---")
+                if sys.stdout.isatty():
+                    print(f"\n   --- [{i+1}/{len(targets)}] Scan: {CLR_CHAT}\"{dialog_title}\"{CLR_RESET} ---")
                 
                 processed = await self.sync_chat(
                     dialog,
@@ -345,7 +355,8 @@ class ExportService:
         
         CLR_COUNT = "\033[92m" # Green
         CLR_RESET = "\033[0m"
-        print(f"\n{CLR_COUNT}✅ Global Export Finished!{CLR_RESET} Total synced: {CLR_COUNT}{total_processed}{CLR_RESET} messages across all dialogs.")
+        if sys.stdout.isatty():
+            print(f"\n{CLR_COUNT}✅ Global Export Finished!{CLR_RESET} Total synced: {CLR_COUNT}{total_processed}{CLR_RESET} messages across all dialogs.")
         return total_processed
 
     async def sync_all_outdated(self, threshold_seconds: int = 86400) -> dict:
@@ -356,7 +367,8 @@ class ExportService:
         if not outdated:
             return user_stats
 
-        print(f"\n🔄 [Updating {len(outdated)} items...]")
+        if sys.stdout.isatty():
+            print(f"\n🔄 [Updating {len(outdated)} items...]")
         
         for chat_id, from_user_id in outdated:
             entity = await self.client.get_entity(chat_id)
