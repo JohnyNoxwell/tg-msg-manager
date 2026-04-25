@@ -1,7 +1,6 @@
 import os
 import signal
 import logging
-import time
 import asyncio
 from typing import Optional, Callable
 
@@ -16,6 +15,7 @@ class ProcessManager:
         self.lock_path = lock_path
         self.lock_fd: Optional[int] = None
         self.shutdown_requested = False
+        self._sig_count = 0
 
     def acquire_lock(self) -> bool:
         """
@@ -72,6 +72,46 @@ class ProcessManager:
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.release_lock()
 
+    @staticmethod
+    def _signal_name(sig: int) -> str:
+        if hasattr(signal, 'SIGHUP') and sig == signal.SIGHUP:
+            return "SIGHUP"
+        if sig == signal.SIGTERM:
+            return "SIGTERM"
+        return "SIGINT"
+
+    def _handle_sync_signal(
+        self,
+        sig: int,
+        loop_stop_callback: Optional[Callable] = None,
+        force_exit: Callable[[int], None] = os._exit,
+    ):
+        self._sig_count += 1
+        sig_name = self._signal_name(sig)
+
+        # Ensure we start on a new line if interrupting a progress bar
+        print("\n", end="", flush=True)
+
+        if self._sig_count > 1:
+            print(f"🧨 Forceful exit triggered by {sig_name}...")
+            force_exit(1)
+            return
+
+        logger.warning(f"Signal {sig_name} ({sig}) received. Requesting graceful shutdown...")
+        self.shutdown_requested = True
+
+        if loop_stop_callback:
+            loop_stop_callback()
+
+        # For SIGINT, we raise KeyboardInterrupt to break current await calls
+        if sig == signal.SIGINT:
+            raise KeyboardInterrupt
+
+        # For HUP or TERM, we usually want to exit immediately but nicely
+        hup = getattr(signal, 'SIGHUP', None)
+        if sig in tuple(s for s in (hup, signal.SIGTERM) if s is not None):
+            raise SystemExit(0)
+
     def setup_signals(self, loop_stop_callback: Optional[Callable] = None):
         """
         Registers handlers for SIGINT, SIGTERM, and SIGHUP.
@@ -82,29 +122,7 @@ class ProcessManager:
         self._sig_count = 0
         
         def handler(sig, frame):
-            self._sig_count += 1
-            sig_name = "SIGHUP" if sig == signal.SIGHUP else ("SIGTERM" if sig == signal.SIGTERM else "SIGINT")
-            
-            # Ensure we start on a new line if interrupting a progress bar
-            print("\n", end="", flush=True)
-
-            if self._sig_count > 1:
-                print(f"🧨 Forceful exit triggered by {sig_name}...")
-                os._exit(1) # Immediate hard exit
-
-            logger.warning(f"Signal {sig_name} ({sig}) received. Requesting graceful shutdown...")
-            self.shutdown_requested = True
-            
-            if loop_stop_callback:
-                loop_stop_callback()
-            
-            # For SIGINT, we raise KeyboardInterrupt to break current await calls
-            if sig == signal.SIGINT:
-                raise KeyboardInterrupt
-            
-            # For HUP or TERM, we usually want to exit immediately but nicely
-            if sig in (signal.SIGHUP, signal.SIGTERM):
-                raise SystemExit(0)
+            self._handle_sync_signal(sig, loop_stop_callback=loop_stop_callback)
 
         if hasattr(signal, 'SIGHUP'):
             signal.signal(signal.SIGHUP, handler)

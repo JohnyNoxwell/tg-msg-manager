@@ -45,7 +45,7 @@
 - [x] Rewrite storage tests for async writes.
 - [x] Rewrite exporter/context tests for the current service API.
 - [x] Rewrite sync-system tests for the current method signatures.
-- [ ] Replace process-signal tests with isolated handler tests.
+- [x] Replace process-signal tests with isolated handler tests.
 - [x] Establish a stable smoke suite.
 
 ## Phase 5: Config Semantics
@@ -99,7 +99,7 @@
 - [x] Fix CLI `delete` command initialization path.
 - [x] Remove orphan `message_target_links` during message deletion and keep counts accurate.
 - [x] Fix `_fetch_parent_replies` retry argument ordering.
-- [ ] Replace process-signal tests with isolated handler tests that do not interrupt the whole suite.
+- [x] Replace process-signal tests with isolated handler tests that do not interrupt the whole suite.
 
 ### Priority 3: Throughput And UX
 

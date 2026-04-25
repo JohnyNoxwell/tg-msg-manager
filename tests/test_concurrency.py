@@ -1,6 +1,5 @@
 import sys
 import os
-import time
 import unittest
 import signal
 from unittest.mock import MagicMock
@@ -49,13 +48,21 @@ class TestConcurrency(unittest.TestCase):
     def test_signal_handling(self):
         pm = ProcessManager(self.lock_path)
         callback = MagicMock()
-        pm.setup_signals(callback)
-        
-        # Simulate SIGINT
-        os.kill(os.getpid(), signal.SIGINT)
-        
+        with self.assertRaises(KeyboardInterrupt):
+            pm._handle_sync_signal(signal.SIGINT, loop_stop_callback=callback)
+
         self.assertTrue(pm.should_stop())
         callback.assert_called_once()
+
+    def test_signal_second_interrupt_forces_exit(self):
+        pm = ProcessManager(self.lock_path)
+        forced = []
+
+        pm.shutdown_requested = True
+        pm._sig_count = 1
+        pm._handle_sync_signal(signal.SIGTERM, force_exit=lambda code: forced.append(code))
+
+        self.assertEqual(forced, [1])
 
     def test_retry_queue_persistence(self):
         storage = SQLiteStorage(self.db_path)
