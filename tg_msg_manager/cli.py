@@ -279,9 +279,13 @@ async def run_cli():
 
         elif args.command == "update":
             stats = await ctx.exporter.sync_all_outdated(threshold_seconds=3600)
+            total_processed = sum(item["count"] for item in stats.values() if isinstance(item, dict))
             UI.print_final_summary("sync_summary_title", [{
                 "title": "Update",
-                "lines": [("processed", sum(item["count"] for item in stats.values() if isinstance(item, dict)))],
+                "lines": [
+                    ("processed", total_processed),
+                    ("targets", len(stats)),
+                ],
             }])
 
         elif args.command == "clean":
@@ -375,9 +379,13 @@ async def main_menu():
                 updated_stats = await ctx.exporter.sync_all_outdated()
                 if updated_stats:
                     for uid in updated_stats: await ctx.db_exporter.export_user_messages(uid, as_json=True, include_date=False)
+                    total_processed = sum(item["count"] for item in updated_stats.values() if isinstance(item, dict))
                     UI.print_final_summary("sync_summary_title", [{
                         "title": "Update",
-                        "lines": [("processed", sum(item["count"] for item in updated_stats.values() if isinstance(item, dict)))],
+                        "lines": [
+                            ("processed", total_processed),
+                            ("targets", len(updated_stats)),
+                        ],
                     }])
                 sys.stdout.write("\n" + _("press_enter")); sys.stdout.flush(); TerminalInput.get_char()
                 

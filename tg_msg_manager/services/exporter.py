@@ -35,7 +35,8 @@ class ExportService:
                         force_resync: bool = False,
                         context_window: int = 3,
                         max_cluster: int = 20,
-                        recursive_depth: int = 0):
+                        recursive_depth: int = 0,
+                        emit_summary: bool = True):
         """
         Synchronizes a specific chat with a clean real-time global status counter.
         Now supports Resume and Dual-Sync (New + Historical).
@@ -279,7 +280,7 @@ class ExportService:
         
         # 5. Mark as synced now
         self.storage.update_last_sync_at(chat_id, uid)
-        if UI.is_tty():
+        if UI.is_tty() and emit_summary:
             UI.print_final_summary("sync_summary_title", [{
                 "title": UI.format_name(entity),
                 "lines": [
@@ -346,7 +347,8 @@ class ExportService:
                     force_resync=force_resync,
                     context_window=context_window,
                     max_cluster=max_cluster,
-                    recursive_depth=recursive_depth
+                    recursive_depth=recursive_depth,
+                    emit_summary=False
                 )
                 total_processed += processed
                 # Small pause to be friendly
@@ -356,13 +358,6 @@ class ExportService:
         
         if UI.is_tty():
             print(f"\n{UI.CLR_SUCCESS}✅ Global Export Finished!{UI.CLR_RESET} Total synced: {UI.CLR_SUCCESS}{total_processed}{UI.CLR_RESET} messages across all dialogs.")
-            UI.print_final_summary("sync_summary_title", [{
-                "title": "Global Export",
-                "lines": [
-                    ("processed", total_processed),
-                    ("targets", len(targets)),
-                ],
-            }])
         return total_processed
 
     async def sync_all_outdated(self, threshold_seconds: int = 86400) -> dict:
@@ -384,7 +379,7 @@ class ExportService:
                 from_user_id = item
             entity = await self.client.get_entity(chat_id)
             if entity:
-                processed = await self.sync_chat(entity, from_user_id=from_user_id)
+                processed = await self.sync_chat(entity, from_user_id=from_user_id, emit_summary=False)
                 
                 if from_user_id not in user_stats:
                     # Get name from sync_targets (more reliable for reporting)
