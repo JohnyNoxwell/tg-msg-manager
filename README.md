@@ -49,10 +49,15 @@
 
 *   **Экспорт сообщений**: 
     `python3 -m tg_msg_manager.cli export --user-id 9439859384 --depth 3`
+    `python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 --depth 3 --json`
 *   **Очистка (Боевой режим)**: 
     `python3 -m tg_msg_manager.cli clean --apply --yes`
 *   **Обновление всех целей**: 
     `python3 -m tg_msg_manager.cli update`
+*   **Архив лички**:
+    `python3 -m tg_msg_manager.cli export-pm --user-id 8603071440`
+*   **Экспорт из БД**:
+    `python3 -m tg_msg_manager.cli db-export --user-id 8603071440 --json`
 
 <a id="алиасы"></a>
 #### 🚀 Быстрые Алиасы (Power User)
@@ -110,10 +115,15 @@ Subcommands can be executed directly for automation:
 
 *   **Message Export**: 
     `python3 -m tg_msg_manager.cli export --user-id 9439859384 --depth 3`
+    `python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 --depth 3 --json`
 *   **Global Cleanup (Apply)**: 
     `python3 -m tg_msg_manager.cli clean --apply --yes`
 *   **Universal Update**: 
     `python3 -m tg_msg_manager.cli update`
+*   **PM Archive**:
+    `python3 -m tg_msg_manager.cli export-pm --user-id 8603071440`
+*   **DB Export**:
+    `python3 -m tg_msg_manager.cli db-export --user-id 8603071440 --json`
 
 <a id="aliases"></a>
 #### 🚀 Power User Aliases

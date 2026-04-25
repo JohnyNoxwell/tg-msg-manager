@@ -38,6 +38,13 @@ tg-msg-manager export --user-id <ID> [--chat-id <ID>] [--flat]
 *   `--flat`: Только сообщения автора, без контекста.
 *   `--force-resync`: Начать заново, игнорируя прогресс в БД.
 
+**Примеры**
+```bash
+tg-msg-manager export --user-id 8603071440 --chat-id 1274306614 --depth 3 --json
+tg-msg-manager export --user-id 8603071440 --chat-id 1274306614 --flat
+tg-msg-manager export --user-id 8603071440 --depth 5 --json
+```
+
 #### `update` — Массовое обновление
 ```bash
 tg-msg-manager update [--force-resync]
@@ -49,6 +56,21 @@ tg-msg-manager update [--force-resync]
 tg-msg-manager db-export --user-id <ID> [--json]
 ```
 Экспортирует сохраненные сообщения в файл.
+
+**Примеры**
+```bash
+tg-msg-manager db-export --user-id 8603071440 --json
+tg-msg-manager db-export --user-id 8603071440
+```
+
+#### `export-pm` — Архив лички
+```bash
+tg-msg-manager export-pm --user-id <ID>
+```
+**Пример**
+```bash
+tg-msg-manager export-pm --user-id 8603071440
+```
 
 ---
 
@@ -86,6 +108,13 @@ tg-msg-manager export --user-id <ID> [--chat-id <ID>] [--flat]
 *   `--flat`: Fetch only author messages, skipping surrounding context.
 *   `--force-resync`: Restart the sync from the beginning.
 
+**Examples**
+```bash
+tg-msg-manager export --user-id 8603071440 --chat-id 1274306614 --depth 3 --json
+tg-msg-manager export --user-id 8603071440 --chat-id 1274306614 --flat
+tg-msg-manager export --user-id 8603071440 --depth 5 --json
+```
+
 #### `update` — Batch Updater
 ```bash
 tg-msg-manager update
@@ -97,3 +126,18 @@ The "Smart Sync" engine. It automatically finds all targets in the DB and brings
 tg-msg-manager db-export --user-id <ID> [--json]
 ```
 Converts the internal SQLite representation into human-readable files.
+
+**Examples**
+```bash
+tg-msg-manager db-export --user-id 8603071440 --json
+tg-msg-manager db-export --user-id 8603071440
+```
+
+#### `export-pm` — Private Chat Archive
+```bash
+tg-msg-manager export-pm --user-id <ID>
+```
+**Example**
+```bash
+tg-msg-manager export-pm --user-id 8603071440
+```
