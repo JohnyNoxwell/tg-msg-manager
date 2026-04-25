@@ -279,7 +279,9 @@ async def run_cli():
                 if not ctx.pm.should_stop(): logger.error(f"Error during export: {e}")
 
         elif args.command == "update":
-            stats = await ctx.exporter.sync_all_outdated(threshold_seconds=3600)
+            stats = await ctx.exporter.sync_all_tracked()
+            for uid in stats:
+                await ctx.db_exporter.export_user_messages(uid, as_json=True, include_date=False)
             total_processed = sum(item["count"] for item in stats.values() if isinstance(item, dict))
             UI.print_final_summary("sync_summary_title", [{
                 "title": "Update",
@@ -377,7 +379,7 @@ async def main_menu():
                 
             elif choice == "2":
                 UI.print_header(_("menu_2"), _("menu_2_desc"))
-                updated_stats = await ctx.exporter.sync_all_outdated()
+                updated_stats = await ctx.exporter.sync_all_tracked()
                 if updated_stats:
                     for uid in updated_stats: await ctx.db_exporter.export_user_messages(uid, as_json=True, include_date=False)
                     total_processed = sum(item["count"] for item in updated_stats.values() if isinstance(item, dict))

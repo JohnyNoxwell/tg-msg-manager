@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.1] - 2026-04-25
+
+### Fixed (EN)
+- Fixed `update` so it synchronizes every tracked primary target instead of only the currently outdated subset.
+- Fixed whole-chat target handling during bulk update runs: targets with `user_id == chat_id` are now synchronized as full-chat targets instead of being misrouted as sender-filtered exports.
+
+### Исправления (RU)
+- Исправлена команда `update`: теперь она проходит по всем tracked primary targets, а не только по текущему устаревшему подмножеству.
+- Исправлена обработка full-chat targets при массовом обновлении: цели с `user_id == chat_id` теперь синхронизируются как целый чат, а не ошибочно как экспорт с фильтром по отправителю.
+
 ## [4.2.0] - 2026-04-25
 
 ### Changed (EN)

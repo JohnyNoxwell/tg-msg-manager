@@ -376,15 +376,25 @@ class ExportService:
     async def sync_all_outdated(self, threshold_seconds: int = 86400) -> dict:
         """Runs synchronization for all chats that haven't been updated in a while or are incomplete."""
         outdated = self.storage.get_outdated_chats(threshold_seconds=threshold_seconds)
+        return await self._sync_target_items(outdated)
+
+    async def sync_all_tracked(self) -> dict:
+        """Runs synchronization for every tracked primary target."""
+        targets = self.storage.get_primary_targets()
+        items = [(item["chat_id"], item["user_id"]) for item in targets]
+        return await self._sync_target_items(items)
+
+    async def _sync_target_items(self, items: list) -> dict:
+        """Synchronize a list of target tuples in `(chat_id, user_id)` form."""
         user_stats = {} # user_id -> {"name": str, "count": int}
-        
-        if not outdated:
+
+        if not items:
             return user_stats
 
         if UI.is_tty():
-            print(f"\n🔄 [Updating {len(outdated)} items...]")
-        
-        for item in outdated:
+            print(f"\n🔄 [Updating {len(items)} items...]")
+
+        for item in items:
             if isinstance(item, tuple) and len(item) == 2:
                 chat_id, from_user_id = item
             else:
@@ -392,7 +402,8 @@ class ExportService:
                 from_user_id = item
             entity = await self.client.get_entity(chat_id)
             if entity:
-                processed = await self.sync_chat(entity, from_user_id=from_user_id, emit_summary=False)
+                effective_from_user_id = None if from_user_id == chat_id else from_user_id
+                processed = await self.sync_chat(entity, from_user_id=effective_from_user_id, emit_summary=False)
                 
                 if from_user_id not in user_stats:
                     # Get name from sync_targets (more reliable for reporting)

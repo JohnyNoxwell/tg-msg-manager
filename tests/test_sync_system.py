@@ -69,5 +69,23 @@ class TestSyncSystem(unittest.IsolatedAsyncioTestCase):
         service.sync_chat.assert_awaited()
         self.mock_client.get_entity.assert_awaited_with(111)
 
+    async def test_sync_all_tracked_uses_primary_targets_and_whole_chat_mode(self):
+        self.storage.get_primary_targets = MagicMock(return_value=[
+            {"chat_id": 200, "user_id": 200},
+            {"chat_id": 300, "user_id": 999},
+        ])
+        self.mock_client.get_entity = AsyncMock(side_effect=[MagicMock(id=200), MagicMock(id=300)])
+
+        service = ExportService(self.mock_client, self.storage)
+        service.sync_chat = AsyncMock(return_value=0)
+
+        await service.sync_all_tracked()
+
+        self.assertEqual(service.sync_chat.await_count, 2)
+        first_call = service.sync_chat.await_args_list[0]
+        second_call = service.sync_chat.await_args_list[1]
+        self.assertIsNone(first_call.kwargs["from_user_id"])
+        self.assertEqual(second_call.kwargs["from_user_id"], 999)
+
 if __name__ == "__main__":
     unittest.main()
