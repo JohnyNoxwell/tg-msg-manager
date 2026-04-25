@@ -117,23 +117,37 @@ class UI:
         Prints the final summary of new messages found per user.
         Stats format: {user_id: {"name": str, "count": int}}
         """
-        from ..i18n import _
         if not stats:
             return
-        
+        summaries = []
+        for uid, info in stats.items():
+            summaries.append({
+                "title": info.get("name", f"ID:{uid}"),
+                "lines": [("processed", info.get("count", 0))],
+            })
+        cls.print_final_summary("sync_summary_title", summaries)
+
+    @classmethod
+    def print_final_summary(cls, title_key: str, summaries: list[dict]):
+        from ..i18n import _
+        if not summaries:
+            return
+
         is_tty = cls.is_tty()
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
-        print("\n" + "=" * 45)
-        print(f" 📊 {_('sync_summary_title')} [{now_str}]")
-        print("=" * 45)
-        
-        c_user = cls.CLR_USER if is_tty else ""
-        c_count = cls.CLR_SUCCESS if is_tty else ""
+        c_title = cls.CLR_CYAN if is_tty else ""
+        c_label = cls.CLR_USER if is_tty else ""
+        c_value = cls.CLR_SUCCESS if is_tty else ""
         c_reset = cls.CLR_RESET if is_tty else ""
-        
-        for uid, info in stats.items():
-            name = info["name"]
-            count = info["count"]
-            print(f" {c_user}{name}{c_reset} - {c_count}{count}{c_reset}")
-        print("=" * 45)
+
+        print("\n" + "=" * 60)
+        print(f" {c_title}📊 {_('sync_summary_title')}{c_reset} [{now_str}]")
+        print("=" * 60)
+
+        for item in summaries:
+            print(f" {c_label}{item.get('title', 'Summary')}{c_reset}")
+            for label, value in item.get("lines", []):
+                print(f"   {label}: {c_value}{value}{c_reset}")
+            print("-" * 60)
+
+        print("=" * 60)

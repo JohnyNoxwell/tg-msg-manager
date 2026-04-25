@@ -279,6 +279,15 @@ class ExportService:
         
         # 5. Mark as synced now
         self.storage.update_last_sync_at(chat_id, uid)
+        if UI.is_tty():
+            UI.print_final_summary("sync_summary_title", [{
+                "title": UI.format_name(entity),
+                "lines": [
+                    ("processed", total_processed),
+                    ("db_total", db_count),
+                    ("mode", mode_str),
+                ],
+            }])
         
         return total_processed
 
@@ -347,6 +356,13 @@ class ExportService:
         
         if UI.is_tty():
             print(f"\n{UI.CLR_SUCCESS}✅ Global Export Finished!{UI.CLR_RESET} Total synced: {UI.CLR_SUCCESS}{total_processed}{UI.CLR_RESET} messages across all dialogs.")
+            UI.print_final_summary("sync_summary_title", [{
+                "title": "Global Export",
+                "lines": [
+                    ("processed", total_processed),
+                    ("targets", len(targets)),
+                ],
+            }])
         return total_processed
 
     async def sync_all_outdated(self, threshold_seconds: int = 86400) -> dict:

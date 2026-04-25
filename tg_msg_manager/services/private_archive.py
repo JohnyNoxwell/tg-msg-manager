@@ -128,6 +128,15 @@ class PrivateArchiveService:
         if UI.is_tty():
             final_progress = f"downloaded={archive_stats['downloaded']} skipped={archive_stats['skipped']}"
             UI.print_status("Complete", count, extra=f"messages | {final_progress} | Final Media: {media_total}")
+            UI.print_final_summary("sync_summary_title", [{
+                "title": UI.format_name(user_entity),
+                "lines": [
+                    ("messages", count),
+                    ("downloaded", archive_stats["downloaded"]),
+                    ("skipped", archive_stats["skipped"]),
+                    ("media", sum(stats.values())),
+                ],
+            }])
             sys.stdout.write("\n")
             sys.stdout.flush()
         logger.info(f"PM Archive complete for {user_id}. {count} messages, {sum(stats.values())} media, downloaded={archive_stats['downloaded']}, skipped={archive_stats['skipped']}.")

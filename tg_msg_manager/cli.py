@@ -269,14 +269,20 @@ async def run_cli():
                 
                 user_info = ctx.storage.get_user(ctx.active_uid)
                 name = UI.format_name(user_info) if user_info else f"ID:{ctx.active_uid}"
-                UI.print_sync_summary({ctx.active_uid: {"name": name, "count": processed}})
+                UI.print_final_summary("sync_summary_title", [{
+                    "title": f"Export: {name}",
+                    "lines": [("processed", processed)],
+                }])
 
             except Exception as e:
                 if not ctx.pm.should_stop(): logger.error(f"Error during export: {e}")
 
         elif args.command == "update":
             stats = await ctx.exporter.sync_all_outdated(threshold_seconds=3600)
-            UI.print_sync_summary(stats)
+            UI.print_final_summary("sync_summary_title", [{
+                "title": "Update",
+                "lines": [("processed", sum(item["count"] for item in stats.values() if isinstance(item, dict)))],
+            }])
 
         elif args.command == "clean":
             is_dry = True
@@ -357,7 +363,10 @@ async def main_menu():
                         await ctx.db_exporter.export_user_messages(final_uid, as_json=True, include_date=False)
                         u_info = ctx.storage.get_user(final_uid)
                         target_name = UI.format_name(u_info) if u_info else f"ID:{final_uid}"
-                        UI.print_sync_summary({final_uid: {"name": target_name, "count": processed}})
+                        UI.print_final_summary("sync_summary_title", [{
+                            "title": f"Export: {target_name}",
+                            "lines": [("processed", processed)],
+                        }])
                 
                 sys.stdout.write("\n" + _("press_enter")); sys.stdout.flush(); TerminalInput.get_char()
                 
@@ -366,7 +375,10 @@ async def main_menu():
                 updated_stats = await ctx.exporter.sync_all_outdated()
                 if updated_stats:
                     for uid in updated_stats: await ctx.db_exporter.export_user_messages(uid, as_json=True, include_date=False)
-                    UI.print_sync_summary(updated_stats)
+                    UI.print_final_summary("sync_summary_title", [{
+                        "title": "Update",
+                        "lines": [("processed", sum(item["count"] for item in updated_stats.values() if isinstance(item, dict)))],
+                    }])
                 sys.stdout.write("\n" + _("press_enter")); sys.stdout.flush(); TerminalInput.get_char()
                 
             elif choice == "3":
