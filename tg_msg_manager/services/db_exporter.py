@@ -3,11 +3,13 @@ import re
 import glob
 import json
 import logging
+from time import perf_counter
 from datetime import datetime
 from typing import Any, Dict, List, Optional
 from .file_writer import FileRotateWriter
 from ..infrastructure.storage.interface import BaseStorage
 from ..core.models.message import MessageData
+from ..core.telemetry import telemetry
 from ..utils.ui import UI
 
 logger = logging.getLogger(__name__)
@@ -65,6 +67,7 @@ class DBExportService:
         forum_topic = True if reply_to.get("forum_topic") else None
 
         payload = {
+            "edit_date": raw.get("edit_date"),
             "message_id": m.message_id,
             "chat_id": m.chat_id,
             "user_id": m.user_id,
@@ -78,7 +81,6 @@ class DBExportService:
             "fwd_from_id": m.fwd_from_id,
             "context_group_id": m.context_group_id,
             "is_service": True if m.is_service else None,
-            "edit_date": raw.get("edit_date"),
             "reactions": self._extract_reaction_summary(raw),
         }
         return {k: v for k, v in payload.items() if v not in (None, "", [])}
@@ -124,6 +126,7 @@ class DBExportService:
         Fetches all messages for a user from storage and writes them to parts using FileRotateWriter.
         Returns the base output path.
         """
+        started_at = perf_counter()
         messages = self.storage.get_user_messages(user_id)
         if not messages:
             logger.warning(f"No messages found in DB for user {user_id}")
@@ -161,21 +164,34 @@ class DBExportService:
                     logger.warning(f"Could not remove old export file {old_file}: {e}")
 
         # Sort messages by date to ensure chronological chat flow
-        messages.sort(key=lambda x: x.timestamp)
+        messages.sort(key=lambda x: (x.timestamp, x.message_id))
         
         # Message lookup for resolving replies (only for TXT format)
         msg_lookup = {m.message_id: m for m in messages} if not as_json else {}
 
         writer = FileRotateWriter(output_path, as_json=as_json, overwrite=True)
+        write_batch_size = 250 if as_json else 100
         
         last_date = None
         last_author_id = None
         
+        pending_blocks: List[str] = []
+        pending_count = 0
+
+        async def flush_pending():
+            nonlocal pending_blocks, pending_count
+            if not pending_blocks:
+                return
+            await writer.write_block("".join(pending_blocks), pending_count)
+            pending_blocks = []
+            pending_count = 0
+
         count = 0
         for m in messages:
             if as_json:
                 block = self.format_message(m, as_json=True, json_profile=json_profile)
-                await writer.write_block(block + "\n", 1)
+                pending_blocks.append(block + "\n")
+                pending_count += 1
             else:
                 # Chat-like TXT formatting
                 current_date = m.timestamp.date()
@@ -214,11 +230,37 @@ class DBExportService:
                     formatted_block += f"{header}\n{reply_context}        {m.text or '(пусто)'}\n\n"
                     last_author_id = m.user_id
                 
-                await writer.write_block(formatted_block, 1)
+                pending_blocks.append(formatted_block)
+                pending_count += 1
+
+            if pending_count >= write_batch_size:
+                await flush_pending()
 
             count += 1
             if count % 100 == 0:
                 logger.debug(f"Exported {count}/{len(messages)} messages from DB...")
 
+        await flush_pending()
+        elapsed_seconds = perf_counter() - started_at
+        telemetry.track_counter("db_export.users", 1)
+        telemetry.track_counter("db_export.messages", count)
+        telemetry.track_duration("db_export.total", elapsed_seconds)
+        logger.info(
+            "DB export complete",
+            extra={
+                "event": "db_export_complete",
+                "metrics": {
+                    "user_id": user_id,
+                    "messages": count,
+                    "json": as_json,
+                    "path": output_path,
+                    "elapsed_seconds": round(elapsed_seconds, 3),
+                    "writer_write_calls": writer.write_calls,
+                    "writer_bytes_written": writer.bytes_written,
+                    "writer_rotations": writer.rotation_count,
+                    "writer_state_persists": writer.state_persist_count,
+                },
+            },
+        )
         logger.info(f"DB Export complete for {target_author}: {count} messages.")
         return output_path

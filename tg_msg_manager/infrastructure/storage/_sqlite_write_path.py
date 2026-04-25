@@ -6,24 +6,33 @@ from datetime import datetime
 from typing import List, Optional
 
 from ...core.models.message import MessageData, SCHEMA_VERSION
+from ...core.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
 
 class SQLiteWritePathMixin:
-    async def save_message(self, msg: MessageData, target_id: Optional[int] = None) -> bool:
+    async def save_message(self, msg: MessageData, target_id: Optional[int] = None, flush: bool = True) -> bool:
         """Queues a single message for background saving."""
         await self._ensure_worker_started()
-        await self._write_queue.put((msg, target_id))
-        await self.flush()
+        self._write_queue.put_nowait((msg, target_id))
+        telemetry.track_counter("storage.queue_messages", 1)
+        telemetry.track_counter("storage.queue_batches", 1)
+        if flush:
+            await self.flush()
         return True
 
-    async def save_messages(self, msgs: List[MessageData], target_id: Optional[int] = None) -> int:
+    async def save_messages(self, msgs: List[MessageData], target_id: Optional[int] = None, flush: bool = True) -> int:
         """Queues a batch of messages for background saving."""
+        if not msgs:
+            return 0
         await self._ensure_worker_started()
         for msg in msgs:
-            await self._write_queue.put((msg, target_id))
-        await self.flush()
+            self._write_queue.put_nowait((msg, target_id))
+        telemetry.track_counter("storage.queue_messages", len(msgs))
+        telemetry.track_counter("storage.queue_batches", 1)
+        if flush:
+            await self.flush()
         return len(msgs)
 
     def _save_message_sync(self, msg: MessageData, target_id: Optional[int] = None) -> bool:
@@ -51,7 +60,11 @@ class SQLiteWritePathMixin:
                     pass
 
                 if items:
+                    started_at = time.perf_counter()
                     await asyncio.to_thread(self._save_batches_by_target, items)
+                    telemetry.track_duration("storage.background_commit.total", time.perf_counter() - started_at)
+                    telemetry.track_counter("storage.background_commit.batches", 1)
+                    telemetry.track_counter("storage.background_commit.messages", len(items))
                     for _ in range(len(items)):
                         self._write_queue.task_done()
                     logger.debug(f"Background Writer committed {len(items)} items.")

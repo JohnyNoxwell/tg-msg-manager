@@ -38,6 +38,7 @@ tg-msg-manager export --user-id <ID> [--chat-id <ID>] [--flat]
 *   `--flat`: Только сообщения автора, без контекста.
 *   `--force-resync`: Начать заново, игнорируя прогресс в БД.
 *   `--limit`: Ограничить число обрабатываемых сообщений в рамках одного sync чата.
+*   Если `--depth` не указан, Deep Mode использует глубину `2` по умолчанию.
 
 **Примеры**
 ```bash
@@ -109,6 +110,7 @@ tg-msg-manager export --user-id <ID> [--chat-id <ID>] [--flat]
 *   `--flat`: Fetch only author messages, skipping surrounding context.
 *   `--force-resync`: Restart the sync from the beginning.
 *   `--limit`: Cap the number of processed messages inside a single chat sync.
+*   If `--depth` is omitted, Deep Mode defaults to depth `2`.
 
 **Examples**
 ```bash

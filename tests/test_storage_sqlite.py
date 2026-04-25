@@ -174,5 +174,25 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             ).fetchone()
             self.assertEqual(row["count"], 0)
 
+    async def test_filter_missing_target_links_batches_existing_ids(self):
+        self.storage.register_target(1, "Target User", 777)
+        msg = MessageData(
+            message_id=1,
+            chat_id=777,
+            user_id=1,
+            author_name="Target User",
+            timestamp=datetime.now(),
+            text="Keep me",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={}
+        )
+
+        await self.storage.save_message(msg, target_id=1)
+        missing = self.storage.filter_missing_target_links(777, 1, [1, 2, 3])
+        self.assertEqual(missing, [2, 3])
+
     async def asyncTearDown(self):
         await self.storage.close()

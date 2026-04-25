@@ -3,6 +3,8 @@ import asyncio
 import logging
 import json
 
+from ..core.telemetry import telemetry
+
 logger = logging.getLogger(__name__)
 
 class FileRotateWriter:
@@ -28,6 +30,10 @@ class FileRotateWriter:
         
         self.current_part = 1
         self.current_count = 0
+        self.bytes_written = 0
+        self.write_calls = 0
+        self.state_persist_count = 0
+        self.rotation_count = 0
         
         if overwrite:
             self._cleanup_existing_files()
@@ -75,6 +81,8 @@ class FileRotateWriter:
         os.makedirs(self.state_dir, exist_ok=True)
         with open(self.state_path, "w", encoding="utf-8") as f:
             json.dump(state, f)
+        self.state_persist_count += 1
+        telemetry.track_counter("file_writer.state_persists", 1)
 
     def _detect_current_state(self):
         """Finds the highest part number that exists and counts its messages."""
@@ -125,10 +133,19 @@ class FileRotateWriter:
                 self.current_part += 1
                 self.current_count = 0
                 self.current_file_path = self._get_path()
+                self.rotation_count += 1
+                telemetry.track_counter("file_writer.rotations", 1)
                 logger.info(f"File limit reached. Rotating to part {self.current_part}: {self.current_file_path}")
 
+            started_at = asyncio.get_running_loop().time()
             with open(self.current_file_path, "a", encoding="utf-8") as f:
                 f.write(content)
                 f.flush()
+            telemetry.track_duration("file_writer.write_block.total", asyncio.get_running_loop().time() - started_at)
             self.current_count += msg_count
+            self.bytes_written += len(content.encode("utf-8"))
+            self.write_calls += 1
+            telemetry.track_counter("file_writer.write_calls", 1)
+            telemetry.track_counter("file_writer.messages_written", msg_count)
+            telemetry.track_counter("file_writer.bytes_written", len(content.encode("utf-8")))
             self._persist_state()

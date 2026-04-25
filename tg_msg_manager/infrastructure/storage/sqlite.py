@@ -10,6 +10,7 @@ from ._sqlite_read_path import SQLiteReadPathMixin
 from ._sqlite_schema import SQLiteSchemaMixin
 from ._sqlite_sync_state import SQLiteSyncStateMixin
 from ._sqlite_write_path import SQLiteWritePathMixin
+from ...core.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -72,7 +73,8 @@ class SQLiteStorage(
     async def flush(self):
         """Waits until queued writes are persisted."""
         await self._ensure_worker_started()
-        await self._write_queue.join()
+        with telemetry.time_block("storage.flush.total"):
+            await self._write_queue.join()
 
     def request_stop(self):
         """Sets the shutdown event to signal workers to stop."""

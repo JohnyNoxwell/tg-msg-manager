@@ -3,9 +3,11 @@ import logging
 import uuid
 from dataclasses import dataclass, field, replace
 from datetime import timedelta
+from time import perf_counter
 from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from ..core.models.message import MessageData
+from ..core.telemetry import telemetry
 from ..core.telegram.interface import TelegramClientInterface
 from ..infrastructure.storage.interface import BaseStorage
 
@@ -94,28 +96,34 @@ class DeepModeEngine:
         max_cluster: int = 20,
         recursive_depth: int = 3,
         on_progress: Optional[Any] = None,
-    ):
+    ) -> int:
         """
         Builds a deterministic context cluster for each target message.
         """
         if not target_messages or recursive_depth <= 0:
-            return
+            return 0
 
+        started_at = perf_counter()
         active_depth = min(max(recursive_depth, 1), 3)
         clusters = self._initialize_clusters(target_messages)
         if not clusters:
-            return
+            return 0
 
+        telemetry.track_counter("deep.extract_batch.calls", 1)
+        telemetry.track_counter("deep.extract_batch.targets", len(target_messages))
+        telemetry.track_counter("deep.extract_batch.clusters", len(clusters))
         await self.storage.save_messages(
             [cluster.target.message for cluster in clusters],
             target_id=target_id,
+            flush=False,
         )
+        saved_count = len(clusters)
         if on_progress:
             await on_progress()
 
         chat_id = clusters[0].target.message.chat_id
 
-        await self._expand_structural_round(
+        saved_count += await self._expand_structural_round(
             entity,
             chat_id,
             clusters,
@@ -127,7 +135,7 @@ class DeepModeEngine:
         )
 
         if active_depth >= 2:
-            await self._expand_structural_round(
+            saved_count += await self._expand_structural_round(
                 entity,
                 chat_id,
                 clusters,
@@ -139,7 +147,7 @@ class DeepModeEngine:
             )
 
         if active_depth >= 3:
-            await self._apply_time_fallback(
+            saved_count += await self._apply_time_fallback(
                 entity,
                 chat_id,
                 clusters,
@@ -148,6 +156,9 @@ class DeepModeEngine:
                 max_cluster=max_cluster,
                 on_progress=on_progress,
             )
+        telemetry.track_counter("deep.extract_batch.saved_messages", saved_count)
+        telemetry.track_duration("deep.extract_batch.total", perf_counter() - started_at)
+        return saved_count
 
     def _initialize_clusters(self, target_messages: List[MessageData]) -> List[_ClusterState]:
         clusters: List[_ClusterState] = []
@@ -176,11 +187,12 @@ class DeepModeEngine:
         max_cluster: int,
         round_number: int,
         on_progress: Optional[Any],
-    ):
+    ) -> int:
         anchors_by_cluster = self._build_anchors_by_cluster(clusters, round_number, max_cluster)
         if not anchors_by_cluster:
-            return
+            return 0
 
+        round_started = perf_counter()
         parents = await self._fetch_parent_messages(entity, chat_id, anchors_by_cluster)
         parent_additions = self._associate_parents(
             clusters,
@@ -188,7 +200,7 @@ class DeepModeEngine:
             parents,
             max_cluster=max_cluster,
         )
-        await self._flush_new_messages(parent_additions, target_id=target_id, on_progress=on_progress)
+        saved_count = await self._flush_new_messages(parent_additions, target_id=target_id, on_progress=on_progress)
 
         candidate_messages = await self._fetch_candidate_pool(
             entity,
@@ -207,7 +219,11 @@ class DeepModeEngine:
             round_number=round_number,
             max_cluster=max_cluster,
         )
-        await self._flush_new_messages(candidate_additions, target_id=target_id, on_progress=on_progress)
+        saved_count += await self._flush_new_messages(candidate_additions, target_id=target_id, on_progress=on_progress)
+        telemetry.track_counter(f"deep.round_{round_number}.clusters", len(anchors_by_cluster))
+        telemetry.track_counter(f"deep.round_{round_number}.saved_messages", saved_count)
+        telemetry.track_duration(f"deep.round_{round_number}.total", perf_counter() - round_started)
+        return saved_count
 
     def _build_anchors_by_cluster(
         self,
@@ -251,14 +267,29 @@ class DeepModeEngine:
         if not needed_parent_ids:
             return {}
 
+        started_at = perf_counter()
         normalized: Dict[int, _NormalizedContextMessage] = {}
-        missing_ids: List[int] = []
-        for parent_id in sorted(needed_parent_ids):
-            stored = await asyncio.to_thread(self.storage.get_message, chat_id, parent_id)
-            if stored:
-                normalized[parent_id] = self._normalize_message(stored)
-            else:
-                missing_ids.append(parent_id)
+        stored_messages = self._load_stored_messages_by_ids(chat_id, sorted(needed_parent_ids))
+        if stored_messages is None:
+            storage_hits = 0
+            missing_ids: List[int] = []
+            for parent_id in sorted(needed_parent_ids):
+                stored = await asyncio.to_thread(self.storage.get_message, chat_id, parent_id)
+                if stored:
+                    normalized[parent_id] = self._normalize_message(stored)
+                    storage_hits += 1
+                else:
+                    missing_ids.append(parent_id)
+        else:
+            for stored in stored_messages.values():
+                normalized[stored.message.message_id] = self._normalize_message(stored)
+            storage_hits = len(stored_messages)
+
+            missing_ids = [
+                parent_id
+                for parent_id in sorted(needed_parent_ids)
+                if parent_id not in normalized
+            ]
 
         if missing_ids:
             try:
@@ -272,6 +303,11 @@ class DeepModeEngine:
                 norm = self._normalize_message(msg)
                 normalized[norm.message.message_id] = norm
 
+        telemetry.track_counter("deep.parent_lookup.calls", 1)
+        telemetry.track_counter("deep.parent_lookup.requested", len(needed_parent_ids))
+        telemetry.track_counter("deep.parent_lookup.storage_hits", storage_hits)
+        telemetry.track_counter("deep.parent_lookup.live_fetch_ids", len(missing_ids))
+        telemetry.track_duration("deep.parent_lookup.total", perf_counter() - started_at)
         return normalized
 
     def _associate_parents(
@@ -308,6 +344,7 @@ class DeepModeEngine:
         if not anchor_ids:
             return []
 
+        started_at = perf_counter()
         ranges = self._calculate_ranges(anchor_ids, before_ids=scan_before, after_ids=scan_after)
         seen: Set[MessageKey] = set()
         collected: List[_NormalizedContextMessage] = []
@@ -336,6 +373,10 @@ class DeepModeEngine:
             collected.append(norm)
 
         collected.sort(key=lambda norm: (norm.message.timestamp, norm.message.message_id))
+        telemetry.track_counter("deep.candidate_pool.calls", 1)
+        telemetry.track_counter("deep.candidate_pool.ranges", len(ranges))
+        telemetry.track_counter("deep.candidate_pool.messages", len(collected))
+        telemetry.track_duration("deep.candidate_pool.total", perf_counter() - started_at)
         return collected
 
     def _associate_candidates(
@@ -402,7 +443,7 @@ class DeepModeEngine:
         window_size: int,
         max_cluster: int,
         on_progress: Optional[Any],
-    ):
+    ) -> int:
         fallback_clusters = [
             cluster
             for cluster in clusters
@@ -412,8 +453,9 @@ class DeepModeEngine:
             and cluster.remaining_slots(max_cluster) > 0
         ]
         if not fallback_clusters:
-            return
+            return 0
 
+        started_at = perf_counter()
         additions: List[MessageData] = []
         for cluster in fallback_clusters:
             local_candidates = await self._fetch_candidate_pool(
@@ -427,7 +469,11 @@ class DeepModeEngine:
                 if self._add_to_cluster(cluster, norm, "time_fallback", max_cluster=max_cluster, structural=False):
                     additions.append(self._with_cluster(norm.message, cluster.cluster_id))
 
-        await self._flush_new_messages(additions, target_id=target_id, on_progress=on_progress)
+        saved_count = await self._flush_new_messages(additions, target_id=target_id, on_progress=on_progress)
+        telemetry.track_counter("deep.time_fallback.clusters", len(fallback_clusters))
+        telemetry.track_counter("deep.time_fallback.saved_messages", saved_count)
+        telemetry.track_duration("deep.time_fallback.total", perf_counter() - started_at)
+        return saved_count
 
     def _select_time_fallback(
         self,
@@ -486,12 +532,15 @@ class DeepModeEngine:
         messages: List[MessageData],
         target_id: Optional[int],
         on_progress: Optional[Any],
-    ):
+    ) -> int:
         if not messages:
-            return
-        await self.storage.save_messages(messages, target_id=target_id)
+            return 0
+        await self.storage.save_messages(messages, target_id=target_id, flush=False)
+        telemetry.track_counter("deep.flush_new_messages.calls", 1)
+        telemetry.track_counter("deep.flush_new_messages.messages", len(messages))
         if on_progress:
             await on_progress()
+        return len(messages)
 
     def _add_to_cluster(
         self,
@@ -546,6 +595,7 @@ class DeepModeEngine:
         )
 
     async def _fetch_range(self, entity: Any, start_id: int, end_id: int) -> List[MessageData]:
+        started_at = perf_counter()
         results: List[MessageData] = []
         async with self.semaphore:
             async for msg_data in self.client.iter_messages(
@@ -556,27 +606,52 @@ class DeepModeEngine:
                 if msg_data.message_id < start_id:
                     break
                 results.append(msg_data)
+        telemetry.track_counter("deep.fetch_range.calls", 1)
+        telemetry.track_counter("deep.fetch_range.messages", len(results))
+        telemetry.track_duration("deep.fetch_range.total", perf_counter() - started_at)
         return results
 
     def _load_stored_range(self, chat_id: int, start_id: int, end_id: int) -> List[MessageData]:
         getter = getattr(self.storage, "get_messages_in_id_range", None)
         if not callable(getter):
             return []
+        started_at = perf_counter()
         try:
             result = getter(chat_id, start_id, end_id)
         except TypeError:
             return []
-        return result if isinstance(result, list) else []
+        rows = result if isinstance(result, list) else []
+        telemetry.track_counter("deep.load_stored_range.calls", 1)
+        telemetry.track_counter("deep.load_stored_range.messages", len(rows))
+        telemetry.track_duration("deep.load_stored_range.total", perf_counter() - started_at)
+        return rows
+
+    def _load_stored_messages_by_ids(self, chat_id: int, message_ids: List[int]) -> Optional[Dict[int, MessageData]]:
+        getter = getattr(self.storage, "get_messages_by_ids", None)
+        if not callable(getter):
+            return None
+        try:
+            result = getter(chat_id, message_ids)
+        except TypeError:
+            return None
+        if not isinstance(result, list):
+            return None
+        return {message.message_id: message for message in result}
 
     def _load_stored_replies(self, chat_id: int, reply_to_ids: Iterable[int]) -> List[MessageData]:
         getter = getattr(self.storage, "get_messages_replying_to", None)
         if not callable(getter):
             return []
+        started_at = perf_counter()
         try:
             result = getter(chat_id, list(reply_to_ids))
         except TypeError:
             return []
-        return result if isinstance(result, list) else []
+        rows = result if isinstance(result, list) else []
+        telemetry.track_counter("deep.load_stored_replies.calls", 1)
+        telemetry.track_counter("deep.load_stored_replies.messages", len(rows))
+        telemetry.track_duration("deep.load_stored_replies.total", perf_counter() - started_at)
+        return rows
 
     def _calculate_ranges(self, ids: List[int], before_ids: int, after_ids: int) -> List[Tuple[int, int]]:
         if not ids:

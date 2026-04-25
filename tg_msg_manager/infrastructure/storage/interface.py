@@ -9,7 +9,7 @@ class BaseStorage(ABC):
     """
 
     @abstractmethod
-    async def save_message(self, msg: MessageData, target_id: Optional[int] = None) -> bool:
+    async def save_message(self, msg: MessageData, target_id: Optional[int] = None, flush: bool = True) -> bool:
         """
         Save a single message.
         Returns True if successful, False otherwise.
@@ -17,7 +17,7 @@ class BaseStorage(ABC):
         pass
 
     @abstractmethod
-    async def save_messages(self, msgs: List[MessageData], target_id: Optional[int] = None) -> int:
+    async def save_messages(self, msgs: List[MessageData], target_id: Optional[int] = None, flush: bool = True) -> int:
         """
         Save multiple messages in a single transaction.
         Returns the number of messages successfully saved.
@@ -54,7 +54,7 @@ class BaseStorage(ABC):
         pass
 
     @abstractmethod
-    def get_message_count(self, chat_id: int) -> int:
+    def get_message_count(self, chat_id: int, target_id: Optional[int] = None) -> int:
         """
         Returns the total number of messages stored for a specific chat.
         """
@@ -142,4 +142,9 @@ class BaseStorage(ABC):
     @abstractmethod
     async def close(self):
         """Closes the storage connection."""
+        pass
+
+    @abstractmethod
+    async def flush(self):
+        """Waits until queued writes are persisted."""
         pass

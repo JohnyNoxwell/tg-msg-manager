@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from time import perf_counter
 from typing import AsyncGenerator, List, Optional, Any
 from telethon import TelegramClient, types
 
@@ -34,14 +35,24 @@ class TelethonClientWrapper(TelegramClientInterface):
         return await self.client.get_me()
 
     async def get_dialogs(self) -> List[Any]:
+        started_at = perf_counter()
         await self.throttler.throttle()
         telemetry.track_request()
-        return await self.client.get_dialogs()
+        try:
+            dialogs = await self.client.get_dialogs()
+            telemetry.track_counter("telegram.get_dialogs.items", len(dialogs))
+            return dialogs
+        finally:
+            telemetry.track_duration("telegram.get_dialogs.total", perf_counter() - started_at)
 
     async def get_entity(self, entity_id: Any) -> Any:
+        started_at = perf_counter()
         await self.throttler.throttle()
         telemetry.track_request()
-        return await self.client.get_entity(entity_id)
+        try:
+            return await self.client.get_entity(entity_id)
+        finally:
+            telemetry.track_duration("telegram.get_entity.total", perf_counter() - started_at)
 
     async def get_messages(self, entity, message_ids: Optional[List[int]] = None, limit: Optional[int] = None) -> List[MessageData]:
         """
@@ -49,7 +60,8 @@ class TelethonClientWrapper(TelegramClientInterface):
         """
         if message_ids is None and limit is None:
             return []
-            
+
+        started_at = perf_counter()
         await self.throttler.throttle()
         telemetry.track_request()
         
@@ -60,6 +72,7 @@ class TelethonClientWrapper(TelegramClientInterface):
             for msg in msgs:
                 if msg:
                     results.append(self._normalize_message(entity, msg))
+            telemetry.track_counter("telegram.get_messages.items", len(results))
             return results
         except FloodWaitError as e:
             logger.debug(f"FloodWait during get_messages: {e.seconds}s. Slowing down rps.")
@@ -67,6 +80,8 @@ class TelethonClientWrapper(TelegramClientInterface):
             telemetry.track_flood_wait(e.seconds)
             await asyncio.sleep(e.seconds)
             return await self.get_messages(entity, message_ids=message_ids, limit=limit)
+        finally:
+            telemetry.track_duration("telegram.get_messages.total", perf_counter() - started_at)
 
     def _normalize_message(self, entity, msg) -> MessageData:
         """Helper to convert Telethon Message to internal MessageData."""
@@ -100,12 +115,19 @@ class TelethonClientWrapper(TelegramClientInterface):
         Throttling is applied per batch (roughly every 100 messages) to maintain speed.
         """
         count = 0
-        async for msg in self.client.iter_messages(entity, limit=limit, offset_id=offset_id, from_user=from_user, **kwargs):
-            if count % 100 == 0:
-                await self.throttler.throttle()
-            
-            yield self._normalize_message(entity, msg)
-            count += 1
+        started_at = perf_counter()
+        telemetry.track_counter("telegram.iter_messages.calls", 1)
+        try:
+            async for msg in self.client.iter_messages(entity, limit=limit, offset_id=offset_id, from_user=from_user, **kwargs):
+                if count % 100 == 0:
+                    await self.throttler.throttle()
+                    telemetry.track_counter("telegram.iter_messages.throttle_ticks", 1)
+                
+                yield self._normalize_message(entity, msg)
+                count += 1
+        finally:
+            telemetry.track_counter("telegram.iter_messages.items", count)
+            telemetry.track_duration("telegram.iter_messages.total", perf_counter() - started_at)
 
     async def delete_messages(self, entity, message_ids: List[int]) -> int:
         """
@@ -113,7 +135,8 @@ class TelethonClientWrapper(TelegramClientInterface):
         """
         if not message_ids:
             return 0
-            
+
+        started_at = perf_counter()
         await self.throttler.throttle()
         telemetry.track_request()
         try:
@@ -134,12 +157,15 @@ class TelethonClientWrapper(TelegramClientInterface):
             logger.error(f"Error deleting messages: {e}")
             telemetry.track_error()
             return 0
+        finally:
+            telemetry.track_duration("telegram.delete_messages.total", perf_counter() - started_at)
 
     async def download_media(self, media, file: Optional[str] = None) -> Optional[str]:
         """Downloads media through Telethon with throttling and flood-wait handling."""
         if media is None:
             return None
 
+        started_at = perf_counter()
         await self.throttler.throttle()
         telemetry.track_request()
         try:
@@ -154,3 +180,5 @@ class TelethonClientWrapper(TelegramClientInterface):
             logger.error(f"Error downloading media: {e}")
             telemetry.track_error()
             return None
+        finally:
+            telemetry.track_duration("telegram.download_media.total", perf_counter() - started_at)

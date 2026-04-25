@@ -104,6 +104,7 @@ class SQLiteSchemaMixin:
         conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_standalone_id ON messages (message_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_chat_reply ON messages (chat_id, reply_to_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_mt_link_target ON message_target_links (target_user_id)")
+        conn.execute("CREATE INDEX IF NOT EXISTS idx_mt_link_chat_target_msg ON message_target_links (chat_id, target_user_id, message_id)")
         conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_context_group ON messages (context_group_id)")
 
     def _ensure_sync_target_columns(self, conn: sqlite3.Connection):

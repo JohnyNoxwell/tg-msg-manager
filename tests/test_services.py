@@ -3,7 +3,7 @@ import os
 import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 
 # Add project root to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -33,6 +33,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         self.mock_storage.upsert_user = MagicMock()
         self.mock_storage.register_target = MagicMock()
         self.mock_storage.update_last_sync_at = MagicMock()
+        self.mock_storage.flush = AsyncMock()
         self.mock_storage.get_last_msg_id.return_value = 10
         self.mock_storage.get_message_count.return_value = 0
         self.mock_storage.get_sync_status.return_value = {
@@ -97,6 +98,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         count = await service.sync_chat(MagicMock(id=1), limit=10)
         
         self.assertGreaterEqual(count, 0)
+        self.mock_storage.flush.assert_awaited()
 
     async def test_export_limit_uses_single_worker_range(self):
         msg1 = MessageData(message_id=15, chat_id=1, user_id=1, author_name="Exporter User",
@@ -272,6 +274,44 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         saved_ids = self._saved_message_ids()
         self.assertIn(100, saved_ids)
         self.assertNotIn(101, saved_ids)
+
+    async def test_deep_mode_handles_mixed_storage_and_live_timestamps(self):
+        base_time = datetime.now(timezone.utc)
+        stored_parent = self._message(
+            50,
+            user_id=9,
+            author_name="Stored Parent",
+            text="Parent",
+            timestamp=base_time - timedelta(minutes=1),
+        )
+        target = self._message(
+            100,
+            user_id=1,
+            author_name="Deep User",
+            text="Target",
+            timestamp=base_time,
+            reply_to_id=50,
+            raw_payload={"reply_to": {"reply_to_msg_id": 50}},
+        )
+        live_reply = self._message(
+            101,
+            user_id=2,
+            author_name="Live Reply",
+            text="Reply",
+            timestamp=base_time + timedelta(seconds=30),
+            reply_to_id=100,
+            raw_payload={"reply_to": {"reply_to_msg_id": 100}},
+        )
+
+        self.mock_storage.get_message.return_value = MessageData.from_dict(stored_parent.to_dict())
+        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: AsyncIterator([live_reply, target])
+
+        engine = DeepModeEngine(self.mock_client, self.mock_storage)
+        await engine.extract_batch_context(MagicMock(id=1), [target], target_id=1, recursive_depth=3)
+
+        saved_ids = self._saved_message_ids()
+        self.assertIn(50, saved_ids)
+        self.assertIn(101, saved_ids)
 
     async def test_deep_mode_processed_ids_do_not_leak_between_chats(self):
         self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: AsyncIterator([])

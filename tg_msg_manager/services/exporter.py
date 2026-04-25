@@ -1,6 +1,7 @@
 import sys
 import asyncio
 import logging
+from time import perf_counter
 from typing import Optional, Any, Set
 from ..core.telegram.interface import TelegramClientInterface
 from ..infrastructure.storage.interface import BaseStorage
@@ -42,6 +43,7 @@ class ExportService:
         Now supports Resume and Dual-Sync (New + Historical).
         """
         # 1. Resolve entity info
+        sync_started = perf_counter()
         chat_id = getattr(entity, 'id', 0)
         chat_title = UI.format_name(entity)
         set_chat_id(chat_id)
@@ -78,7 +80,7 @@ class ExportService:
         saved_depth = status.get("recursive_depth", 0)
         
         active_deep = deep_mode or saved_deep
-        active_depth = recursive_depth if recursive_depth > 0 else (saved_depth if saved_depth > 0 else 3)
+        active_depth = recursive_depth if recursive_depth > 0 else (saved_depth if saved_depth > 0 else 2)
 
         head_id = 0 if force_resync else status["last_msg_id"]
         tail_id = 0 if force_resync else status["tail_msg_id"]
@@ -154,20 +156,122 @@ class ExportService:
         CLR_ID = "\033[94m"    # Blue
         CLR_RESET = "\033[0m"
 
+        initial_db_total = self.storage.get_message_count(chat_id, target_id=uid)
+
         async def draw_status(extra=""):
-            db_total = self.storage.get_message_count(chat_id, target_id=uid)
+            db_total = initial_db_total + progress_stats["linked"]
             progress = f"processed={progress_stats['processed']} skipped={progress_stats['skipped']}"
             suffix = f"{progress} {extra}".strip()
             UI.print_status("Syncing", db_total, extra=suffix)
 
-        progress_stats = {"processed": 0, "skipped": 0}
+        progress_stats = {"processed": 0, "skipped": 0, "linked": 0}
+
+        def resolve_new_ids(messages):
+            started_at = perf_counter()
+            if force_resync or not messages:
+                resolved = {msg.message_id for msg in messages}
+                telemetry.track_counter("sync.target_link_lookup.fast_path", len(resolved))
+                telemetry.track_duration("sync.target_link_lookup.total", perf_counter() - started_at)
+                return resolved
+
+            message_ids = [msg.message_id for msg in messages]
+            filter_missing = getattr(self.storage, "filter_missing_target_links", None)
+            missing = None
+            if callable(filter_missing):
+                try:
+                    result = filter_missing(chat_id, uid, message_ids)
+                except TypeError:
+                    result = None
+                if isinstance(result, list):
+                    missing = set(result)
+
+            if missing is None:
+                missing = {
+                    msg.message_id
+                    for msg in messages
+                    if not self.storage.has_target_link(chat_id, msg.message_id, uid)
+                }
+            telemetry.track_counter("sync.target_link_lookup.batches", 1)
+            telemetry.track_counter("sync.target_link_lookup.candidates", len(message_ids))
+            telemetry.track_counter("sync.target_link_lookup.missing", len(missing))
+            telemetry.track_duration("sync.target_link_lookup.total", perf_counter() - started_at)
+            return missing
 
         async def scan_worker(offset, stop_id, role="TAIL"):
             w_processed = 0
             w_batch = []
             w_context_batch = []
+            w_scan_buffer = []
             w_tail_id = offset
             w_head_id = head_id
+
+            async def process_scan_buffer():
+                nonlocal w_processed, w_batch, w_context_batch, w_scan_buffer, w_tail_id, w_head_id
+                if not w_scan_buffer:
+                    return
+
+                missing_ids = resolve_new_ids(w_scan_buffer)
+                for msg_data in w_scan_buffer:
+                    is_new = msg_data.message_id in missing_ids
+                    if not is_new and not force_resync:
+                        progress_stats["skipped"] += 1
+                        if progress_stats["skipped"] % 100 == 0:
+                            await draw_status(f"(Skipping cached: {msg_data.message_id})")
+                        continue
+
+                    if active_deep:
+                        if self.storage.should_stop():
+                            break
+
+                        w_context_batch.append(msg_data)
+                        if len(w_context_batch) >= context_batch_size:
+                            if self.storage.should_stop():
+                                break
+
+                            saved_count = await self.context_engine.extract_batch_context(
+                                entity, w_context_batch,
+                                target_id=uid,
+                                window_size=context_window,
+                                max_cluster=max_cluster,
+                                recursive_depth=active_depth,
+                                on_progress=lambda: draw_status(f"(ID: {msg_data.message_id})")
+                            )
+                            progress_stats["linked"] += saved_count
+                            telemetry.track_counter("sync.deep_batches", 1)
+                            telemetry.track_counter("sync.deep_messages", len(w_context_batch))
+                            w_context_batch = []
+                            await draw_status(f"(ID: {msg_data.message_id})")
+                    else:
+                        w_batch.append(msg_data)
+
+                    w_processed += 1
+                    progress_stats["processed"] += 1
+
+                    if role == "TAIL":
+                        w_tail_id = msg_data.message_id
+                    else:
+                        w_head_id = max(w_head_id, msg_data.message_id)
+
+                    if w_processed % 50 == 0:
+                        await draw_status(f"(ID: {msg_data.message_id})")
+
+                    if len(w_batch) >= batch_size:
+                        batch_started = perf_counter()
+                        await self.storage.save_messages(w_batch, target_id=uid, flush=False)
+                        telemetry.track_duration("sync.flat_batch_save.total", perf_counter() - batch_started)
+                        progress_stats["linked"] += len(w_batch)
+                        telemetry.track_counter("sync.flat_batches", 1)
+                        telemetry.track_counter("sync.flat_messages", len(w_batch))
+                        if role == "TAIL" and offset <= (tail_id or current_max):
+                            self.storage.update_sync_tail(chat_id, uid, w_tail_id, is_complete=False)
+                        elif role == "HEAD":
+                            self.storage.update_last_msg_id(chat_id, uid, w_head_id)
+
+                        telemetry.track_messages(len(w_batch))
+                        w_batch = []
+                        await draw_status()
+
+                w_scan_buffer = []
             
             async for msg_data in self.client.iter_messages(entity, limit=single_worker_limit, offset_id=offset, from_user=from_user_id):
                 if self.storage.should_stop():
@@ -179,66 +283,15 @@ class ExportService:
                 # 2. Skip already synced blocks if this is a broad worker
                 if not force_resync and role == "TAIL" and tail_id > 0 and tail_id < msg_data.message_id <= head_id:
                     continue 
-
-                # 3. Skip already synced messages for this target to ensure accurate "new" count
-                is_new = not self.storage.has_target_link(chat_id, msg_data.message_id, uid)
-                
-                if not is_new and not force_resync:
-                    progress_stats["skipped"] += 1
-                    if w_processed % 100 == 0:
-                        await draw_status(f"(Skipping cached: {msg_data.message_id})")
-                    continue
-
-                if active_deep:
-                    # OPTIMIZATION: Stop immediately on signal
-                    if self.storage.should_stop(): 
-                        break
-
-                    w_context_batch.append(msg_data)
-                    if len(w_context_batch) >= context_batch_size:
-                        if self.storage.should_stop(): break # Double check
-                        
-                        await self.context_engine.extract_batch_context(
-                            entity, w_context_batch, 
-                            target_id=uid,
-                            window_size=context_window,
-                            max_cluster=max_cluster,
-                            recursive_depth=active_depth,
-                            on_progress=lambda: draw_status(f"(ID: {msg_data.message_id})")
-                        )
-                        w_context_batch = []
-                        await draw_status(f"(ID: {msg_data.message_id})")
-                else:
-                    w_batch.append(msg_data)
-                
-                w_processed += 1
-                progress_stats["processed"] += 1
-                
-                # Update boundaries
-                if role == "TAIL":
-                    w_tail_id = msg_data.message_id
-                else:
-                    w_head_id = max(w_head_id, msg_data.message_id)
-                
-                # Periodically update status even if not saving yet
-                if w_processed % 20 == 0:
-                    await draw_status(f"(ID: {msg_data.message_id})")
-
-                if len(w_batch) >= batch_size:
-                    await self.storage.save_messages(w_batch, target_id=uid)
-                    # Update DB state
-                    if role == "TAIL" and offset <= (tail_id or current_max):
-                        self.storage.update_sync_tail(chat_id, uid, w_tail_id, is_complete=False)
-                    elif role == "HEAD":
-                        self.storage.update_last_msg_id(chat_id, uid, w_head_id)
-                    
-                    telemetry.track_messages(len(w_batch))
-                    w_batch = []
-                    await draw_status()
+                w_scan_buffer.append(msg_data)
+                if len(w_scan_buffer) >= 100:
+                    await process_scan_buffer()
 
             # Final flushes for worker
+            await process_scan_buffer()
             if active_deep and w_context_batch:
-                await self.context_engine.extract_batch_context(
+                batch_size_now = len(w_context_batch)
+                saved_count = await self.context_engine.extract_batch_context(
                     entity, w_context_batch, 
                     target_id=uid,
                     window_size=context_window,
@@ -246,8 +299,16 @@ class ExportService:
                     recursive_depth=active_depth,
                     on_progress=draw_status
                 )
+                progress_stats["linked"] += saved_count
+                telemetry.track_counter("sync.deep_batches", 1)
+                telemetry.track_counter("sync.deep_messages", batch_size_now)
             if w_batch:
-                await self.storage.save_messages(w_batch, target_id=uid)
+                batch_started = perf_counter()
+                await self.storage.save_messages(w_batch, target_id=uid, flush=False)
+                telemetry.track_duration("sync.flat_batch_save.total", perf_counter() - batch_started)
+                progress_stats["linked"] += len(w_batch)
+                telemetry.track_counter("sync.flat_batches", 1)
+                telemetry.track_counter("sync.flat_messages", len(w_batch))
                 if role == "TAIL" and offset <= (tail_id or current_max):
                     self.storage.update_sync_tail(chat_id, uid, w_tail_id, is_complete=False)
                 elif role == "HEAD":
@@ -283,6 +344,10 @@ class ExportService:
             done_event.set()
             await status_task
             await draw_status()
+
+        flush_started = perf_counter()
+        await self.storage.flush()
+        telemetry.track_duration("sync.storage_flush.total", perf_counter() - flush_started)
             
         # 4. Final summary
         db_count = self.storage.get_message_count(chat_id, target_id=uid)
@@ -293,6 +358,28 @@ class ExportService:
         
         # 5. Mark as synced now
         self.storage.update_last_sync_at(chat_id, uid)
+        elapsed_seconds = perf_counter() - sync_started
+        telemetry.track_duration("sync.chat.total", elapsed_seconds)
+        telemetry.track_counter("sync.chat.processed_messages", total_processed)
+        telemetry.track_counter("sync.chat.linked_messages", progress_stats["linked"])
+        telemetry.track_counter("sync.chat.skipped_messages", progress_stats["skipped"])
+        logger.info(
+            "Chat sync complete",
+            extra={
+                "event": "sync_chat_complete",
+                "metrics": {
+                    "chat_id": chat_id,
+                    "target_id": uid,
+                    "processed": total_processed,
+                    "linked": progress_stats["linked"],
+                    "skipped": progress_stats["skipped"],
+                    "mode": "deep" if active_deep else "flat",
+                    "depth": active_depth if active_deep else 0,
+                    "elapsed_seconds": round(elapsed_seconds, 3),
+                    "ranges": len(ranges),
+                },
+            },
+        )
         if UI.is_tty() and emit_summary:
             UI.print_final_summary("sync_summary_title", [{
                 "title": UI.format_name(entity),
@@ -317,6 +404,7 @@ class ExportService:
         Scans specified dialogs (from config or all) for a specific user's messages.
         """
         if target_chat_ids:
+            started_at = perf_counter()
             if sys.stdout.isatty():
                 print(f"\n🎯 [Targeted Search for User ID: {from_user_id} in {len(target_chat_ids)} pre-defined chats]")
             # Resolve specific entities from IDs/usernames
@@ -335,6 +423,7 @@ class ExportService:
                 except Exception as e:
                     logger.warning(f"Could not resolve config chat {cid}: {e}")
         else:
+            started_at = perf_counter()
             if sys.stdout.isatty():
                 print(f"\n🌍 [Searching all dialogs for User ID: {from_user_id}]")
             dialogs = await self.client.get_dialogs()
@@ -371,6 +460,8 @@ class ExportService:
         
         if UI.is_tty():
             print(f"\n{UI.CLR_SUCCESS}✅ Global Export Finished!{UI.CLR_RESET} Total synced: {UI.CLR_SUCCESS}{total_processed}{UI.CLR_RESET} messages across all dialogs.")
+        telemetry.track_counter("sync.dialogs.scanned", len(targets))
+        telemetry.track_duration("sync.dialogs_for_user.total", perf_counter() - started_at)
         return total_processed
 
     async def sync_all_outdated(self, threshold_seconds: int = 86400) -> dict:
@@ -394,6 +485,8 @@ class ExportService:
         if UI.is_tty():
             print(f"\n🔄 [Updating {len(items)} items...]")
 
+        started_at = perf_counter()
+        telemetry.track_counter("sync.tracked_items.total", len(items))
         for item in items:
             if isinstance(item, tuple) and len(item) == 2:
                 chat_id, from_user_id = item
@@ -422,5 +515,6 @@ class ExportService:
                 
                 user_stats[from_user_id]["count"] += processed
                 
-        telemetry.log_summary()
+        telemetry.track_duration("sync.all_tracked.total", perf_counter() - started_at)
+        telemetry.log_summary("Tracked sync telemetry summary")
         return user_stats

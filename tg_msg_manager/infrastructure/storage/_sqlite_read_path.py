@@ -1,15 +1,22 @@
 import json
 import logging
 import sqlite3
-from datetime import datetime
-from typing import List, Optional
+from time import perf_counter
+from datetime import datetime, timezone
+from typing import Iterable, List, Optional
 
 from ...core.models.message import MessageData
+from ...core.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
 
 class SQLiteReadPathMixin:
+    @staticmethod
+    def _chunked(values: Iterable[int], size: int = 900) -> List[List[int]]:
+        items = list(values)
+        return [items[i:i + size] for i in range(0, len(items), size)]
+
     def _row_to_message(self, row: sqlite3.Row) -> MessageData:
         data = dict(row)
         msg_id = data.get("message_id") if "message_id" in data else data.get("msg_id")
@@ -18,7 +25,7 @@ class SQLiteReadPathMixin:
             chat_id=data["chat_id"],
             user_id=data["user_id"],
             author_name=data.get("author_name"),
-            timestamp=datetime.fromtimestamp(data["timestamp"]),
+            timestamp=datetime.fromtimestamp(data["timestamp"], tz=timezone.utc),
             text=data.get("text"),
             media_type=data.get("media_type"),
             reply_to_id=data.get("reply_to_id"),
@@ -103,9 +110,8 @@ class SQLiteReadPathMixin:
             if target_id:
                 row = conn.execute("""
                     SELECT COUNT(*) as count
-                    FROM message_target_links l
-                    JOIN messages m ON l.chat_id = m.chat_id AND l.message_id = m.message_id
-                    WHERE l.chat_id = ? AND l.target_user_id = ?
+                    FROM message_target_links
+                    WHERE chat_id = ? AND target_user_id = ?
                 """, (chat_id, target_id)).fetchone()
             else:
                 row = conn.execute(
@@ -143,6 +149,48 @@ class SQLiteReadPathMixin:
                 ORDER BY timestamp ASC, message_id ASC
             """, (chat_id, *reply_to_ids)).fetchall()
             return [self._row_to_message(row) for row in rows]
+
+    def get_messages_by_ids(self, chat_id: int, message_ids: List[int]) -> List[MessageData]:
+        if not message_ids:
+            return []
+
+        started_at = perf_counter()
+        rows = []
+        with self._read_connection() as conn:
+            for chunk in self._chunked(message_ids):
+                placeholders = ", ".join(["?"] * len(chunk))
+                rows.extend(conn.execute(f"""
+                    SELECT * FROM messages
+                    WHERE chat_id = ? AND message_id IN ({placeholders})
+                    ORDER BY timestamp ASC, message_id ASC
+                """, (chat_id, *chunk)).fetchall())
+        telemetry.track_counter("storage.get_messages_by_ids.calls", 1)
+        telemetry.track_counter("storage.get_messages_by_ids.requested_ids", len(message_ids))
+        telemetry.track_counter("storage.get_messages_by_ids.rows", len(rows))
+        telemetry.track_duration("storage.get_messages_by_ids.total", perf_counter() - started_at)
+        return [self._row_to_message(row) for row in rows]
+
+    def filter_missing_target_links(self, chat_id: int, target_id: int, message_ids: List[int]) -> List[int]:
+        if not message_ids:
+            return []
+
+        started_at = perf_counter()
+        existing_ids = set()
+        with self._read_connection() as conn:
+            for chunk in self._chunked(message_ids):
+                placeholders = ", ".join(["?"] * len(chunk))
+                rows = conn.execute(f"""
+                    SELECT message_id FROM message_target_links
+                    WHERE chat_id = ? AND target_user_id = ? AND message_id IN ({placeholders})
+                """, (chat_id, target_id, *chunk)).fetchall()
+                existing_ids.update(row["message_id"] for row in rows)
+
+        missing_ids = [message_id for message_id in message_ids if message_id not in existing_ids]
+        telemetry.track_counter("storage.target_link_filter.calls", 1)
+        telemetry.track_counter("storage.target_link_filter.candidates", len(message_ids))
+        telemetry.track_counter("storage.target_link_filter.missing", len(missing_ids))
+        telemetry.track_duration("storage.target_link_filter.total", perf_counter() - started_at)
+        return missing_ids
 
     def get_unique_sync_users(self) -> List[dict]:
         with self._read_connection() as conn:

@@ -55,6 +55,8 @@ class TestDBExporter(unittest.TestCase):
         self.assertEqual(payload["context_group_id"], "cluster-1")
         self.assertEqual(payload["reactions"], [{"emoji": "👍", "count": 3}])
         self.assertEqual(payload["edit_date"], "2025-01-01T12:00:00+00:00")
+        rendered = self.service.format_message(msg, as_json=True)
+        self.assertTrue(rendered.startswith('{"edit_date":"2025-01-01T12:00:00+00:00"'))
 
     def test_full_json_profile_keeps_raw_payload(self):
         msg = MessageData(

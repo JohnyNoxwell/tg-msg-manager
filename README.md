@@ -61,6 +61,7 @@ python3 -m tg_msg_manager.cli update
     `python3 -m tg_msg_manager.cli export --user-id 9439859384 --depth 3`
     `python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 --depth 3 --json`
     `python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 --flat`
+    По умолчанию Deep Mode использует `--depth 2`, если глубина явно не указана.
 *   **Очистка (Боевой режим)**: 
     `python3 -m tg_msg_manager.cli clean --apply --yes`
 *   **Обновление всех целей**: 
@@ -159,6 +160,7 @@ Subcommands can be executed directly for automation:
     `python3 -m tg_msg_manager.cli export --user-id 9439859384 --depth 3`
     `python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 --depth 3 --json`
     `python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 --flat`
+    Deep Mode defaults to `--depth 2` when no explicit depth is provided.
 *   **Global Cleanup (Apply)**: 
     `python3 -m tg_msg_manager.cli clean --apply --yes`
 *   **Universal Update**: 

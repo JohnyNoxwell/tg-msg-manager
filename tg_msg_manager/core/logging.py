@@ -4,6 +4,8 @@ import logging
 from datetime import datetime
 from .context import get_chat_id, get_trace_id
 
+STANDARD_LOG_RECORD_FIELDS = set(logging.makeLogRecord({}).__dict__.keys())
+
 class JSONFormatter(logging.Formatter):
     """
     Formatter that outputs JSON strings for easier ingestion by log processors.
@@ -23,11 +25,15 @@ class JSONFormatter(logging.Formatter):
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)
             
-        # Include extra fields if any
-        if hasattr(record, "extra"):
-            log_data.update(record.extra)
+        extra_fields = {
+            key: value
+            for key, value in record.__dict__.items()
+            if key not in STANDARD_LOG_RECORD_FIELDS and not key.startswith("_")
+        }
+        if extra_fields:
+            log_data.update(extra_fields)
             
-        return json.dumps(log_data, ensure_ascii=False)
+        return json.dumps(log_data, ensure_ascii=False, default=str)
 
 class HumanFormatter(logging.Formatter):
     """

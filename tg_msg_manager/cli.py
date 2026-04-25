@@ -58,6 +58,7 @@ class TerminalInput:
 from .core.config import settings
 from .core.logging import setup_logging
 from .core.process import ProcessManager
+from .core.telemetry import telemetry
 from .core.telegram.client import TelethonClientWrapper
 from .infrastructure.storage.sqlite import SQLiteStorage
 from .services.exporter import ExportService
@@ -114,6 +115,7 @@ class CLIContext:
 
     async def initialize(self):
         setup_logging()
+        telemetry.reset()
         if not self.pm.acquire_lock():
             print(_("error_locked"))
             sys.exit(1)
@@ -175,7 +177,7 @@ async def run_cli():
     export_parser.add_argument("--force-resync", action="store_true")
     export_parser.add_argument("--context-window", type=int, default=3)
     export_parser.add_argument("--max-cluster", type=int, default=10)
-    export_parser.add_argument("--depth", type=int, default=3)
+    export_parser.add_argument("--depth", type=int, default=2)
     export_parser.add_argument("--limit", type=int, default=None)
     export_parser.add_argument("--json", action="store_true")
 
@@ -282,6 +284,7 @@ async def run_cli():
             stats = await ctx.exporter.sync_all_tracked()
             for uid in stats:
                 await ctx.db_exporter.export_user_messages(uid, as_json=True, include_date=False)
+            telemetry.log_summary("Update telemetry summary")
             total_processed = sum(item["count"] for item in stats.values() if isinstance(item, dict))
             UI.print_final_summary("sync_summary_title", [{
                 "title": "Update",
@@ -345,9 +348,9 @@ async def main_menu():
                 if deep_choice is None: continue
                 active_deep = deep_choice.lower() != 'n'
                 
-                active_depth = 3
+                active_depth = 2
                 if active_deep:
-                    depth_str = TerminalInput.prompt_with_esc("Recursive Depth (1-5) [3]: ")
+                    depth_str = TerminalInput.prompt_with_esc("Recursive Depth (1-5) [2]: ")
                     if depth_str and depth_str.isdigit(): active_depth = int(depth_str)
                 
                 user_ent, chat_ent = await get_safe_user_and_chat(ctx.client, target_str.strip(), chat_str.strip() if chat_str else None)

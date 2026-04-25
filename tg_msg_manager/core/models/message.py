@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Dict, Any
 import hashlib
 import json
@@ -61,7 +61,7 @@ class MessageData:
             chat_id=data["chat_id"],
             user_id=data["user_id"],
             author_name=data.get("author_name"),
-            timestamp=datetime.fromtimestamp(data["timestamp"]),
+            timestamp=datetime.fromtimestamp(data["timestamp"], tz=timezone.utc),
             text=data.get("text"),
             media_type=data.get("media_type"),
             reply_to_id=data.get("reply_to_id"),

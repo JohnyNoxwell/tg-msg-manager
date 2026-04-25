@@ -36,13 +36,35 @@ class TestObservability(unittest.TestCase):
         self.assertIn("timestamp", data)
 
     def test_telemetry_counters(self):
-        # Reset telemetry for test (singleton)
-        telemetry.data.api_requests_total = 0
-        
+        telemetry.reset()
         telemetry.track_request()
         telemetry.track_request()
-        
-        self.assertEqual(telemetry.get_summary()["api_requests"], 2)
+        telemetry.track_counter("sync.flat_batches", 3)
+        with telemetry.time_block("sync.chat.total"):
+            pass
+
+        summary = telemetry.get_summary()
+        self.assertEqual(summary["api_requests"], 2)
+        self.assertEqual(summary["counters"]["sync.flat_batches"], 3)
+        self.assertEqual(summary["timing_samples"]["sync.chat.total"], 1)
+        self.assertIn("sync.chat.total", summary["timing_avg_ms"])
+
+    def test_json_formatter_includes_custom_extra_fields(self):
+        log_capture = io.StringIO()
+        handler = logging.StreamHandler(log_capture)
+        handler.setFormatter(JSONFormatter())
+
+        logger = logging.getLogger("test_json_extra")
+        logger.setLevel(logging.INFO)
+        logger.addHandler(handler)
+        logger.propagate = False
+
+        logger.info("Metrics message", extra={"event": "telemetry_summary", "metrics": {"x": 1}})
+
+        output = log_capture.getvalue().strip()
+        data = json.loads(output)
+        self.assertEqual(data["event"], "telemetry_summary")
+        self.assertEqual(data["metrics"]["x"], 1)
 
 if __name__ == "__main__":
     unittest.main()

@@ -1,6 +1,32 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.3] - 2026-04-25
+
+### Changed (EN)
+- **Default Deep Depth**: Deep exports now default to depth `2`, which keeps structural reply/topic context while avoiding the noisier time-based fallback unless depth `3` is requested explicitly.
+- **Safe Sync/Export Acceleration**: Optimized the local hot path without increasing Telegram request pressure: deferred SQLite flushes out of per-batch sync loops, replaced per-message target-link checks with batched lookups, batched parent fetches from storage in Deep Mode, and buffered DB export file writes.
+- **Runtime Telemetry**: Added stage-level timings and counters for Telegram I/O, Deep Mode expansion, SQLite queue/flush/commit work, and DB export writing. The latest summary is now written to `LOGS/telemetry_latest.json` and emitted as structured log events during bulk updates.
+
+### Fixed (EN)
+- Fixed mixed timestamp handling between live Telegram messages and SQLite-loaded messages by normalizing deserialization to UTC-aware datetimes, preventing `offset-naive` vs `offset-aware` comparison errors during deep scans.
+- Fixed AI JSONL key ordering so `edit_date` is emitted first when present, improving manual inspection of edited messages.
+
+### Added (EN)
+- Added `scripts/reset_and_seed_targets.py` to wipe local DB/export artifacts and reseed `sync_targets` from `DB_TARGETS.txt` before a full fresh `update`.
+
+### Изменения (RU)
+- **Глубина Deep Mode по умолчанию**: Глубокий экспорт теперь по умолчанию использует глубину `2`, сохраняя структурный контекст по reply/topic без лишнего time-fallback, если явно не запрошена глубина `3`.
+- **Безопасное ускорение sync/export**: Локальный hot path ускорен без роста давления на Telegram API: `flush` вынесен из каждого batch-цикла, проверка target-link переведена на пакетные запросы, parent lookup в Deep Mode стал пакетным, а запись DB-export файлов буферизована.
+- **Runtime-метрики**: Добавлены тайминги и счётчики по стадиям Telegram I/O, расширения Deep Mode, SQLite queue/flush/commit и записи DB export. Последняя сводка теперь сохраняется в `LOGS/telemetry_latest.json` и логируется как structured events во время массового `update`.
+
+### Исправления (RU)
+- Исправлена обработка смешанных timestamp между live-сообщениями Telegram и сообщениями, загруженными из SQLite: десериализация нормализована в UTC-aware `datetime`, что убирает ошибку сравнения `offset-naive` и `offset-aware` дат в deep scan.
+- Исправлен порядок ключей в AI JSONL: при наличии `edit_date` теперь выводится первым, чтобы edited messages было проще читать глазами.
+
+### Добавлено (RU)
+- Добавлен `scripts/reset_and_seed_targets.py` для полной очистки локальной БД/экспортов и повторного заполнения `sync_targets` из `DB_TARGETS.txt` перед полным новым `update`.
+
 ## [4.2.2] - 2026-04-25
 
 ### Changed (EN)
