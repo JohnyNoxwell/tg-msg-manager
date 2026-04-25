@@ -9,7 +9,7 @@ class BaseStorage(ABC):
     """
 
     @abstractmethod
-    def save_message(self, msg: MessageData, target_id: Optional[int] = None) -> bool:
+    async def save_message(self, msg: MessageData, target_id: Optional[int] = None) -> bool:
         """
         Save a single message.
         Returns True if successful, False otherwise.
@@ -17,7 +17,7 @@ class BaseStorage(ABC):
         pass
 
     @abstractmethod
-    def save_messages(self, msgs: List[MessageData], target_id: Optional[int] = None) -> int:
+    async def save_messages(self, msgs: List[MessageData], target_id: Optional[int] = None) -> int:
         """
         Save multiple messages in a single transaction.
         Returns the number of messages successfully saved.
@@ -140,6 +140,6 @@ class BaseStorage(ABC):
         pass
 
     @abstractmethod
-    def close(self):
+    async def close(self):
         """Closes the storage connection."""
         pass

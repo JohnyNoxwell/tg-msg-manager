@@ -69,7 +69,7 @@ class PrivateArchiveService:
             if msg_data.message_id <= last_id:
                 break
                 
-            self.storage.save_message(msg_data)
+            await self.storage.save_message(msg_data)
             log_entry = self._format_pm_log(msg_data)
             
             if msg_data.media_type:

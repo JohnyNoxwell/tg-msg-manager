@@ -8,7 +8,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tg_msg_manager.core.models.message import MessageData
 from tg_msg_manager.infrastructure.storage.sqlite import SQLiteStorage
 
-class TestSQLiteStorage(unittest.TestCase):
+class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         # Use a temporary test database
         self.db_path = "test_storage.db"
@@ -23,7 +23,7 @@ class TestSQLiteStorage(unittest.TestCase):
         if os.path.exists(f"{self.db_path}-shm"):
             os.remove(f"{self.db_path}-shm")
 
-    def test_save_and_get_message(self):
+    async def test_save_and_get_message(self):
         msg = MessageData(
             message_id=1,
             chat_id=123,
@@ -39,7 +39,7 @@ class TestSQLiteStorage(unittest.TestCase):
         )
         
         # Test save
-        success = self.storage.save_message(msg)
+        success = await self.storage.save_message(msg)
         self.assertTrue(success)
         
         # Test existence
@@ -52,7 +52,7 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertEqual(retrieved.text, "Hello SQLite")
         self.assertEqual(retrieved.raw_payload["test"], "data")
 
-    def test_batch_save(self):
+    async def test_batch_save(self):
         msgs = [
             MessageData(message_id=i, chat_id=789, user_id=1, author_name="Batch User",
                         timestamp=datetime.now(), 
@@ -61,18 +61,18 @@ class TestSQLiteStorage(unittest.TestCase):
             for i in range(1, 11)
         ]
         
-        count = self.storage.save_messages(msgs)
+        count = await self.storage.save_messages(msgs)
         self.assertEqual(count, 10)
         self.assertEqual(self.storage.get_last_msg_id(789), 10)
 
-    def test_upsert_logic(self):
+    async def test_upsert_logic(self):
         msg = MessageData(
             message_id=1, chat_id=1, user_id=1, author_name="Orig User",
             timestamp=datetime.now(), 
             text="Original", media_type=None, reply_to_id=None, 
             fwd_from_id=None, context_group_id=None, raw_payload={}
         )
-        self.storage.save_message(msg)
+        await self.storage.save_message(msg)
         
         # Update text for the same message_id
         updated_msg = MessageData(
@@ -81,19 +81,19 @@ class TestSQLiteStorage(unittest.TestCase):
             text="Updated", media_type=None, reply_to_id=None, 
             fwd_from_id=None, context_group_id=None, raw_payload={}
         )
-        self.storage.save_message(updated_msg)
+        await self.storage.save_message(updated_msg)
         
         retrieved = self.storage.get_message(1, 1)
         self.assertEqual(retrieved.text, "Updated")
 
-    def test_payload_hashing(self):
+    async def test_payload_hashing(self):
         msg = MessageData(
             message_id=55, chat_id=1, user_id=1, author_name="Hash User",
             timestamp=datetime.now(), 
             text="Original", media_type=None, reply_to_id=None, 
             fwd_from_id=None, context_group_id=None, raw_payload={"v": 1}
         )
-        self.storage.save_message(msg)
+        await self.storage.save_message(msg)
         h1 = msg.get_payload_hash()
         
         # Test hash detection
@@ -107,16 +107,16 @@ class TestSQLiteStorage(unittest.TestCase):
         self.assertNotEqual(h1, h2)
         
         # Test that update occurs when hash changes
-        self.storage.save_message(msg2)
+        await self.storage.save_message(msg2)
         retrieved = self.storage.get_message(1, 55)
         self.assertEqual(retrieved.raw_payload["v"], 2)
 
 
-    def test_get_all_message_ids(self):
+    async def test_get_all_message_ids(self):
         msg = MessageData(1, 100, 1, "Test User", datetime.now(), "Test", None, None, None, None, {})
-        self.storage.save_message(msg)
+        await self.storage.save_message(msg)
         ids = self.storage.get_all_message_ids_for_chat(100)
         self.assertEqual(ids, [1])
 
-if __name__ == "__main__":
-    unittest.main()
+    async def asyncTearDown(self):
+        await self.storage.close()

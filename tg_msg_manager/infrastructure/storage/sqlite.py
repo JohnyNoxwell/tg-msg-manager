@@ -39,6 +39,16 @@ class SQLiteStorage(BaseStorage):
         if not self._worker_task:
             self._worker_task = asyncio.create_task(self._background_writer())
 
+    async def _ensure_worker_started(self):
+        """Lazily starts the writer so async save calls work even without explicit start()."""
+        if not self._worker_task:
+            await self.start()
+
+    async def flush(self):
+        """Waits until queued writes are persisted."""
+        await self._ensure_worker_started()
+        await self._write_queue.join()
+
     def request_stop(self):
         """Sets the shutdown event to signal workers to stop."""
         self._shutdown_event.set()
@@ -205,7 +215,9 @@ class SQLiteStorage(BaseStorage):
 
     async def save_message(self, msg: MessageData, target_id: Optional[int] = None) -> bool:
         """Queues a single message for background saving."""
+        await self._ensure_worker_started()
         await self._write_queue.put((msg, target_id))
+        await self.flush()
         return True
 
     def _save_message_sync(self, msg: MessageData, target_id: Optional[int] = None) -> bool:
@@ -220,8 +232,10 @@ class SQLiteStorage(BaseStorage):
 
     async def save_messages(self, msgs: List[MessageData], target_id: Optional[int] = None) -> int:
         """Queues a batch of messages for background saving."""
+        await self._ensure_worker_started()
         for msg in msgs:
             await self._write_queue.put((msg, target_id))
+        await self.flush()
         return len(msgs)
 
     async def _background_writer(self):
