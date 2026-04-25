@@ -1,4 +1,6 @@
 import os
+import re
+import glob
 import logging
 from datetime import datetime
 from typing import List, Optional
@@ -62,10 +64,33 @@ class DBExportService:
         if target_author == "Unknown":
             target_author = f"User_{user_id}"
 
-        safe_name = target_author.replace(" ", "_")
+        if target_author.startswith("ID:"):
+            target_author = target_author[3:] # Remove "ID:" prefix for cleaner filenames
+            
+        safe_name = re.sub(r'[^\w\s-]', '', target_author).strip()
+        safe_name = re.sub(r'[-\s]+', '_', safe_name)
+        
         date_suffix = f"_date({datetime.now().strftime('%m-%d')})" if include_date else ""
-        filename = f"{safe_name}_{user_id}{date_suffix}" + (".jsonl" if as_json else ".txt")
+        ext = ".jsonl" if as_json else ".txt"
+        filename = f"{safe_name}_{user_id}{date_suffix}{ext}"
         output_path = os.path.join(output_dir, filename)
+
+        # 1. Cleanup existing files for this user_id to avoid duplication if name changed or was missing
+        # We look for *_{user_id}.ext and *_{user_id}_part*.ext
+        cleanup_patterns = [
+            os.path.join(output_dir, f"*_{user_id}{ext}"),
+            os.path.join(output_dir, f"*_{user_id}_part*{ext}")
+        ]
+        for pattern in cleanup_patterns:
+            for old_file in glob.glob(pattern):
+                # Don't delete the file we are about to create if it happens to match (though overwrite=True handles it)
+                if os.path.abspath(old_file) == os.path.abspath(output_path):
+                    continue
+                try:
+                    os.remove(old_file)
+                    logger.debug(f"Removed old export file to prevent duplication: {old_file}")
+                except Exception as e:
+                    logger.warning(f"Could not remove old export file {old_file}: {e}")
 
         # Sort messages by date to ensure chronological chat flow
         messages.sort(key=lambda x: x.timestamp)
