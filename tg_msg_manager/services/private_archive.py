@@ -90,6 +90,7 @@ class PrivateArchiveService:
         
         count = 0
         stats = {"Photo": 0, "Video": 0, "Voice": 0, "Document": 0}
+        archive_stats = {"downloaded": 0, "skipped": 0}
         
         async for msg_data in self.client.iter_messages(user_entity, limit=None, offset_id=0):
             if msg_data.message_id <= last_id:
@@ -110,20 +111,26 @@ class PrivateArchiveService:
                 downloaded_path = await self._download_media(msg_data, media_dir)
                 if downloaded_path and UI.is_tty():
                     print(f"   ↳ saved media: {os.path.basename(downloaded_path)}")
+                if downloaded_path:
+                    archive_stats["downloaded"] += 1
+                else:
+                    archive_stats["skipped"] += 1
                 
             await writer.write_block(log_entry + "\n\n" + "-"*40 + "\n\n", 1)
             count += 1
             
             if count % 5 == 0:
                 media_str = f"P:{stats['Photo']} V:{stats['Video']} S:{stats['Voice']} D:{stats['Document']}"
-                UI.print_status("Archiving", count, extra=f"messages | Media: {media_str}")
+                media_progress = f"downloaded={archive_stats['downloaded']} skipped={archive_stats['skipped']}"
+                UI.print_status("Archiving", count, extra=f"messages | {media_progress} | Media: {media_str}")
             
         media_total = f"P:{stats['Photo']} V:{stats['Video']} S:{stats['Voice']} D:{stats['Document']}"
         if UI.is_tty():
-            UI.print_status("Complete", count, extra=f"messages | Final Media: {media_total}")
+            final_progress = f"downloaded={archive_stats['downloaded']} skipped={archive_stats['skipped']}"
+            UI.print_status("Complete", count, extra=f"messages | {final_progress} | Final Media: {media_total}")
             sys.stdout.write("\n")
             sys.stdout.flush()
-        logger.info(f"PM Archive complete for {user_id}. {count} messages, {sum(stats.values())} media.")
+        logger.info(f"PM Archive complete for {user_id}. {count} messages, {sum(stats.values())} media, downloaded={archive_stats['downloaded']}, skipped={archive_stats['skipped']}.")
         return user_dir
 
     def _format_pm_log(self, m: MessageData) -> str:

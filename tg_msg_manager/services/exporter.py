@@ -142,7 +142,11 @@ class ExportService:
 
         async def draw_status(extra=""):
             db_total = self.storage.get_message_count(chat_id, target_id=uid)
-            UI.print_status("Syncing", db_total, extra=extra)
+            progress = f"processed={progress_stats['processed']} skipped={progress_stats['skipped']}"
+            suffix = f"{progress} {extra}".strip()
+            UI.print_status("Syncing", db_total, extra=suffix)
+
+        progress_stats = {"processed": 0, "skipped": 0}
 
         async def scan_worker(offset, stop_id, role="TAIL"):
             w_processed = 0
@@ -166,6 +170,7 @@ class ExportService:
                 is_new = not self.storage.has_target_link(chat_id, msg_data.message_id, uid)
                 
                 if not is_new and not force_resync:
+                    progress_stats["skipped"] += 1
                     if w_processed % 100 == 0:
                         await draw_status(f"(Skipping cached: {msg_data.message_id})")
                     continue
@@ -193,6 +198,7 @@ class ExportService:
                     w_batch.append(msg_data)
                 
                 w_processed += 1
+                progress_stats["processed"] += 1
                 
                 # Update boundaries
                 if role == "TAIL":
