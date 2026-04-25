@@ -21,7 +21,7 @@
 1.  **Экспорт**: Синхронизация истории с контекстом.
 2.  **Обновление**: Инкрементальная докачка всех активных целей.
 3.  **Очистка**: Удаление своих сообщений из групп.
-4.  **Личка + Медиа**: Полный бэкап приватного чата (текст + файлы).
+4.  **Архив лички**: Текстовый бэкап приватного чата с подготовленными папками под медиа.
 5.  **Удалить данные**: Полная очистка локальной БД по конкретному ID.
 6.  **О программе**: Техническая информация.
 7.  **Экспорт из БД**: Выгрузка из SQLite в JSON/Text.
@@ -69,7 +69,7 @@ Launch via the `tg` shortcut or run `tg-msg-manager` without arguments.
 1.  **Export History**: Sync message history with conversation context.
 2.  **Universal Update**: Incremental sync for all tracked targets.
 3.  **Global Cleanup**: Bulk removal of your messages from groups.
-4.  **PM Media Archive**: Total backup of direct messages with photos/files.
+4.  **PM Archive**: Text backup of direct messages with prepared media folders.
 5.  **Purge Data**: Irreversible removal of a target's history from local storage.
 6.  **About**: System information and versions.
 7.  **DB Export Service**: Convert SQLite records to JSON/Text.
