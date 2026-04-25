@@ -9,6 +9,16 @@
 
 **TG_MSG_MNGR** — это мощная экосистема для управления вашим цифровым следом в Telegram. Утилита представляет собой полноценное консольное приложение с интерактивным меню, фокусом на UX, скорость и надежность.
 
+### Quick Reference
+
+```bash
+python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 --depth 3 --json
+python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 --flat
+python3 -m tg_msg_manager.cli export-pm --user-id 8603071440
+python3 -m tg_msg_manager.cli db-export --user-id 8603071440 --json
+python3 -m tg_msg_manager.cli update
+```
+
 ### 🚀 Быстрый старт
 
 1. **Установка**:
@@ -50,6 +60,7 @@
 *   **Экспорт сообщений**: 
     `python3 -m tg_msg_manager.cli export --user-id 9439859384 --depth 3`
     `python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 --depth 3 --json`
+    `python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 --flat`
 *   **Очистка (Боевой режим)**: 
     `python3 -m tg_msg_manager.cli clean --apply --yes`
 *   **Обновление всех целей**: 
@@ -74,6 +85,16 @@
 ## 🇬🇧 English
 
 **TG_MSG_MNGR** is a high-performance ecosystem for managing your digital footprint on Telegram. The utility features a robust, "app-like" terminal interface focusing on UX, speed, and deterministic data integrity.
+
+### Quick Reference
+
+```bash
+python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 --depth 3 --json
+python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 --flat
+python3 -m tg_msg_manager.cli export-pm --user-id 8603071440
+python3 -m tg_msg_manager.cli db-export --user-id 8603071440 --json
+python3 -m tg_msg_manager.cli update
+```
 
 ### 🚀 Quick Start
 
@@ -116,6 +137,7 @@ Subcommands can be executed directly for automation:
 *   **Message Export**: 
     `python3 -m tg_msg_manager.cli export --user-id 9439859384 --depth 3`
     `python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 --depth 3 --json`
+    `python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 --flat`
 *   **Global Cleanup (Apply)**: 
     `python3 -m tg_msg_manager.cli clean --apply --yes`
 *   **Universal Update**: 
