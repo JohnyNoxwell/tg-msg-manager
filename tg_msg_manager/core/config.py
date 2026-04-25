@@ -12,7 +12,6 @@ class Settings(BaseSettings):
     """
     model_config = SettingsConfigDict(
         env_prefix="TG_", 
-        json_file="config.json",
         env_file=".env",
         extra="ignore",
         populate_by_name=True
@@ -30,8 +29,8 @@ class Settings(BaseSettings):
         from pydantic_settings import JsonConfigSettingsSource
         return (
             init_settings,
-            JsonConfigSettingsSource(settings_cls),
             env_settings,
+            JsonConfigSettingsSource(settings_cls),
             dotenv_settings,
             file_secret_settings,
         )
@@ -99,9 +98,24 @@ def load_settings(config_path: Optional[str] = None) -> Settings:
     try:
         if config_path and os.path.exists(config_path):
             import json
-            with open(config_path, 'r') as f:
-                config_data = json.load(f)
-            return Settings(**config_data)
+            config_data = json.loads(open(config_path, "r").read())
+            synthetic_env: list[str] = []
+            for key, value in config_data.items():
+                env_key = f"TG_{key.upper()}"
+                if env_key in os.environ:
+                    continue
+                if isinstance(value, (list, set, tuple, dict)):
+                    import json
+                    env_value = json.dumps(list(value) if isinstance(value, set) else value)
+                else:
+                    env_value = str(value)
+                os.environ[env_key] = env_value
+                synthetic_env.append(env_key)
+            try:
+                return Settings()
+            finally:
+                for key in synthetic_env:
+                    os.environ.pop(key, None)
         return Settings()
     except Exception as e:
         logger.error(f"Configuration error: {e}")

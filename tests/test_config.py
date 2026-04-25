@@ -22,9 +22,9 @@ class TestConfig(unittest.TestCase):
 
     def test_whitelist_casting(self):
         # Verify it handles set of strings
-        settings = Settings(api_id=1, api_hash="h", whitelist=["123", "user1"])
-        self.assertIn("123", settings.whitelist)
-        self.assertIn("user1", settings.whitelist)
+        settings = Settings(api_id=1, api_hash="h", whitelist_chats=["123", "user1"])
+        self.assertIn(123, settings.whitelist_chats)
+        self.assertIn("user1", settings.whitelist_chats)
 
 if __name__ == "__main__":
     unittest.main()
