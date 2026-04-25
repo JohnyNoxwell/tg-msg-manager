@@ -56,7 +56,7 @@ tg-msg-manager update [--force-resync]
 ```bash
 tg-msg-manager db-export --user-id <ID> [--json]
 ```
-Экспортирует сохраненные сообщения в файл.
+Экспортирует сохраненные сообщения в файл. В JSONL-режиме по умолчанию используется компактный AI-friendly профиль без полного `raw_payload`.
 
 **Примеры**
 ```bash
@@ -127,7 +127,7 @@ The "Smart Sync" engine. It automatically finds all targets in the DB and brings
 ```bash
 tg-msg-manager db-export --user-id <ID> [--json]
 ```
-Converts the internal SQLite representation into human-readable files.
+Converts the internal SQLite representation into human-readable files. In JSONL mode the default profile is compact and AI-friendly, without the full `raw_payload`.
 
 **Examples**
 ```bash

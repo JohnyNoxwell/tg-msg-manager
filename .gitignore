@@ -30,6 +30,7 @@ deep_export_state.json
 deep_json_export_state.json
 json_export_state.json
 pm_export_state.json
+DB_TARGETS.txt
 export_improvement_plan.md
 .tg_msg_manager.lock
 export.txt

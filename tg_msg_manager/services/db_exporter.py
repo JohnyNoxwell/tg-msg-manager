@@ -1,9 +1,10 @@
 import os
 import re
 import glob
+import json
 import logging
 from datetime import datetime
-from typing import List, Optional
+from typing import Any, Dict, List, Optional
 from .file_writer import FileRotateWriter
 from ..infrastructure.storage.interface import BaseStorage
 from ..core.models.message import MessageData
@@ -18,11 +19,24 @@ class DBExportService:
     def __init__(self, storage: BaseStorage):
         self.storage = storage
 
-    def format_message(self, m: MessageData, as_json: bool = False) -> str:
+    def _resolve_export_author_name(self, user_id: int, messages: List[MessageData]) -> str:
+        db_user = self.storage.get_user(user_id)
+        if db_user:
+            formatted = UI.format_name(db_user)
+            if formatted and formatted != "Unknown" and not formatted.startswith("ID:"):
+                return formatted
+
+        for m in messages:
+            if m.user_id == user_id and m.author_name and m.author_name.strip():
+                return m.author_name.strip()
+
+        return f"User_{user_id}"
+
+    def format_message(self, m: MessageData, as_json: bool = False, json_profile: str = "ai") -> str:
         """Formats a MessageData object into a string for file output."""
         if as_json:
-            import json
-            return json.dumps(m.to_dict(), ensure_ascii=False)
+            payload = self._serialize_json_message(m, profile=json_profile)
+            return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
         
         # Human-readable text format
         dt_str = m.timestamp.strftime("%Y-%m-%d][%H:%M:%S")
@@ -36,7 +50,76 @@ class DBExportService:
         
         return f"{header}\n{m.text or '(пусто)'}"
 
-    async def export_user_messages(self, user_id: int, output_dir: str = "DB_EXPORTS", as_json: bool = False, include_date: bool = False) -> str:
+    def _serialize_json_message(self, m: MessageData, profile: str = "ai") -> Dict[str, Any]:
+        if profile == "full":
+            return m.to_dict()
+        if profile != "ai":
+            raise ValueError(f"Unsupported JSON profile: {profile}")
+        return self._serialize_ai_message(m)
+
+    def _serialize_ai_message(self, m: MessageData) -> Dict[str, Any]:
+        raw = m.raw_payload if isinstance(m.raw_payload, dict) else {}
+        reply_to = raw.get("reply_to") if isinstance(raw.get("reply_to"), dict) else {}
+        reply_to_id = m.reply_to_id or reply_to.get("reply_to_msg_id")
+        reply_to_top_id = reply_to.get("reply_to_top_id")
+        forum_topic = True if reply_to.get("forum_topic") else None
+
+        payload = {
+            "message_id": m.message_id,
+            "chat_id": m.chat_id,
+            "user_id": m.user_id,
+            "author_name": m.author_name,
+            "timestamp": int(m.timestamp.timestamp()),
+            "text": m.text,
+            "reply_to_id": reply_to_id,
+            "reply_to_top_id": reply_to_top_id,
+            "forum_topic": forum_topic,
+            "media_type": m.media_type,
+            "fwd_from_id": m.fwd_from_id,
+            "context_group_id": m.context_group_id,
+            "is_service": True if m.is_service else None,
+            "edit_date": raw.get("edit_date"),
+            "reactions": self._extract_reaction_summary(raw),
+        }
+        return {k: v for k, v in payload.items() if v not in (None, "", [])}
+
+    def _extract_reaction_summary(self, raw: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+        reactions = raw.get("reactions")
+        if not isinstance(reactions, dict):
+            return None
+
+        summary: List[Dict[str, Any]] = []
+        for item in reactions.get("results") or []:
+            if not isinstance(item, dict):
+                continue
+            reaction = item.get("reaction")
+            count = item.get("count")
+            emoji = self._reaction_label(reaction)
+            if emoji is None or count is None:
+                continue
+            summary.append({"emoji": emoji, "count": count})
+
+        return summary or None
+
+    def _reaction_label(self, reaction: Any) -> Optional[str]:
+        if not isinstance(reaction, dict):
+            return None
+        emoticon = reaction.get("emoticon")
+        if emoticon:
+            return emoticon
+        if reaction.get("_") == "ReactionCustomEmoji":
+            document_id = reaction.get("document_id")
+            return f"custom:{document_id}" if document_id is not None else "custom"
+        return reaction.get("_")
+
+    async def export_user_messages(
+        self,
+        user_id: int,
+        output_dir: str = "DB_EXPORTS",
+        as_json: bool = False,
+        include_date: bool = False,
+        json_profile: str = "ai",
+    ) -> str:
         """
         Fetches all messages for a user from storage and writes them to parts using FileRotateWriter.
         Returns the base output path.
@@ -50,22 +133,7 @@ class DBExportService:
             os.makedirs(output_dir)
 
         # Find the correct author name for the filename
-        target_author = "Unknown"
-        db_user = self.storage.get_user(user_id)
-        if db_user:
-            target_author = UI.format_name(db_user)
-        
-        if target_author == "Unknown" and messages:
-            for m in messages:
-                if m.user_id == user_id and m.author_name:
-                    target_author = m.author_name
-                    break
-        
-        if target_author == "Unknown":
-            target_author = f"User_{user_id}"
-
-        if target_author.startswith("ID:"):
-            target_author = target_author[3:] # Remove "ID:" prefix for cleaner filenames
+        target_author = self._resolve_export_author_name(user_id, messages)
             
         safe_name = re.sub(r'[^\w\s-]', '', target_author).strip()
         safe_name = re.sub(r'[-\s]+', '_', safe_name)
@@ -106,7 +174,7 @@ class DBExportService:
         count = 0
         for m in messages:
             if as_json:
-                block = self.format_message(m, as_json=True)
+                block = self.format_message(m, as_json=True, json_profile=json_profile)
                 await writer.write_block(block + "\n", 1)
             else:
                 # Chat-like TXT formatting

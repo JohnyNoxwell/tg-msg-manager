@@ -47,7 +47,7 @@ python3 -m tg_msg_manager.cli update
 * 📥 **Умный экспорт с контекстом (`export`)** — Собирает сообщения цели вместе с окружающим контекстом беседы, восстанавливая полную картину диалога.
 * 💬 **Архив лички (`export-pm`)** — Текстовый бэкап приватного чата с подготовленной структурой папок под медиа.
 * 🗄️ **SQLite База данных** — Все данные хранятся в структурированной базе `messages.db`. Это обеспечивает мгновенный поиск и отсутствие дубликатов.
-* 📤 **Экспорт из БД** — Выгрузка накопленных данных из SQLite в человекочитаемые форматы (JSON/Text).
+* 📤 **Экспорт из БД** — Выгрузка накопленных данных из SQLite в JSON/Text. JSONL по умолчанию теперь компактный и ориентирован на анализ нейросетью.
 
 ---
 
@@ -89,6 +89,7 @@ python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 -
 * `export-pm` пишет текстовый лог и медиа-структуру, но не восстанавливает Telegram-специфичные сущности как полноценный replay архива.
 * Фоновая запись в SQLite остаётся чувствительной к очень большим deep-export проходам; основная оптимизация сейчас сделана на уровне пакетных сервисных вызовов.
 * Планировщик `schedule` сейчас ориентирован на macOS `launchd`.
+* `db-export --json` по умолчанию не включает полный `raw_payload`; если когда-нибудь понадобится полный Telethon-слепок, это потребует отдельного full-профиля экспорта.
 
 <a id="алиасы"></a>
 #### 🚀 Быстрые Алиасы (Power User)
@@ -144,7 +145,7 @@ All features are available through a premium terminal UI:
 * 📥 **Deep Context Export (`export`)** — Automatically retrieves target messages along with the "surrounding" conversation window.
 * 💬 **PM Archive (`export-pm`)** — Text backup for private conversations with a prepared folder structure for media.
 * 🗄️ **SQLite Storage** — All messages are stored in a structured `messages.db` for instant querying and zero duplicates.
-* 📤 **Database Export** — Export collected SQLite records into human-readable JSON or Text formats.
+* 📤 **Database Export** — Export collected SQLite records into JSON or Text. JSONL now defaults to a compact AI-friendly profile.
 
 ---
 
@@ -186,6 +187,7 @@ python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 -
 * `export-pm` produces a text-and-media archive, not a full Telegram-native replayable backup.
 * SQLite background writing is still most sensitive during very large deep-export passes; the current optimization focus is batched service-level writes.
 * The built-in `schedule` command currently targets macOS `launchd`.
+* `db-export --json` no longer includes the full `raw_payload` by default; a future explicit full-export profile would be needed for raw Telethon dumps.
 
 <a id="aliases"></a>
 #### 🚀 Power User Aliases

@@ -22,7 +22,9 @@ class FileRotateWriter:
             
         self.filename = os.path.basename(base_path)
         self.name_no_ext, self.ext = os.path.splitext(self.filename)
-        self.state_path = os.path.join(self.directory, f".{self.name_no_ext}.writer_state.json")
+        self.state_dir = os.path.join(self.directory, ".writer_state")
+        self.state_path = os.path.join(self.state_dir, f"{self.name_no_ext}.json")
+        self.legacy_state_path = os.path.join(self.directory, f".{self.name_no_ext}.writer_state.json")
         
         self.current_part = 1
         self.current_count = 0
@@ -47,11 +49,15 @@ class FileRotateWriter:
                 part += 1
             else:
                 break
-        if os.path.exists(self.state_path):
+        self._remove_state_file(self.state_path)
+        self._remove_state_file(self.legacy_state_path)
+
+    def _remove_state_file(self, path: str):
+        if os.path.exists(path):
             try:
-                os.remove(self.state_path)
+                os.remove(path)
             except Exception as e:
-                logger.error(f"Error removing writer state {self.state_path}: {e}")
+                logger.error(f"Error removing writer state {path}: {e}")
 
     def _get_path_for_part(self, part: int) -> str:
         if part == 1:
@@ -66,19 +72,24 @@ class FileRotateWriter:
             "current_part": self.current_part,
             "current_count": self.current_count,
         }
+        os.makedirs(self.state_dir, exist_ok=True)
         with open(self.state_path, "w", encoding="utf-8") as f:
             json.dump(state, f)
 
     def _detect_current_state(self):
         """Finds the highest part number that exists and counts its messages."""
-        if os.path.exists(self.state_path):
+        existing_state_path = self.state_path if os.path.exists(self.state_path) else self.legacy_state_path
+        if os.path.exists(existing_state_path):
             try:
-                with open(self.state_path, "r", encoding="utf-8") as f:
+                with open(existing_state_path, "r", encoding="utf-8") as f:
                     state = json.load(f)
                 self.current_part = max(1, int(state.get("current_part", 1)))
                 self.current_count = max(0, int(state.get("current_count", 0)))
                 self.current_file_path = self._get_path()
                 if os.path.exists(self.current_file_path):
+                    if existing_state_path == self.legacy_state_path:
+                        self._persist_state()
+                        self._remove_state_file(self.legacy_state_path)
                     return
             except Exception:
                 self.current_part = 1

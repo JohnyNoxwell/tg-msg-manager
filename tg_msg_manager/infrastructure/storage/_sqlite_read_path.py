@@ -122,6 +122,28 @@ class SQLiteReadPathMixin:
             ).fetchall()
             return [row['message_id'] for row in rows]
 
+    def get_messages_in_id_range(self, chat_id: int, start_id: int, end_id: int) -> List[MessageData]:
+        with self._read_connection() as conn:
+            rows = conn.execute("""
+                SELECT * FROM messages
+                WHERE chat_id = ? AND message_id BETWEEN ? AND ?
+                ORDER BY timestamp ASC, message_id ASC
+            """, (chat_id, start_id, end_id)).fetchall()
+            return [self._row_to_message(row) for row in rows]
+
+    def get_messages_replying_to(self, chat_id: int, reply_to_ids: List[int]) -> List[MessageData]:
+        if not reply_to_ids:
+            return []
+
+        placeholders = ", ".join(["?"] * len(reply_to_ids))
+        with self._read_connection() as conn:
+            rows = conn.execute(f"""
+                SELECT * FROM messages
+                WHERE chat_id = ? AND reply_to_id IN ({placeholders})
+                ORDER BY timestamp ASC, message_id ASC
+            """, (chat_id, *reply_to_ids)).fetchall()
+            return [self._row_to_message(row) for row in rows]
+
     def get_unique_sync_users(self) -> List[dict]:
         with self._read_connection() as conn:
             rows = conn.execute("""

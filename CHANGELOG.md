@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.2] - 2026-04-25
+
+### Changed (EN)
+- **Deep Mode Context Selection**: Reworked Deep Mode to prefer structural Telegram links (`reply_to_id`, reply chains, topic metadata) over loose message-id proximity, which sharply reduces unrelated context noise.
+- **AI-Optimized DB Export**: `db-export --json` now emits a compact AI-oriented JSONL profile by default. The export keeps graph-relevant fields such as reply links, topic/thread metadata, edit timestamps, and cluster identifiers while dropping bulky raw Telethon payloads.
+- **Writer State Location**: Export rotation state files are now stored under `DB_EXPORTS/.writer_state/` instead of cluttering the export directory root, with legacy state files migrated lazily.
+
+### Fixed (EN)
+- Fixed DB export naming so the filename prefix falls back to the target's real `author_name` from messages when the normalized `users` record is empty, instead of defaulting to raw numeric IDs.
+
+### Изменения (RU)
+- **Выбор контекста в Deep Mode**: Deep Mode переработан так, чтобы опираться на структурные Telegram-связи (`reply_to_id`, reply-chain, metadata topic/thread), а не на рыхлую близость по `message_id`, что заметно уменьшает шум в контексте.
+- **AI-оптимизированный DB Export**: `db-export --json` теперь по умолчанию пишет компактный AI-ориентированный JSONL-профиль. Экспорт сохраняет поля, важные для графового анализа: reply-связи, metadata topic/thread, `edit_date` и cluster identifiers, но убирает тяжёлый raw Telethon payload.
+- **Новый путь для writer state**: Состояние ротации экспорта теперь хранится в `DB_EXPORTS/.writer_state/`, а не засоряет корень каталога выгрузки; старые state-файлы лениво мигрируются.
+
+### Исправления (RU)
+- Исправлен нейминг DB-export файлов: если нормализованная запись в `users` пуста, префикс имени файла теперь берётся из реального `author_name` в сообщениях, а не скатывается к числовому ID.
+
 ## [4.2.1] - 2026-04-25
 
 ### Fixed (EN)

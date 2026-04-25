@@ -1,244 +1,630 @@
 import asyncio
-import uuid
 import logging
-from typing import List, Optional, Any, Dict, Set, Tuple
+import uuid
+from dataclasses import dataclass, field, replace
+from datetime import timedelta
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+
+from ..core.models.message import MessageData
 from ..core.telegram.interface import TelegramClientInterface
 from ..infrastructure.storage.interface import BaseStorage
-from ..core.models.message import MessageData
 
 logger = logging.getLogger(__name__)
 
+
+MessageKey = Tuple[int, int]
+STRUCTURAL_REASONS = {"self", "parent_reply", "reply_to_target", "reply_chain"}
+
+
+@dataclass(frozen=True)
+class _NormalizedContextMessage:
+    message: MessageData
+    reply_to_id: Optional[int]
+    reply_to_top_id: Optional[int]
+    forum_topic: bool
+
+    @property
+    def key(self) -> MessageKey:
+        return (self.message.chat_id, self.message.message_id)
+
+    @property
+    def topic_id(self) -> Optional[int]:
+        if self.reply_to_top_id:
+            return self.reply_to_top_id
+        if self.forum_topic:
+            return self.message.message_id
+        return None
+
+
+@dataclass
+class _ClusterState:
+    cluster_id: str
+    target: _NormalizedContextMessage
+    messages: Dict[MessageKey, _NormalizedContextMessage] = field(default_factory=dict)
+    reasons: Dict[MessageKey, str] = field(default_factory=dict)
+    structural_count: int = 0
+
+    @property
+    def topic_id(self) -> Optional[int]:
+        return self.target.topic_id
+
+    def structural_messages(self) -> List[_NormalizedContextMessage]:
+        return [
+            norm
+            for key, norm in self.messages.items()
+            if self.reasons.get(key) in STRUCTURAL_REASONS
+        ]
+
+    def remaining_slots(self, max_cluster: int) -> int:
+        if max_cluster <= 0:
+            return 10**9
+        return max(0, max_cluster - len(self.messages))
+
+
 class DeepModeEngine:
     """
-    Implements high-performance 'Deep Mode' logic with parallel processing and recursion.
+    Deep mode that prefers Telegram's structural links over local message-id windows.
     """
 
-    def __init__(self, client: TelegramClientInterface, storage: BaseStorage, max_concurrency: int = 15):
+    def __init__(
+        self,
+        client: TelegramClientInterface,
+        storage: BaseStorage,
+        max_concurrency: int = 15,
+    ):
         self.client = client
         self.storage = storage
         self.semaphore = asyncio.Semaphore(max_concurrency)
-        self._processed_ids: Set[Tuple[int, int]] = set()
+        self._processed_ids: Set[MessageKey] = set()
 
     def reset(self):
         """Clears per-run processed state so separate syncs do not leak into each other."""
         self._processed_ids.clear()
 
     @staticmethod
-    def _message_key(chat_id: int, message_id: int) -> Tuple[int, int]:
+    def _message_key(chat_id: int, message_id: int) -> MessageKey:
         return (chat_id, message_id)
 
-    async def extract_batch_context(self, entity: Any, target_messages: List[MessageData], 
-                                  target_id: Optional[int] = None,
-                                  window_size: int = 3, max_cluster: int = 20, 
-                                  recursive_depth: int = 3,
-                                  on_progress: Optional[Any] = None):
+    async def extract_batch_context(
+        self,
+        entity: Any,
+        target_messages: List[MessageData],
+        target_id: Optional[int] = None,
+        window_size: int = 3,
+        max_cluster: int = 20,
+        recursive_depth: int = 3,
+        on_progress: Optional[Any] = None,
+    ):
         """
-        Recursively extracts context (replies and neighbors) for a batch of messages.
-        Maximum acceleration via parallel execution and batching.
+        Builds a deterministic context cluster for each target message.
         """
         if not target_messages or recursive_depth <= 0:
             return
 
-        chat_id = target_messages[0].chat_id
-        
-        # 1. Assign clusters to targets and save them
-        clusters = {}
-        clustered_targets: List[MessageData] = []
-        for msg in target_messages:
-            msg_key = self._message_key(msg.chat_id, msg.message_id)
-            if msg_key in self._processed_ids:
-                continue
-            self._processed_ids.add(msg_key)
-            c_id = msg.context_group_id or str(uuid.uuid4())
-            clusters[msg.message_id] = c_id
-            clustered_targets.append(self._with_cluster(msg, c_id))
-
-        if clustered_targets:
-            await self.storage.save_messages(clustered_targets, target_id=target_id)
-
-        if on_progress: await on_progress()
-
+        active_depth = min(max(recursive_depth, 1), 3)
+        clusters = self._initialize_clusters(target_messages)
         if not clusters:
             return
 
-        # 2. Parallel Workloads (Bulk Optimized)
-        tasks = []
-        
-        # We group targets into "Density Clusters" - ranges of IDs that can be fetched in one go
-        ranges = self._calculate_ranges(list(clusters.keys()), window_size * 2 + 5) # Buffer for replies
-        for start_id, end_id in ranges:
-            tasks.append(self._prefetch_context_slice(entity, start_id, end_id, clusters, window_size, target_id, on_progress))
+        await self.storage.save_messages(
+            [cluster.target.message for cluster in clusters],
+            target_id=target_id,
+        )
+        if on_progress:
+            await on_progress()
 
-        # -- Task B: Fetch Parent Replies (Still needed if parents are far away) --
-        parent_reply_ids = {
-            m.reply_to_id
-            for m in target_messages
-            if m.reply_to_id and self._message_key(chat_id, m.reply_to_id) not in self._processed_ids
-        }
-        if parent_reply_ids:
-            missing_parent_ids = self.storage.filter_existing_ids(chat_id, list(parent_reply_ids))
-            if missing_parent_ids:
-                tasks.append(self._fetch_parent_replies(entity, missing_parent_ids, clusters, target_messages, target_id, on_progress))
-            else:
-                tasks.append(self._load_and_associate_parents(chat_id, list(parent_reply_ids), clusters, target_messages, target_id, on_progress))
+        chat_id = clusters[0].target.message.chat_id
 
-        # Run all tasks
-        results = await asyncio.gather(*tasks, return_exceptions=True)
-        
-        # Collect new context messages for recursion
-        newly_found: List[MessageData] = []
-        for res in results:
-            if isinstance(res, list):
-                # Filter out ones we've already seen to prevent cycles
-                candidates = [
-                    m
-                    for m in res
-                    if self._message_key(m.chat_id, m.message_id) not in self._processed_ids
-                ]
-                newly_found.extend(candidates)
-            elif isinstance(res, Exception):
-                logger.error(f"Error in context task: {res}")
+        await self._expand_structural_round(
+            entity,
+            chat_id,
+            clusters,
+            target_id=target_id,
+            window_size=window_size,
+            max_cluster=max_cluster,
+            round_number=1,
+            on_progress=on_progress,
+        )
 
-        # 3. Recursion: Dive deeper if needed
-        if recursive_depth > 1 and newly_found:
-            # We don't want to explode too much, so we limit the recursion branch
-            # but for this specific request we go full depth -3
-            await self.extract_batch_context(
-                entity, newly_found[:100], # Limit branch width per step for stability
+        if active_depth >= 2:
+            await self._expand_structural_round(
+                entity,
+                chat_id,
+                clusters,
                 target_id=target_id,
-                window_size=max(1, window_size - 1), # Narrow window as we go deeper
+                window_size=window_size,
                 max_cluster=max_cluster,
-                recursive_depth=recursive_depth - 1,
-                on_progress=on_progress
+                round_number=2,
+                on_progress=on_progress,
             )
 
-    async def _prefetch_context_slice(self, entity: Any, start_id: int, end_id: int, 
-                                    clusters: Dict[int, str], window: int, 
-                                    target_id: Optional[int] = None,
-                                    on_progress: Optional[Any] = None) -> List[MessageData]:
-        """
-        Hyper-Acceleration: Fetches a bulk slice of history to find neighbors and replies LOCALLY.
-        Eliminates the need for dozens of individual search/replies requests.
-        """
-        all_msgs = []
-        # Expand the slice a bit to catch more replies
-        fetch_start = max(1, start_id)
-        fetch_limit = end_id - fetch_start + 1 + 50 # Extra buffer for newer replies
-        
-        async with self.semaphore:
-            # GetHistory is much faster and less flood-prone than Search/GetReplies
-            async for msg_data in self.client.iter_messages(entity, limit=fetch_limit, offset_id=end_id + 25):
-                all_msgs.append(msg_data)
+        if active_depth >= 3:
+            await self._apply_time_fallback(
+                entity,
+                chat_id,
+                clusters,
+                target_id=target_id,
+                window_size=window_size,
+                max_cluster=max_cluster,
+                on_progress=on_progress,
+            )
 
-        found_context = []
-        for m in all_msgs:
-            if self._message_key(m.chat_id, m.message_id) in self._processed_ids:
+    def _initialize_clusters(self, target_messages: List[MessageData]) -> List[_ClusterState]:
+        clusters: List[_ClusterState] = []
+        for msg in target_messages:
+            key = self._message_key(msg.chat_id, msg.message_id)
+            if key in self._processed_ids:
                 continue
-            
-            associated = False
-            # Check if it's a neighbor of ANY target in this cluster
-            for t_id, c_id in clusters.items():
-                if abs(m.message_id - t_id) <= window:
-                    m = self._with_cluster(m, c_id)
-                    found_context.append(m)
-                    associated = True
+
+            cluster_id = msg.context_group_id or str(uuid.uuid4())
+            clustered = self._with_cluster(msg, cluster_id)
+            normalized = self._normalize_message(clustered)
+            cluster = _ClusterState(cluster_id=cluster_id, target=normalized)
+            cluster.messages[normalized.key] = normalized
+            cluster.reasons[normalized.key] = "self"
+            clusters.append(cluster)
+            self._processed_ids.add(normalized.key)
+        return clusters
+
+    async def _expand_structural_round(
+        self,
+        entity: Any,
+        chat_id: int,
+        clusters: List[_ClusterState],
+        target_id: Optional[int],
+        window_size: int,
+        max_cluster: int,
+        round_number: int,
+        on_progress: Optional[Any],
+    ):
+        anchors_by_cluster = self._build_anchors_by_cluster(clusters, round_number, max_cluster)
+        if not anchors_by_cluster:
+            return
+
+        parents = await self._fetch_parent_messages(entity, chat_id, anchors_by_cluster)
+        parent_additions = self._associate_parents(
+            clusters,
+            anchors_by_cluster,
+            parents,
+            max_cluster=max_cluster,
+        )
+        await self._flush_new_messages(parent_additions, target_id=target_id, on_progress=on_progress)
+
+        candidate_messages = await self._fetch_candidate_pool(
+            entity,
+            chat_id,
+            anchor_ids=[
+                anchor.message.message_id
+                for anchors in anchors_by_cluster.values()
+                for anchor in anchors
+            ],
+            scan_before=self._scan_before_ids(round_number, window_size),
+            scan_after=self._scan_after_ids(round_number, window_size, max_cluster),
+        )
+        candidate_additions = self._associate_candidates(
+            clusters,
+            candidate_messages,
+            round_number=round_number,
+            max_cluster=max_cluster,
+        )
+        await self._flush_new_messages(candidate_additions, target_id=target_id, on_progress=on_progress)
+
+    def _build_anchors_by_cluster(
+        self,
+        clusters: List[_ClusterState],
+        round_number: int,
+        max_cluster: int,
+    ) -> Dict[str, List[_NormalizedContextMessage]]:
+        anchors_by_cluster: Dict[str, List[_NormalizedContextMessage]] = {}
+        for cluster in clusters:
+            if cluster.remaining_slots(max_cluster) <= 0:
+                continue
+
+            anchors = self._round_anchors(cluster, round_number)
+            if anchors:
+                anchors_by_cluster[cluster.cluster_id] = anchors
+        return anchors_by_cluster
+
+    def _round_anchors(
+        self,
+        cluster: _ClusterState,
+        round_number: int,
+    ) -> List[_NormalizedContextMessage]:
+        if round_number == 1:
+            return [cluster.target]
+        return cluster.structural_messages()
+
+    async def _fetch_parent_messages(
+        self,
+        entity: Any,
+        chat_id: int,
+        anchors_by_cluster: Dict[str, List[_NormalizedContextMessage]],
+    ) -> Dict[int, _NormalizedContextMessage]:
+        needed_parent_ids: Set[int] = set()
+        for anchors in anchors_by_cluster.values():
+            for norm in anchors:
+                if norm.reply_to_id:
+                    key = self._message_key(chat_id, norm.reply_to_id)
+                    if key not in self._processed_ids:
+                        needed_parent_ids.add(norm.reply_to_id)
+
+        if not needed_parent_ids:
+            return {}
+
+        normalized: Dict[int, _NormalizedContextMessage] = {}
+        missing_ids: List[int] = []
+        for parent_id in sorted(needed_parent_ids):
+            stored = await asyncio.to_thread(self.storage.get_message, chat_id, parent_id)
+            if stored:
+                normalized[parent_id] = self._normalize_message(stored)
+            else:
+                missing_ids.append(parent_id)
+
+        if missing_ids:
+            try:
+                async with self.semaphore:
+                    fetched = await self.client.get_messages(entity, message_ids=missing_ids)
+            except TypeError:
+                async with self.semaphore:
+                    fetched = await self.client.get_messages(entity, missing_ids)
+
+            for msg in fetched:
+                norm = self._normalize_message(msg)
+                normalized[norm.message.message_id] = norm
+
+        return normalized
+
+    def _associate_parents(
+        self,
+        clusters: List[_ClusterState],
+        anchors_by_cluster: Dict[str, List[_NormalizedContextMessage]],
+        parents: Dict[int, _NormalizedContextMessage],
+        max_cluster: int,
+    ) -> List[MessageData]:
+        additions: List[MessageData] = []
+        clusters_by_id = {cluster.cluster_id: cluster for cluster in clusters}
+        for cluster_id, anchors in anchors_by_cluster.items():
+            cluster_state = clusters_by_id.get(cluster_id)
+            if cluster_state is None:
+                continue
+            for anchor in anchors:
+                if not anchor.reply_to_id:
+                    continue
+                parent = parents.get(anchor.reply_to_id)
+                if not parent:
+                    continue
+                if self._add_to_cluster(cluster_state, parent, "parent_reply", max_cluster=max_cluster, structural=True):
+                    additions.append(self._with_cluster(parent.message, cluster_state.cluster_id))
+        return additions
+
+    async def _fetch_candidate_pool(
+        self,
+        entity: Any,
+        chat_id: int,
+        anchor_ids: List[int],
+        scan_before: int,
+        scan_after: int,
+    ) -> List[_NormalizedContextMessage]:
+        if not anchor_ids:
+            return []
+
+        ranges = self._calculate_ranges(anchor_ids, before_ids=scan_before, after_ids=scan_after)
+        seen: Set[MessageKey] = set()
+        collected: List[_NormalizedContextMessage] = []
+
+        for start_id, end_id in ranges:
+            for message in self._load_stored_range(chat_id, start_id, end_id):
+                norm = self._normalize_message(message)
+                if norm.key in seen:
+                    continue
+                seen.add(norm.key)
+                collected.append(norm)
+
+            for message in await self._fetch_range(entity, start_id, end_id):
+                norm = self._normalize_message(message)
+                if norm.key in seen:
+                    continue
+                seen.add(norm.key)
+                collected.append(norm)
+
+        stored_replies = self._load_stored_replies(chat_id, anchor_ids)
+        for message in stored_replies:
+            norm = self._normalize_message(message)
+            if norm.key in seen:
+                continue
+            seen.add(norm.key)
+            collected.append(norm)
+
+        collected.sort(key=lambda norm: (norm.message.timestamp, norm.message.message_id))
+        return collected
+
+    def _associate_candidates(
+        self,
+        clusters: List[_ClusterState],
+        candidates: List[_NormalizedContextMessage],
+        round_number: int,
+        max_cluster: int,
+    ) -> List[MessageData]:
+        additions: List[MessageData] = []
+        for candidate in candidates:
+            if candidate.message.is_service:
+                continue
+
+            for cluster in clusters:
+                if cluster.remaining_slots(max_cluster) <= 0:
+                    continue
+                if candidate.key in cluster.messages or candidate.key in self._processed_ids:
+                    continue
+
+                reason, structural = self._detect_relation(cluster, candidate, round_number)
+                if not reason:
+                    continue
+
+                if self._add_to_cluster(cluster, candidate, reason, max_cluster=max_cluster, structural=structural):
+                    additions.append(self._with_cluster(candidate.message, cluster.cluster_id))
                     break
-            
-            # Check if it's a reply TO any target in this cluster (if not already added as neighbor)
-            if not associated and m.reply_to_id in clusters:
-                c_id = clusters[m.reply_to_id]
-                m = self._with_cluster(m, c_id)
-                found_context.append(m)
-        
-        if found_context:
-            await self.storage.save_messages(found_context, target_id=target_id)
-            if on_progress: await on_progress()
-        
-        return found_context
+        return additions
 
-    async def _fetch_parent_replies(self, entity: Any, ids: List[int], 
-                                     clusters: Dict[int, str], target_messages: List[MessageData], 
-                                     target_id: Optional[int] = None,
-                                     on_progress: Optional[Any] = None) -> List[MessageData]:
-        """Fetches the messages that the targets are replying to."""
-        if not ids: return []
-        try:
-            async with self.semaphore:
-                msgs = await self.client.get_messages(entity, message_ids=ids)
-            
-            results = []
-            for m in msgs:
-                if m:
-                    # Associate with the correct cluster(s)
-                    for tm in target_messages:
-                        if tm.reply_to_id == m.message_id:
-                            c_id = clusters.get(tm.message_id)
-                            if c_id:
-                                m_clustered = self._with_cluster(m, c_id)
-                                results.append(m_clustered)
-            if results:
-                await self.storage.save_messages(results, target_id=target_id)
-            
-            if results and on_progress: await on_progress()
-            return results
-        except Exception as e:
-            if "FloodWait" in str(e):
-                logger.debug(f"FloodWait during get_messages: {e}. Slowing down.")
-                await asyncio.sleep(getattr(e, 'seconds', 5))
-                return await self._fetch_parent_replies(
-                    entity,
-                    ids,
-                    clusters,
-                    target_messages,
-                    target_id=target_id,
-                    on_progress=on_progress,
-                )
-            raise e
+    def _detect_relation(
+        self,
+        cluster: _ClusterState,
+        candidate: _NormalizedContextMessage,
+        round_number: int,
+    ) -> Tuple[Optional[str], bool]:
+        if candidate.key == cluster.target.key:
+            return None, False
+        if self._is_topic_mismatch(cluster, candidate):
+            return None, False
 
-    async def _load_and_associate_parents(self, chat_id: int, ids: List[int], 
-                                          clusters: Dict[int, str], target_messages: List[MessageData],
-                                          target_id: Optional[int] = None,
-                                          on_progress: Optional[Any] = None) -> List[MessageData]:
-        """Loads messages from storage and associates them with new clusters."""
-        results = []
-        for mid in ids:
-            m = await asyncio.to_thread(self.storage.get_message, chat_id, mid)
-            if m:
-                for tm in target_messages:
-                    if tm.reply_to_id == m.message_id:
-                        c_id = clusters.get(tm.message_id)
-                        if c_id:
-                            m_clustered = self._with_cluster(m, c_id)
-                            results.append(m_clustered)
-        if results:
-            await self.storage.save_messages(results, target_id=target_id)
+        structural_ids = {
+            norm.message.message_id
+            for norm in cluster.structural_messages()
+        }
+        target_id = cluster.target.message.message_id
+
+        if candidate.reply_to_id == target_id:
+            return "reply_to_target", True
+
+        if round_number >= 2 and candidate.reply_to_id in structural_ids:
+            return "reply_chain", True
+
+        if round_number >= 2 and cluster.topic_id and candidate.topic_id == cluster.topic_id:
+            return "same_topic", False
+
+        return None, False
+
+    async def _apply_time_fallback(
+        self,
+        entity: Any,
+        chat_id: int,
+        clusters: List[_ClusterState],
+        target_id: Optional[int],
+        window_size: int,
+        max_cluster: int,
+        on_progress: Optional[Any],
+    ):
+        fallback_clusters = [
+            cluster
+            for cluster in clusters
+            if cluster.structural_count == 0
+            and cluster.target.reply_to_id is None
+            and cluster.topic_id is None
+            and cluster.remaining_slots(max_cluster) > 0
+        ]
+        if not fallback_clusters:
+            return
+
+        additions: List[MessageData] = []
+        for cluster in fallback_clusters:
+            local_candidates = await self._fetch_candidate_pool(
+                entity,
+                chat_id,
+                anchor_ids=[cluster.target.message.message_id],
+                scan_before=max(4, window_size * 2),
+                scan_after=max(6, window_size * 3),
+            )
+            for norm in self._select_time_fallback(cluster, local_candidates, window_size=window_size, max_cluster=max_cluster):
+                if self._add_to_cluster(cluster, norm, "time_fallback", max_cluster=max_cluster, structural=False):
+                    additions.append(self._with_cluster(norm.message, cluster.cluster_id))
+
+        await self._flush_new_messages(additions, target_id=target_id, on_progress=on_progress)
+
+    def _select_time_fallback(
+        self,
+        cluster: _ClusterState,
+        candidates: List[_NormalizedContextMessage],
+        window_size: int,
+        max_cluster: int,
+    ) -> List[_NormalizedContextMessage]:
+        ordered = sorted(candidates, key=lambda norm: (norm.message.timestamp, norm.message.message_id))
+        target_index = None
+        for idx, norm in enumerate(ordered):
+            if norm.key == cluster.target.key:
+                target_index = idx
+                break
+        if target_index is None:
+            return []
+
+        max_before = max(1, min(window_size, 3))
+        max_after = max(2, min(window_size + 1, 4))
+        max_gap = timedelta(minutes=2)
+        max_total_before = timedelta(minutes=15)
+        max_total_after = timedelta(minutes=20)
+        selected: List[_NormalizedContextMessage] = []
+
+        def walk(direction: int, limit_count: int, max_total_delta: timedelta):
+            last = cluster.target
+            added = 0
+            skipped = 0
+            idx = target_index + direction
+            while 0 <= idx < len(ordered) and added < limit_count and cluster.remaining_slots(max_cluster) > len(selected):
+                norm = ordered[idx]
+                idx += direction
+                if norm.key in cluster.messages or norm.key in self._processed_ids or norm.message.is_service:
+                    skipped += 1
+                    if skipped >= 2:
+                        break
+                    continue
+
+                current_gap = abs(norm.message.timestamp - last.message.timestamp)
+                total_delta = abs(norm.message.timestamp - cluster.target.message.timestamp)
+                if current_gap > max_gap or total_delta > max_total_delta:
+                    break
+
+                selected.append(norm)
+                last = norm
+                added += 1
+                skipped = 0
+
+        walk(-1, max_before, max_total_before)
+        walk(1, max_after, max_total_after)
+        selected.sort(key=lambda norm: (norm.message.timestamp, norm.message.message_id))
+        return selected
+
+    async def _flush_new_messages(
+        self,
+        messages: List[MessageData],
+        target_id: Optional[int],
+        on_progress: Optional[Any],
+    ):
+        if not messages:
+            return
+        await self.storage.save_messages(messages, target_id=target_id)
+        if on_progress:
+            await on_progress()
+
+    def _add_to_cluster(
+        self,
+        cluster: _ClusterState,
+        norm: _NormalizedContextMessage,
+        reason: str,
+        max_cluster: int,
+        structural: bool,
+    ) -> bool:
+        if norm.key in cluster.messages or norm.key in self._processed_ids:
+            return False
+        if norm.message.is_service:
+            return False
+        if cluster.remaining_slots(max_cluster) <= 0:
+            return False
+        if self._is_topic_mismatch(cluster, norm):
+            return False
+
+        cluster.messages[norm.key] = norm
+        cluster.reasons[norm.key] = reason
+        if structural:
+            cluster.structural_count += 1
+        self._processed_ids.add(norm.key)
+        logger.debug(
+            "Deep cluster %s added message %s via %s",
+            cluster.cluster_id,
+            norm.message.message_id,
+            reason,
+        )
+        return True
+
+    def _is_topic_mismatch(self, cluster: _ClusterState, norm: _NormalizedContextMessage) -> bool:
+        if cluster.topic_id is None or norm.topic_id is None:
+            return False
+        return cluster.topic_id != norm.topic_id
+
+    def _normalize_message(self, msg: MessageData) -> _NormalizedContextMessage:
+        raw = msg.raw_payload or {}
+        reply_to = raw.get("reply_to") if isinstance(raw, dict) else {}
+        if not isinstance(reply_to, dict):
+            reply_to = {}
+
+        reply_to_id = msg.reply_to_id or reply_to.get("reply_to_msg_id")
+        reply_to_top_id = reply_to.get("reply_to_top_id")
+        forum_topic = bool(reply_to.get("forum_topic"))
+
+        return _NormalizedContextMessage(
+            message=msg,
+            reply_to_id=reply_to_id,
+            reply_to_top_id=reply_to_top_id,
+            forum_topic=forum_topic,
+        )
+
+    async def _fetch_range(self, entity: Any, start_id: int, end_id: int) -> List[MessageData]:
+        results: List[MessageData] = []
+        async with self.semaphore:
+            async for msg_data in self.client.iter_messages(
+                entity,
+                limit=(end_id - start_id + 1),
+                offset_id=end_id + 1,
+            ):
+                if msg_data.message_id < start_id:
+                    break
+                results.append(msg_data)
         return results
 
-    def _calculate_ranges(self, ids: List[int], window: int) -> List[tuple]:
-        """Merges nearby message IDs into continuous ranges."""
-        if not ids: return []
-        sorted_ids = sorted(ids)
-        ranges = []
-        curr_start = sorted_ids[0] - window
-        curr_end = sorted_ids[0] + window
-        for i in range(1, len(sorted_ids)):
-            next_start = sorted_ids[i] - window
-            next_end = sorted_ids[i] + window
-            if next_start <= curr_end + 2:
+    def _load_stored_range(self, chat_id: int, start_id: int, end_id: int) -> List[MessageData]:
+        getter = getattr(self.storage, "get_messages_in_id_range", None)
+        if not callable(getter):
+            return []
+        try:
+            result = getter(chat_id, start_id, end_id)
+        except TypeError:
+            return []
+        return result if isinstance(result, list) else []
+
+    def _load_stored_replies(self, chat_id: int, reply_to_ids: Iterable[int]) -> List[MessageData]:
+        getter = getattr(self.storage, "get_messages_replying_to", None)
+        if not callable(getter):
+            return []
+        try:
+            result = getter(chat_id, list(reply_to_ids))
+        except TypeError:
+            return []
+        return result if isinstance(result, list) else []
+
+    def _calculate_ranges(self, ids: List[int], before_ids: int, after_ids: int) -> List[Tuple[int, int]]:
+        if not ids:
+            return []
+
+        adjusted = sorted(
+            (max(1, message_id - before_ids), message_id + after_ids)
+            for message_id in ids
+        )
+        ranges: List[Tuple[int, int]] = []
+        curr_start, curr_end = adjusted[0]
+        for next_start, next_end in adjusted[1:]:
+            if next_start <= curr_end + 1:
                 curr_end = max(curr_end, next_end)
             else:
-                ranges.append((max(1, curr_start), curr_end))
-                curr_start = next_start
-                curr_end = next_end
-        ranges.append((max(1, curr_start), curr_end))
+                ranges.append((curr_start, curr_end))
+                curr_start, curr_end = next_start, next_end
+        ranges.append((curr_start, curr_end))
         return ranges
 
+    def _scan_before_ids(self, round_number: int, window_size: int) -> int:
+        if round_number == 1:
+            return max(8, window_size * 3)
+        return max(12, window_size * 4)
+
+    def _scan_after_ids(self, round_number: int, window_size: int, max_cluster: int) -> int:
+        if round_number == 1:
+            return max(60, window_size * 15, max_cluster * 6)
+        return max(90, window_size * 20, max_cluster * 8)
+
     def _with_cluster(self, msg: MessageData, cluster_id: str) -> MessageData:
-        from dataclasses import replace
         return replace(msg, context_group_id=cluster_id)
 
-    async def extract_context(self, entity: Any, target_msg: MessageData, window_size: int = 5, max_cluster: int = 10) -> str:
-        # Clear processed state for new single call
+    async def extract_context(
+        self,
+        entity: Any,
+        target_msg: MessageData,
+        window_size: int = 5,
+        max_cluster: int = 10,
+    ) -> str:
         self.reset()
-        await self.extract_batch_context(entity, [target_msg], window_size, max_cluster, recursive_depth=3)
-        return ""
+        cluster_id = target_msg.context_group_id or str(uuid.uuid4())
+        clustered = self._with_cluster(target_msg, cluster_id)
+        await self.extract_batch_context(
+            entity,
+            [clustered],
+            window_size=window_size,
+            max_cluster=max_cluster,
+            recursive_depth=3,
+        )
+        return cluster_id
