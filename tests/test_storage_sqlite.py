@@ -111,6 +111,32 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         retrieved = self.storage.get_message(1, 55)
         self.assertEqual(retrieved.raw_payload["v"], 2)
 
+    async def test_target_checkpoint_uses_target_id(self):
+        self.storage.register_target(999, "Target User", 321)
+        self.storage.register_target(456, "Author User", 321)
+
+        msg = MessageData(
+            message_id=50,
+            chat_id=321,
+            user_id=456,
+            author_name="Author User",
+            timestamp=datetime.now(),
+            text="Context message",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={}
+        )
+
+        await self.storage.save_message(msg, target_id=999)
+
+        target_status = self.storage.get_sync_status(321, 999)
+        author_status = self.storage.get_sync_status(321, 456)
+        self.assertEqual(target_status["last_msg_id"], 50)
+        self.assertEqual(author_status["last_msg_id"], 0)
+        self.assertEqual(len(self.storage.get_user_messages(999)), 1)
+
 
     async def test_get_all_message_ids(self):
         msg = MessageData(1, 100, 1, "Test User", datetime.now(), "Test", None, None, None, None, {})

@@ -392,12 +392,13 @@ class SQLiteStorage(BaseStorage):
                 last_sync_timestamp = excluded.last_sync_timestamp
         """, (data["chat_id"], data["message_id"], int(time.time())))
         
-        # 2. Update target-specific sync state
-        conn.execute("""
-            UPDATE sync_targets 
-            SET last_msg_id = MAX(last_msg_id, ?)
-            WHERE user_id = ? AND chat_id = ?
-        """, (data["message_id"], data["user_id"], data["chat_id"]))
+        # 2. Update target-specific sync state only for the active target attribution.
+        if target_id is not None:
+            conn.execute("""
+                UPDATE sync_targets 
+                SET last_msg_id = MAX(last_msg_id, ?)
+                WHERE user_id = ? AND chat_id = ?
+            """, (data["message_id"], target_id, data["chat_id"]))
 
     def _row_to_message(self, row: sqlite3.Row) -> MessageData:
         """Helper to reconstruct MessageData from a database row."""
@@ -516,13 +517,13 @@ class SQLiteStorage(BaseStorage):
             # 1. Look for incomplete target scans or those that haven't been synced recently
             rows = conn.execute("""
                 SELECT chat_id, user_id FROM sync_targets 
-                WHERE is_complete = 0 OR last_sync_at < ? OR added_at < ?
-            """, (cutoff, cutoff)).fetchall()
+                WHERE is_complete = 0 OR COALESCE(last_sync_at, 0) < ?
+            """, (cutoff,)).fetchall()
             
             # 2. Also check whole-chat syncs
             chat_rows = conn.execute("""
                 SELECT chat_id FROM sync_state 
-                WHERE last_sync_timestamp < ?
+                WHERE COALESCE(last_sync_timestamp, 0) < ?
             """, (cutoff,)).fetchall()
             
             results = set()

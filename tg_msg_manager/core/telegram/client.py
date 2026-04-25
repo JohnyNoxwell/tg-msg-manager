@@ -66,7 +66,7 @@ class TelethonClientWrapper(TelegramClientInterface):
             self.throttler.adjust_rate(0.6)
             telemetry.track_flood_wait(e.seconds)
             await asyncio.sleep(e.seconds)
-            return await self.get_messages(entity, message_ids)
+            return await self.get_messages(entity, message_ids=message_ids, limit=limit)
 
     def _normalize_message(self, entity, msg) -> MessageData:
         """Helper to convert Telethon Message to internal MessageData."""

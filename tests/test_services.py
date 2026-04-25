@@ -32,6 +32,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         self.mock_storage.upsert_chat = MagicMock()
         self.mock_storage.upsert_user = MagicMock()
         self.mock_storage.register_target = MagicMock()
+        self.mock_storage.update_last_sync_at = MagicMock()
         self.mock_storage.get_last_msg_id.return_value = 10
         self.mock_storage.get_message_count.return_value = 0
         self.mock_storage.get_sync_status.return_value = {
@@ -89,6 +90,29 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         saved_msg = self.mock_storage.save_message.call_args[0][0]
         self.assertTrue(saved_msg.context_group_id)
 
+    async def test_deep_mode_processed_ids_do_not_leak_between_chats(self):
+        self.mock_client.iter_messages.return_value = AsyncIterator([])
+        self.mock_storage.filter_existing_ids.return_value = []
+
+        engine = DeepModeEngine(self.mock_client, self.mock_storage)
+        target_chat_1 = MessageData(
+            message_id=100, chat_id=1, user_id=1, author_name="Chat One",
+            timestamp=datetime.now(),
+            text="Target 1", media_type=None, reply_to_id=None,
+            fwd_from_id=None, context_group_id=None, raw_payload={}
+        )
+        target_chat_2 = MessageData(
+            message_id=100, chat_id=2, user_id=1, author_name="Chat Two",
+            timestamp=datetime.now(),
+            text="Target 2", media_type=None, reply_to_id=None,
+            fwd_from_id=None, context_group_id=None, raw_payload={}
+        )
+
+        await engine.extract_batch_context(MagicMock(id=1), [target_chat_1], target_id=1, recursive_depth=1)
+        await engine.extract_batch_context(MagicMock(id=2), [target_chat_2], target_id=1, recursive_depth=1)
+
+        self.assertEqual(self.mock_storage.save_message.await_count, 2)
+
     async def test_private_archive_downloads_media(self):
         self.mock_client.iter_messages.return_value = AsyncIterator([
             MessageData(
@@ -115,6 +139,9 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
 
         self.assertIn("/tmp/tg_pm_test", result_dir)
         self.mock_client.download_media.assert_awaited()
+        self.mock_storage.save_message.assert_awaited()
+        self.assertEqual(self.mock_storage.save_message.await_args.kwargs["target_id"], 1)
+        self.mock_storage.update_last_sync_at.assert_called_once_with(1, 1)
 
 if __name__ == "__main__":
     unittest.main()

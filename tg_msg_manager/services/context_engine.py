@@ -1,7 +1,7 @@
 import asyncio
 import uuid
 import logging
-from typing import List, Optional, Any, Dict, Set
+from typing import List, Optional, Any, Dict, Set, Tuple
 from ..core.telegram.interface import TelegramClientInterface
 from ..infrastructure.storage.interface import BaseStorage
 from ..core.models.message import MessageData
@@ -17,7 +17,15 @@ class DeepModeEngine:
         self.client = client
         self.storage = storage
         self.semaphore = asyncio.Semaphore(max_concurrency)
-        self._processed_ids: Set[int] = set()
+        self._processed_ids: Set[Tuple[int, int]] = set()
+
+    def reset(self):
+        """Clears per-run processed state so separate syncs do not leak into each other."""
+        self._processed_ids.clear()
+
+    @staticmethod
+    def _message_key(chat_id: int, message_id: int) -> Tuple[int, int]:
+        return (chat_id, message_id)
 
     async def extract_batch_context(self, entity: Any, target_messages: List[MessageData], 
                                   target_id: Optional[int] = None,
@@ -36,9 +44,10 @@ class DeepModeEngine:
         # 1. Assign clusters to targets and save them
         clusters = {}
         for msg in target_messages:
-            if msg.message_id in self._processed_ids:
+            msg_key = self._message_key(msg.chat_id, msg.message_id)
+            if msg_key in self._processed_ids:
                 continue
-            self._processed_ids.add(msg.message_id)
+            self._processed_ids.add(msg_key)
             c_id = msg.context_group_id or str(uuid.uuid4())
             clusters[msg.message_id] = c_id
             await self.storage.save_message(self._with_cluster(msg, c_id), target_id=target_id)
@@ -57,7 +66,11 @@ class DeepModeEngine:
             tasks.append(self._prefetch_context_slice(entity, start_id, end_id, clusters, window_size, target_id, on_progress))
 
         # -- Task B: Fetch Parent Replies (Still needed if parents are far away) --
-        parent_reply_ids = {m.reply_to_id for m in target_messages if m.reply_to_id and m.reply_to_id not in self._processed_ids}
+        parent_reply_ids = {
+            m.reply_to_id
+            for m in target_messages
+            if m.reply_to_id and self._message_key(chat_id, m.reply_to_id) not in self._processed_ids
+        }
         if parent_reply_ids:
             missing_parent_ids = self.storage.filter_existing_ids(chat_id, list(parent_reply_ids))
             if missing_parent_ids:
@@ -73,7 +86,11 @@ class DeepModeEngine:
         for res in results:
             if isinstance(res, list):
                 # Filter out ones we've already seen to prevent cycles
-                candidates = [m for m in res if m.message_id not in self._processed_ids]
+                candidates = [
+                    m
+                    for m in res
+                    if self._message_key(m.chat_id, m.message_id) not in self._processed_ids
+                ]
                 newly_found.extend(candidates)
             elif isinstance(res, Exception):
                 logger.error(f"Error in context task: {res}")
@@ -111,7 +128,7 @@ class DeepModeEngine:
 
         found_context = []
         for m in all_msgs:
-            if m.message_id in self._processed_ids:
+            if self._message_key(m.chat_id, m.message_id) in self._processed_ids:
                 continue
             
             associated = False
@@ -163,7 +180,14 @@ class DeepModeEngine:
             if "FloodWait" in str(e):
                 logger.debug(f"FloodWait during get_messages: {e}. Slowing down.")
                 await asyncio.sleep(getattr(e, 'seconds', 5))
-                return await self._fetch_parent_replies(entity, ids, clusters, target_messages, on_progress)
+                return await self._fetch_parent_replies(
+                    entity,
+                    ids,
+                    clusters,
+                    target_messages,
+                    target_id=target_id,
+                    on_progress=on_progress,
+                )
             raise e
 
     async def _load_and_associate_parents(self, chat_id: int, ids: List[int], 
@@ -209,6 +233,6 @@ class DeepModeEngine:
 
     async def extract_context(self, entity: Any, target_msg: MessageData, window_size: int = 5, max_cluster: int = 10) -> str:
         # Clear processed state for new single call
-        self._processed_ids.clear()
+        self.reset()
         await self.extract_batch_context(entity, [target_msg], window_size, max_cluster, recursive_depth=3)
         return ""

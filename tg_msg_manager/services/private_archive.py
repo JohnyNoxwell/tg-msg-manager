@@ -96,7 +96,7 @@ class PrivateArchiveService:
             if msg_data.message_id <= last_id:
                 break
                 
-            await self.storage.save_message(msg_data)
+            await self.storage.save_message(msg_data, target_id=user_id)
             log_entry = self._format_pm_log(msg_data)
             
             if msg_data.media_type:
@@ -139,6 +139,8 @@ class PrivateArchiveService:
             }])
             sys.stdout.write("\n")
             sys.stdout.flush()
+        if hasattr(self.storage, "update_last_sync_at"):
+            self.storage.update_last_sync_at(user_id, user_id)
         logger.info(f"PM Archive complete for {user_id}. {count} messages, {sum(stats.values())} media, downloaded={archive_stats['downloaded']}, skipped={archive_stats['skipped']}.")
         return user_dir
 

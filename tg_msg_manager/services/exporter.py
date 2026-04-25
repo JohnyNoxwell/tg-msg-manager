@@ -89,6 +89,9 @@ class ExportService:
                                      deep_mode=active_deep, 
                                      recursive_depth=active_depth)
 
+        if active_deep:
+            self.context_engine.reset()
+
         mode_str = f"DEEP (Depth {active_depth})" if active_deep else "FLAT"
         status_str = " (Resuming history...)" if tail_id > 0 and not is_complete else (" (Updating...)" if head_id > 0 else "")
         

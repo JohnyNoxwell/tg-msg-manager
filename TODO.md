@@ -12,26 +12,26 @@
 
 ## Phase 0: Baseline
 
-- [ ] Reproduce current test failures and classify them by root cause.
-- [ ] Map all storage write call sites and all `sync_targets` schema usages.
-- [ ] Define the target storage contract after refactor.
-- [ ] Prepare an isolated live-test output directory convention.
+- [x] Reproduce current test failures and classify them by root cause.
+- [x] Map all storage write call sites and all `sync_targets` schema usages.
+- [x] Define the target storage contract after refactor.
+- [x] Prepare an isolated live-test output directory convention.
 
 ## Phase 1: Storage Contract
 
-- [ ] Convert `BaseStorage` write methods to the actual async contract.
-- [ ] Update all write call sites to use `await`.
-- [ ] Verify no un-awaited storage writes remain.
-- [ ] Add storage contract tests for async single and batch writes.
-- [ ] Validate queue drain and shutdown behavior.
+- [x] Convert `BaseStorage` write methods to the actual async contract.
+- [x] Update all write call sites to use `await`.
+- [x] Verify no un-awaited storage writes remain.
+- [x] Add storage contract tests for async single and batch writes.
+- [x] Validate queue drain and shutdown behavior.
 
 ## Phase 2: SQLite Schema And Migrations
 
-- [ ] Add missing `last_sync_at` support to `sync_targets`.
-- [ ] Audit all `sync_targets` queries against the real schema.
-- [ ] Simplify migration flow for fresh and legacy databases.
-- [ ] Add migration tests for clean and legacy DB states.
-- [ ] Verify `get_outdated_chats` works on migrated databases.
+- [x] Add missing `last_sync_at` support to `sync_targets`.
+- [x] Audit all `sync_targets` queries against the real schema.
+- [x] Simplify migration flow for fresh and legacy databases.
+- [x] Add migration tests for clean and legacy DB states.
+- [x] Verify `get_outdated_chats` works on migrated databases.
 
 ## Phase 3: SQLite Storage Refactor
 
@@ -41,32 +41,32 @@
 
 ## Phase 4: Test Suite Repair
 
-- [ ] Rewrite outdated config tests.
-- [ ] Rewrite storage tests for async writes.
-- [ ] Rewrite exporter/context tests for the current service API.
-- [ ] Rewrite sync-system tests for the current method signatures.
+- [x] Rewrite outdated config tests.
+- [x] Rewrite storage tests for async writes.
+- [x] Rewrite exporter/context tests for the current service API.
+- [x] Rewrite sync-system tests for the current method signatures.
 - [ ] Replace process-signal tests with isolated handler tests.
-- [ ] Establish a stable smoke suite.
+- [x] Establish a stable smoke suite.
 
 ## Phase 5: Config Semantics
 
-- [ ] Define explicit precedence for init args, env, dotenv, and JSON config.
-- [ ] Make env override behavior deterministic.
-- [ ] Align legacy aliases with documented fields.
-- [ ] Improve startup error clarity.
+- [x] Define explicit precedence for init args, env, dotenv, and JSON config.
+- [x] Make env override behavior deterministic.
+- [x] Align legacy aliases with documented fields.
+- [x] Improve startup error clarity.
 
 ## Phase 6: Export-PM Gap
 
-- [ ] Decide whether `export-pm` will really download media in this iteration.
-- [ ] If yes: extend Telegram client interface with media download support.
-- [ ] If yes: implement media download, routing, limits, and error handling.
-- [ ] If no: correct CLI/docs/i18n claims immediately.
+- [x] Decide whether `export-pm` will really download media in this iteration.
+- [x] If yes: extend Telegram client interface with media download support.
+- [x] If yes: implement media download, routing, limits, and error handling.
+- [x] If no: correct CLI/docs/i18n claims immediately.
 
 ## Phase 7: Docs And UX Alignment
 
-- [ ] Align README with actual behavior.
-- [ ] Align CLI help and aliases with actual behavior.
-- [ ] Align i18n strings with actual behavior.
+- [x] Align README with actual behavior.
+- [x] Align CLI help and aliases with actual behavior.
+- [x] Align i18n strings with actual behavior.
 - [ ] Add known limitations section.
 
 ## Phase 8: CI And Quality Gates
@@ -78,8 +78,32 @@
 
 ## Near-Term Execution Order
 
-1. Baseline and isolated live-test setup.
-2. Storage contract fix.
-3. SQLite schema fix.
-4. Test suite repair around the new contract.
-5. Config semantics cleanup.
+1. Replace process-signal tests with isolated handler tests.
+2. Add known limitations section.
+3. Add lint/format/test validation commands.
+4. Add a minimal CI workflow.
+5. Exclude cache and transient artifacts from source control hygiene.
+
+## Remediation Backlog
+
+### Priority 1: Sync Correctness
+
+- [x] Fix `get_outdated_chats` so old targets are not re-scanned forever after successful sync.
+- [x] Fix target-specific `last_msg_id` updates so context messages do not advance another user's checkpoint.
+- [x] Scope deep-mode processed IDs to a chat/sync-safe key to avoid cross-chat context loss.
+- [x] Preserve `limit` when retrying `get_messages` after `FloodWait`.
+- [x] Ensure PM archive writes target attribution links and refreshes target sync timestamps.
+
+### Priority 2: Reliability And Cleanup
+
+- [ ] Fix CLI `delete` command initialization path.
+- [ ] Remove orphan `message_target_links` during message deletion and keep counts accurate.
+- [ ] Fix `_fetch_parent_replies` retry argument ordering.
+- [ ] Replace process-signal tests with isolated handler tests that do not interrupt the whole suite.
+
+### Priority 3: Throughput And UX
+
+- [ ] Rework forced `flush()` behavior so the background writer can actually batch writes.
+- [ ] Make `--limit` semantics explicit and enforce them consistently across parallel workers.
+- [ ] Restore TXT export rotation resume behavior.
+- [ ] Document known limitations and add a repeatable verification checklist.

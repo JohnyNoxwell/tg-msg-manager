@@ -41,6 +41,21 @@ class TestSyncSystem(unittest.IsolatedAsyncioTestCase):
         outdated_72 = self.storage.get_outdated_chats(72 * 3600)
         self.assertEqual(len(outdated_72), 0)
 
+    def test_recently_synced_old_target_is_not_outdated(self):
+        chat_id = 456
+        added_at = int((datetime.now() - timedelta(days=30)).timestamp())
+        fresh_sync = int((datetime.now() - timedelta(minutes=5)).timestamp())
+
+        with self.storage._get_connection() as conn:
+            conn.execute(
+                "INSERT INTO sync_targets (user_id, chat_id, author_name, added_at, last_sync_at, is_complete) VALUES (?, ?, ?, ?, ?, ?)",
+                (chat_id, chat_id, "Fresh Target", added_at, fresh_sync, 1)
+            )
+            conn.commit()
+
+        outdated = self.storage.get_outdated_chats(24 * 3600)
+        self.assertNotIn((chat_id, chat_id), outdated)
+
     async def test_sync_all_outdated(self):
         # Mock outdated chats
         self.storage.get_outdated_chats = MagicMock(return_value=[111])
