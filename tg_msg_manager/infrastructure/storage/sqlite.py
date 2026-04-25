@@ -169,6 +169,7 @@ class SQLiteStorage(BaseStorage):
                 deep_mode INTEGER DEFAULT 0,
                 recursive_depth INTEGER DEFAULT 0,
                 added_at INTEGER,
+                last_sync_at INTEGER,
                 PRIMARY KEY (user_id, chat_id)
             )
         """)
@@ -178,7 +179,8 @@ class SQLiteStorage(BaseStorage):
                               ("tail_msg_id", "INTEGER DEFAULT 0"), 
                               ("is_complete", "INTEGER DEFAULT 0"),
                               ("deep_mode", "INTEGER DEFAULT 0"),
-                              ("recursive_depth", "INTEGER DEFAULT 0")]:
+                              ("recursive_depth", "INTEGER DEFAULT 0"),
+                              ("last_sync_at", "INTEGER")]:
             try:
                 conn.execute(f"ALTER TABLE sync_targets ADD COLUMN {col} {col_type}")
             except sqlite3.OperationalError:
@@ -203,6 +205,7 @@ class SQLiteStorage(BaseStorage):
             try:
                 conn.execute("ALTER TABLE sync_targets ADD COLUMN deep_mode INTEGER DEFAULT 0")
                 conn.execute("ALTER TABLE sync_targets ADD COLUMN recursive_depth INTEGER DEFAULT 0")
+                conn.execute("ALTER TABLE sync_targets ADD COLUMN last_sync_at INTEGER")
             except Exception as e:
                 logger.debug(f"Columns might already exist: {e}")
             conn.execute("PRAGMA user_version = 4")
@@ -455,7 +458,7 @@ class SQLiteStorage(BaseStorage):
         
         if row:
             return dict(row)
-        return {"last_msg_id": 0, "tail_msg_id": 0, "is_complete": 0, "deep_mode": 0, "recursive_depth": 0}
+        return {"last_msg_id": 0, "tail_msg_id": 0, "is_complete": 0, "deep_mode": 0, "recursive_depth": 0, "last_sync_at": 0}
 
     def update_sync_tail(self, chat_id: int, user_id: int, tail_id: int, is_complete: bool = False):
         """Updates the historical scan boundary for resume support."""
@@ -613,13 +616,14 @@ class SQLiteStorage(BaseStorage):
         now = int(time.time())
         with self._get_connection() as conn:
             conn.execute("""
-                INSERT INTO sync_targets (user_id, chat_id, author_name, added_at, deep_mode, recursive_depth)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO sync_targets (user_id, chat_id, author_name, added_at, last_sync_at, deep_mode, recursive_depth)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
                 ON CONFLICT(user_id, chat_id) DO UPDATE SET
                     author_name = excluded.author_name,
                     deep_mode = MAX(sync_targets.deep_mode, excluded.deep_mode),
-                    recursive_depth = MAX(sync_targets.recursive_depth, excluded.recursive_depth)
-            """, (user_id, chat_id, author_name, now, 1 if deep_mode else 0, recursive_depth))
+                    recursive_depth = MAX(sync_targets.recursive_depth, excluded.recursive_depth),
+                    last_sync_at = COALESCE(excluded.last_sync_at, sync_targets.last_sync_at)
+            """, (user_id, chat_id, author_name, now, now, 1 if deep_mode else 0, recursive_depth))
             conn.commit()
             
         # Also ensure metadata is saved
@@ -652,7 +656,7 @@ class SQLiteStorage(BaseStorage):
             for c in cols:
                 if c in ("user_id", "chat_id"):
                     col_defs.append(f"{c} INTEGER")
-                elif c in ("last_msg_id", "tail_msg_id", "is_complete", "deep_mode", "recursive_depth", "added_at"):
+                elif c in ("last_msg_id", "tail_msg_id", "is_complete", "deep_mode", "recursive_depth", "added_at", "last_sync_at"):
                     col_defs.append(f"{c} INTEGER DEFAULT 0")
                 else:
                     col_defs.append(f"{c} TEXT")

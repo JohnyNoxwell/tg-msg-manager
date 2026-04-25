@@ -28,14 +28,14 @@ class TestSyncSystem(unittest.IsolatedAsyncioTestCase):
         
         with self.storage._get_connection() as conn:
             conn.execute(
-                "INSERT INTO sync_state (chat_id, last_msg_id, last_sync_timestamp) VALUES (?, ?, ?)",
-                (chat_id, 0, old_time)
+                "INSERT INTO sync_targets (user_id, chat_id, author_name, added_at, last_sync_at, is_complete) VALUES (?, ?, ?, ?, ?, ?)",
+                (chat_id, chat_id, "Test Target", old_time, old_time, 1)
             )
             conn.commit()
             
         # 2. Check for chats outdated by > 24 hours
         outdated = self.storage.get_outdated_chats(24 * 3600)
-        self.assertIn(chat_id, outdated)
+        self.assertIn((chat_id, chat_id), outdated)
         
         # 3. Check for chats outdated by > 72 hours (should be empty)
         outdated_72 = self.storage.get_outdated_chats(72 * 3600)
@@ -49,7 +49,7 @@ class TestSyncSystem(unittest.IsolatedAsyncioTestCase):
         service = ExportService(self.mock_client, self.storage)
         service.sync_chat = AsyncMock()
         
-        await service.sync_all_outdated(threshold_hours=24)
+        await service.sync_all_outdated(threshold_seconds=24 * 3600)
         
         service.sync_chat.assert_awaited()
         self.mock_client.get_entity.assert_awaited_with(111)

@@ -354,7 +354,12 @@ class ExportService:
         if UI.is_tty():
             print(f"\n🔄 [Updating {len(outdated)} items...]")
         
-        for chat_id, from_user_id in outdated:
+        for item in outdated:
+            if isinstance(item, tuple) and len(item) == 2:
+                chat_id, from_user_id = item
+            else:
+                chat_id = item
+                from_user_id = item
             entity = await self.client.get_entity(chat_id)
             if entity:
                 processed = await self.sync_chat(entity, from_user_id=from_user_id)
