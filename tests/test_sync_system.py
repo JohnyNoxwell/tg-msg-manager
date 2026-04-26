@@ -62,7 +62,7 @@ class TestSyncSystem(unittest.IsolatedAsyncioTestCase):
         self.mock_client.get_entity = AsyncMock(return_value=MagicMock(id=111))
         
         service = ExportService(self.mock_client, self.storage)
-        service.sync_chat = AsyncMock()
+        service.sync_chat = AsyncMock(return_value=0)
         
         await service.sync_all_outdated(threshold_seconds=24 * 3600)
         
@@ -73,6 +73,10 @@ class TestSyncSystem(unittest.IsolatedAsyncioTestCase):
         self.storage.get_primary_targets = MagicMock(return_value=[
             {"chat_id": 200, "user_id": 200},
             {"chat_id": 300, "user_id": 999},
+        ])
+        self.storage.get_sync_status = MagicMock(side_effect=[
+            {"author_name": "Whole Chat", "is_complete": 1, "last_msg_id": 0},
+            {"author_name": "Tracked User", "is_complete": 1, "last_msg_id": 0},
         ])
         self.mock_client.get_entity = AsyncMock(side_effect=[MagicMock(id=200), MagicMock(id=300)])
 
@@ -86,6 +90,189 @@ class TestSyncSystem(unittest.IsolatedAsyncioTestCase):
         second_call = service.sync_chat.await_args_list[1]
         self.assertIsNone(first_call.kwargs["from_user_id"])
         self.assertEqual(second_call.kwargs["from_user_id"], 999)
+        self.assertFalse(first_call.kwargs["resume_history"])
+        self.assertFalse(second_call.kwargs["resume_history"])
+
+    async def test_sync_all_tracked_marks_only_changed_users_as_dirty(self):
+        self.storage.get_primary_targets = MagicMock(return_value=[
+            {"chat_id": 200, "user_id": 200},
+            {"chat_id": 300, "user_id": 999},
+        ])
+        self.storage.get_sync_status = MagicMock(side_effect=[
+            {"author_name": "Whole Chat"},
+            {"author_name": "Tracked User"},
+        ])
+        self.storage.get_user = MagicMock(return_value=None)
+        self.mock_client.get_entity = AsyncMock(side_effect=[MagicMock(id=200), MagicMock(id=300)])
+
+        service = ExportService(self.mock_client, self.storage)
+        service.sync_chat = AsyncMock(side_effect=[0, 4])
+
+        stats = await service.sync_all_tracked()
+
+        self.assertFalse(stats[200]["dirty"])
+        self.assertEqual(stats[200]["count"], 0)
+        self.assertTrue(stats[999]["dirty"])
+        self.assertEqual(stats[999]["count"], 4)
+
+    async def test_sync_all_tracked_reuses_chat_entity_for_same_chat(self):
+        shared_entity = MagicMock(id=200)
+        self.storage.get_primary_targets = MagicMock(return_value=[
+            {"chat_id": 200, "user_id": 111},
+            {"chat_id": 200, "user_id": 222},
+        ])
+        self.storage.get_sync_status = MagicMock(side_effect=[
+            {"author_name": "User One"},
+            {"author_name": "User Two"},
+        ])
+        self.storage.get_user = MagicMock(return_value=None)
+        self.mock_client.get_entity = AsyncMock(return_value=shared_entity)
+
+        service = ExportService(self.mock_client, self.storage)
+        service.sync_chat = AsyncMock(return_value=0)
+
+        await service.sync_all_tracked()
+
+        self.mock_client.get_entity.assert_awaited_once_with(200)
+        self.assertEqual(service.sync_chat.await_count, 2)
+
+    async def test_sync_all_tracked_skips_user_entity_resolution(self):
+        self.storage.get_primary_targets = MagicMock(return_value=[
+            {"chat_id": 200, "user_id": 999},
+        ])
+        self.storage.get_sync_status = MagicMock(return_value={"author_name": "Tracked User"})
+        self.storage.get_user = MagicMock(return_value=None)
+        self.mock_client.get_entity = AsyncMock(return_value=MagicMock(id=200))
+
+        service = ExportService(self.mock_client, self.storage)
+        service.sync_chat = AsyncMock(return_value=0)
+
+        await service.sync_all_tracked()
+
+        call = service.sync_chat.await_args_list[0]
+        self.assertFalse(call.kwargs["resolve_user_entity"])
+
+    async def test_sync_all_tracked_reuses_latest_message_probe_for_same_chat(self):
+        shared_entity = MagicMock(id=200)
+        latest = MagicMock(message_id=777)
+        self.storage.get_primary_targets = MagicMock(return_value=[
+            {"chat_id": 200, "user_id": 111},
+            {"chat_id": 200, "user_id": 222},
+        ])
+        self.storage.get_sync_status = MagicMock(side_effect=[
+            {"author_name": "User One"},
+            {"author_name": "User Two"},
+        ])
+        self.storage.get_user = MagicMock(return_value=None)
+        self.mock_client.get_entity = AsyncMock(return_value=shared_entity)
+        self.mock_client.get_messages = AsyncMock(return_value=[latest])
+
+        service = ExportService(self.mock_client, self.storage)
+        service.sync_chat = AsyncMock(return_value=0)
+
+        await service.sync_all_tracked()
+
+        self.mock_client.get_messages.assert_awaited_once_with(shared_entity, limit=1)
+        first_call = service.sync_chat.await_args_list[0]
+        second_call = service.sync_chat.await_args_list[1]
+        self.assertEqual(first_call.kwargs["current_max_hint"], 777)
+        self.assertEqual(second_call.kwargs["current_max_hint"], 777)
+
+    async def test_sync_all_tracked_reuses_shared_head_prefetch_for_same_chat_users(self):
+        shared_entity = MagicMock(id=200)
+        latest = MagicMock(message_id=777)
+        prefetched = [
+            MagicMock(message_id=777, user_id=111),
+            MagicMock(message_id=776, user_id=222),
+            MagicMock(message_id=775, user_id=333),
+            MagicMock(message_id=699, user_id=111),
+        ]
+        expected_prefetch = prefetched[:3]
+
+        class AsyncIterator:
+            def __init__(self, items):
+                self.items = list(items)
+            def __aiter__(self):
+                return self
+            async def __anext__(self):
+                if not self.items:
+                    raise StopAsyncIteration
+                return self.items.pop(0)
+
+        self.storage.get_primary_targets = MagicMock(return_value=[
+            {"chat_id": 200, "user_id": 111},
+            {"chat_id": 200, "user_id": 222},
+        ])
+        self.storage.get_sync_status = MagicMock(side_effect=lambda chat_id, user_id: {
+            "author_name": f"User {user_id}",
+            "last_msg_id": 700 if user_id == 111 else 750,
+        })
+        self.storage.get_user = MagicMock(return_value=None)
+        self.mock_client.get_entity = AsyncMock(return_value=shared_entity)
+        self.mock_client.get_messages = AsyncMock(return_value=[latest])
+        self.mock_client.iter_messages = MagicMock(return_value=AsyncIterator(prefetched))
+
+        service = ExportService(self.mock_client, self.storage)
+        service.sync_chat = AsyncMock(return_value=0)
+
+        await service.sync_all_tracked()
+
+        self.mock_client.iter_messages.assert_called_once()
+        first_call = service.sync_chat.await_args_list[0]
+        second_call = service.sync_chat.await_args_list[1]
+        self.assertEqual(first_call.kwargs["prefetched_messages"], expected_prefetch)
+        self.assertEqual(second_call.kwargs["prefetched_messages"], expected_prefetch)
+
+    async def test_sync_all_tracked_resumes_incomplete_history_even_when_head_is_current(self):
+        shared_entity = MagicMock(id=200)
+        latest = MagicMock(message_id=777)
+        self.storage.get_primary_targets = MagicMock(return_value=[
+            {"chat_id": 200, "user_id": 999},
+        ])
+        self.storage.get_sync_status = MagicMock(return_value={
+            "author_name": "Tracked User",
+            "last_msg_id": 777,
+            "tail_msg_id": 40,
+            "is_complete": 0,
+        })
+        self.storage.get_user = MagicMock(return_value=None)
+        self.mock_client.get_entity = AsyncMock(return_value=shared_entity)
+        self.mock_client.get_messages = AsyncMock(return_value=[latest])
+
+        service = ExportService(self.mock_client, self.storage)
+        service.sync_chat = AsyncMock(return_value=0)
+
+        await service.sync_all_tracked()
+
+        service.sync_chat.assert_awaited_once()
+        self.assertTrue(service.sync_chat.await_args.kwargs["resume_history"])
+
+    async def test_sync_all_tracked_skips_up_to_date_targets_before_sync_chat(self):
+        shared_entity = MagicMock(id=200)
+        latest = MagicMock(message_id=777)
+        self.storage.get_primary_targets = MagicMock(return_value=[
+            {"chat_id": 200, "user_id": 111},
+            {"chat_id": 200, "user_id": 222},
+        ])
+        self.storage.get_sync_status = MagicMock(side_effect=lambda chat_id, user_id: {
+            "author_name": f"User {user_id}",
+            "last_msg_id": 777,
+            "is_complete": 1,
+        })
+        self.storage.get_user = MagicMock(return_value=None)
+        self.mock_client.get_entity = AsyncMock(return_value=shared_entity)
+        self.mock_client.get_messages = AsyncMock(return_value=[latest])
+
+        service = ExportService(self.mock_client, self.storage)
+        service.sync_chat = AsyncMock(return_value=0)
+
+        stats = await service.sync_all_tracked()
+
+        service.sync_chat.assert_not_awaited()
+        self.assertEqual(stats[111]["count"], 0)
+        self.assertFalse(stats[111]["dirty"])
+        self.assertEqual(stats[222]["count"], 0)
+        self.assertFalse(stats[222]["dirty"])
 
 if __name__ == "__main__":
     unittest.main()

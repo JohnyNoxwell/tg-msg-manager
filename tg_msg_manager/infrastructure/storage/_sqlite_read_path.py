@@ -254,6 +254,46 @@ class SQLiteReadPathMixin:
             """, (user_id,)).fetchall()
             return [self._row_to_message(row) for row in rows]
 
+    def get_user_export_rows(self, user_id: int) -> List[dict]:
+        with self._read_connection() as conn:
+            rows = conn.execute("""
+                SELECT
+                    m.message_id,
+                    m.chat_id,
+                    m.user_id,
+                    m.author_name,
+                    m.timestamp,
+                    m.text,
+                    m.media_type,
+                    m.reply_to_id,
+                    m.fwd_from_id,
+                    m.context_group_id,
+                    m.raw_payload,
+                    0 AS is_service
+                FROM messages m
+                JOIN message_target_links l ON m.chat_id = l.chat_id AND m.message_id = l.message_id
+                WHERE l.target_user_id = ?
+                ORDER BY m.timestamp ASC, m.message_id ASC
+            """, (user_id,)).fetchall()
+            return [dict(row) for row in rows]
+
+    def get_target_message_breakdown(self, chat_id: int, target_id: int) -> dict:
+        with self._read_connection() as conn:
+            row = conn.execute("""
+                SELECT
+                    COUNT(*) AS total_linked,
+                    SUM(CASE WHEN m.user_id = ? THEN 1 ELSE 0 END) AS own_messages
+                FROM message_target_links l
+                JOIN messages m ON l.chat_id = m.chat_id AND l.message_id = m.message_id
+                WHERE l.chat_id = ? AND l.target_user_id = ?
+            """, (target_id, chat_id, target_id)).fetchone()
+            total_linked = row["total_linked"] if row and row["total_linked"] is not None else 0
+            own_messages = row["own_messages"] if row and row["own_messages"] is not None else 0
+            return {
+                "own_messages": own_messages,
+                "with_context": total_linked,
+            }
+
     def get_retry_tasks(self) -> List[dict]:
         now = int(datetime.now().timestamp())
         with self._read_connection() as conn:

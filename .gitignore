@@ -23,6 +23,7 @@ delete_log.txt
 *.log
 LOGS/
 TASKS/
+LOCAL_BACKLOG.md
 
 # Состояние экспорта и временные файлы
 export_state.json

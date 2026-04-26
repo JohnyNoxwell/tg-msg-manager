@@ -6,21 +6,60 @@ logger = logging.getLogger(__name__)
 
 
 class SQLiteSyncStateMixin:
+    def repair_terminal_incomplete_targets(self, tail_threshold: int = 1) -> List[dict]:
+        """
+        Reconcile sync targets that are logically complete at the bottom of history
+        but still carry a stale `is_complete = 0` flag from older interrupted flows.
+
+        Safe scope:
+        - only targets with `last_msg_id > 0`
+        - only targets with `is_complete = 0`
+        - only targets with `tail_msg_id <= tail_threshold`
+
+        The repair intentionally preserves `last_sync_at`; this is metadata cleanup,
+        not a new successful sync.
+        """
+        with self._write_transaction() as conn:
+            rows = conn.execute(
+                """
+                SELECT user_id, chat_id, author_name, last_msg_id, tail_msg_id, is_complete, last_sync_at
+                FROM sync_targets
+                WHERE is_complete = 0
+                  AND last_msg_id > 0
+                  AND tail_msg_id <= ?
+                ORDER BY chat_id, user_id
+                """,
+                (tail_threshold,),
+            ).fetchall()
+            repaired = [dict(row) for row in rows]
+            if repaired:
+                conn.execute(
+                    """
+                    UPDATE sync_targets
+                    SET tail_msg_id = 0, is_complete = 1
+                    WHERE is_complete = 0
+                      AND last_msg_id > 0
+                      AND tail_msg_id <= ?
+                    """,
+                    (tail_threshold,),
+                )
+            return repaired
+
     def update_sync_tail(self, chat_id: int, user_id: int, tail_id: int, is_complete: bool = False):
         with self._write_transaction() as conn:
             conn.execute("""
                 UPDATE sync_targets
-                SET tail_msg_id = ?, is_complete = ?, last_sync_at = ?
+                SET tail_msg_id = ?, is_complete = ?
                 WHERE user_id = ? AND chat_id = ?
-            """, (tail_id, 1 if is_complete else 0, int(time.time()), user_id, chat_id))
+            """, (tail_id, 1 if is_complete else 0, user_id, chat_id))
 
     def update_last_msg_id(self, chat_id: int, user_id: int, last_msg_id: int):
         with self._write_transaction() as conn:
             conn.execute("""
                 UPDATE sync_targets
-                SET last_msg_id = MAX(last_msg_id, ?), last_sync_at = ?
+                SET last_msg_id = MAX(last_msg_id, ?)
                 WHERE user_id = ? AND chat_id = ?
-            """, (last_msg_id, int(time.time()), user_id, chat_id))
+            """, (last_msg_id, user_id, chat_id))
 
     def update_last_sync_at(self, chat_id: int, user_id: int):
         with self._write_transaction() as conn:
@@ -82,8 +121,7 @@ class SQLiteSyncStateMixin:
                 ON CONFLICT(user_id, chat_id) DO UPDATE SET
                     author_name = excluded.author_name,
                     deep_mode = MAX(sync_targets.deep_mode, excluded.deep_mode),
-                    recursive_depth = MAX(sync_targets.recursive_depth, excluded.recursive_depth),
-                    last_sync_at = COALESCE(excluded.last_sync_at, sync_targets.last_sync_at)
+                    recursive_depth = MAX(sync_targets.recursive_depth, excluded.recursive_depth)
             """, (user_id, chat_id, author_name, now, now, 1 if deep_mode else 0, recursive_depth))
             self._upsert_user_in_conn(conn, user_id, first_name, last_name, username)
 

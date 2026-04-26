@@ -1,20 +1,29 @@
 import sys
 import os
 import json
+import asyncio
 import unittest
+import tempfile
+import shutil
 from datetime import datetime
 from unittest.mock import MagicMock
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tg_msg_manager.core.models.message import MessageData
+from tg_msg_manager.core.telemetry import telemetry
 from tg_msg_manager.services.db_exporter import DBExportService
 
 
 class TestDBExporter(unittest.TestCase):
     def setUp(self):
         self.storage = MagicMock()
+        self.storage.get_user_export_rows.return_value = None
         self.service = DBExportService(self.storage)
+        self.tmpdir = tempfile.mkdtemp(prefix="tg_db_export_test_")
+
+    def tearDown(self):
+        shutil.rmtree(self.tmpdir, ignore_errors=True)
 
     def test_ai_json_profile_is_default_and_keeps_graph_fields(self):
         msg = MessageData(
@@ -102,6 +111,144 @@ class TestDBExporter(unittest.TestCase):
         name = self.service._resolve_export_author_name(2142333070, [msg])
 
         self.assertEqual(name, "Никто")
+
+    def test_write_batch_size_prefers_larger_batches_for_ai_json(self):
+        self.assertEqual(self.service._write_batch_size(as_json=False, json_profile="ai"), 100)
+        self.assertEqual(self.service._write_batch_size(as_json=True, json_profile="full"), 500)
+        self.assertEqual(self.service._write_batch_size(as_json=True, json_profile="ai"), 1000)
+
+    def test_export_user_messages_skips_full_rewrite_when_fingerprint_is_unchanged(self):
+        telemetry.reset()
+        message = MessageData(
+            message_id=1,
+            chat_id=2,
+            user_id=3,
+            author_name="Stable User",
+            timestamp=datetime.fromtimestamp(1700000000),
+            text="hello",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        self.storage.get_user_messages.return_value = [message]
+        self.storage.get_user.return_value = {
+            "user_id": 3,
+            "first_name": "Stable",
+            "last_name": "User",
+            "username": "stable",
+        }
+
+        first_path = asyncio.run(self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=True))
+        with open(first_path, "r", encoding="utf-8") as f:
+            first_content = f.read()
+
+        second_path = asyncio.run(self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=True))
+        with open(second_path, "r", encoding="utf-8") as f:
+            second_content = f.read()
+
+        self.assertEqual(first_path, second_path)
+        self.assertEqual(first_content, second_content)
+        summary = telemetry.get_summary()
+        self.assertEqual(summary["counters"]["db_export.skipped_unchanged"], 1)
+
+    def test_export_user_messages_skips_multipart_rewrite_when_parts_are_unchanged(self):
+        telemetry.reset()
+        messages = []
+        base_ts = 1700000000
+        for idx in range(5001):
+            messages.append(
+                MessageData(
+                    message_id=idx + 1,
+                    chat_id=2,
+                    user_id=3,
+                    author_name="Stable User",
+                    timestamp=datetime.fromtimestamp(base_ts + idx),
+                    text=f"hello {idx}",
+                    media_type=None,
+                    reply_to_id=None,
+                    fwd_from_id=None,
+                    context_group_id=None,
+                    raw_payload={},
+                )
+            )
+        self.storage.get_user_messages.return_value = messages
+        self.storage.get_user.return_value = {
+            "user_id": 3,
+            "first_name": "Stable",
+            "last_name": "User",
+            "username": "stable",
+        }
+
+        first_path = asyncio.run(self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=True))
+        second_path = asyncio.run(self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=True))
+
+        self.assertEqual(first_path, second_path)
+        self.assertTrue(os.path.exists(first_path))
+        self.assertTrue(os.path.exists(first_path.replace(".jsonl", "_part2.jsonl")))
+        summary = telemetry.get_summary()
+        self.assertEqual(summary["counters"]["db_export.skipped_unchanged"], 1)
+
+    def test_export_user_messages_uses_row_fast_path_for_ai_json(self):
+        row = {
+            "message_id": 1,
+            "chat_id": 2,
+            "user_id": 3,
+            "author_name": "Fast User",
+            "timestamp": 1700000000,
+            "text": "hello",
+            "media_type": None,
+            "reply_to_id": None,
+            "fwd_from_id": None,
+            "context_group_id": None,
+            "raw_payload": "{}",
+            "is_service": 0,
+        }
+        self.storage.get_user_export_rows.return_value = [row]
+        self.storage.get_user.return_value = {
+            "user_id": 3,
+            "first_name": "Fast",
+            "last_name": "User",
+            "username": "fast",
+        }
+
+        output_path = asyncio.run(self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=True))
+
+        self.storage.get_user_messages.assert_not_called()
+        self.assertTrue(os.path.exists(output_path))
+
+    def test_export_user_messages_row_fast_path_skips_unchanged_without_len_none_crash(self):
+        telemetry.reset()
+        row = {
+            "message_id": 1,
+            "chat_id": 2,
+            "user_id": 3,
+            "author_name": "Fast User",
+            "timestamp": 1700000000,
+            "text": "hello",
+            "media_type": None,
+            "reply_to_id": None,
+            "fwd_from_id": None,
+            "context_group_id": None,
+            "raw_payload": "{}",
+            "is_service": 0,
+        }
+        self.storage.get_user_export_rows.return_value = [row]
+        self.storage.get_user.return_value = {
+            "user_id": 3,
+            "first_name": "Fast",
+            "last_name": "User",
+            "username": "fast",
+        }
+
+        first_path = asyncio.run(self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=True))
+        second_path = asyncio.run(self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=True))
+
+        self.assertEqual(first_path, second_path)
+        self.storage.get_user_messages.assert_not_called()
+        summary = telemetry.get_summary()
+        self.assertEqual(summary["counters"]["db_export.skipped_unchanged"], 1)
 
 
 if __name__ == "__main__":

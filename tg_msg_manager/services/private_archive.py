@@ -12,6 +12,7 @@ from ..core.telegram.interface import TelegramClientInterface
 from ..core.telemetry import telemetry
 from ..core.models.message import MessageData
 from ..utils.ui import UI
+from ..i18n import _
 
 logger = logging.getLogger(__name__)
 
@@ -84,8 +85,8 @@ class PrivateArchiveService:
         self.storage.register_target(user_id, target_name, user_id)
         
         if UI.is_tty():
-            print(f"\n📂 [PM Archive: {target_name} ({user_id})]")
-            print(f"   Saving to: {user_dir}")
+            print(f"\n{UI.section(_('section_pm_archive'), icon='◆')}  {UI.paint(target_name, UI.CLR_USER, bold=True)}  {UI.muted(_('label_id'))} {UI.paint(user_id, UI.CLR_ID)}")
+            print(f"   {UI.muted(_('label_path'))} {UI.paint(user_dir, UI.CLR_CHAT)}")
         logger.info(f"PM Archive start for {user_id}. Last ID: {last_id}")
         
         count = 0
@@ -110,7 +111,7 @@ class PrivateArchiveService:
                 telemetry.track_messages(1)
                 downloaded_path = await self._download_media(msg_data, media_dir)
                 if downloaded_path and UI.is_tty():
-                    print(f"   ↳ saved media: {os.path.basename(downloaded_path)}")
+                    print(f"   {UI.paint('↳', UI.CLR_MUTED)} {UI.muted(_('label_saved_media'))} {UI.paint(os.path.basename(downloaded_path), UI.CLR_STATS)}")
                 if downloaded_path:
                     archive_stats["downloaded"] += 1
                 else:
@@ -121,13 +122,13 @@ class PrivateArchiveService:
             
             if count % 5 == 0:
                 media_str = f"P:{stats['Photo']} V:{stats['Video']} S:{stats['Voice']} D:{stats['Document']}"
-                media_progress = f"downloaded={archive_stats['downloaded']} skipped={archive_stats['skipped']}"
-                UI.print_status("Archiving", count, extra=f"messages | {media_progress} | Media: {media_str}")
+                media_progress = f"{_('label_downloaded')}={archive_stats['downloaded']} {_('label_skipped')}={archive_stats['skipped']}"
+                UI.print_status("Archiving", count, extra=f"{_('label_messages')} | {media_progress} | {_('label_media')}: {media_str}")
             
         media_total = f"P:{stats['Photo']} V:{stats['Video']} S:{stats['Voice']} D:{stats['Document']}"
         if UI.is_tty():
-            final_progress = f"downloaded={archive_stats['downloaded']} skipped={archive_stats['skipped']}"
-            UI.print_status("Complete", count, extra=f"messages | {final_progress} | Final Media: {media_total}")
+            final_progress = f"{_('label_downloaded')}={archive_stats['downloaded']} {_('label_skipped')}={archive_stats['skipped']}"
+            UI.print_status("Complete", count, extra=f"{_('label_messages')} | {final_progress} | {_('label_media')}: {media_total}")
             UI.print_final_summary("sync_summary_title", [{
                 "title": UI.format_name(user_entity),
                 "lines": [

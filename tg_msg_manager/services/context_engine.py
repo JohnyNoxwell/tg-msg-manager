@@ -232,6 +232,7 @@ class DeepModeEngine:
         max_cluster: int,
     ) -> Dict[str, List[_NormalizedContextMessage]]:
         anchors_by_cluster: Dict[str, List[_NormalizedContextMessage]] = {}
+        skipped_empty = 0
         for cluster in clusters:
             if cluster.remaining_slots(max_cluster) <= 0:
                 continue
@@ -239,6 +240,11 @@ class DeepModeEngine:
             anchors = self._round_anchors(cluster, round_number)
             if anchors:
                 anchors_by_cluster[cluster.cluster_id] = anchors
+            else:
+                skipped_empty += 1
+        telemetry.track_counter(f"deep.round_{round_number}.anchor_clusters", len(anchors_by_cluster))
+        if skipped_empty:
+            telemetry.track_counter(f"deep.round_{round_number}.skipped_empty_clusters", skipped_empty)
         return anchors_by_cluster
 
     def _round_anchors(
@@ -248,7 +254,14 @@ class DeepModeEngine:
     ) -> List[_NormalizedContextMessage]:
         if round_number == 1:
             return [cluster.target]
-        return cluster.structural_messages()
+        structural = [
+            norm
+            for norm in cluster.structural_messages()
+            if norm.key != cluster.target.key
+        ]
+        if cluster.topic_id is not None:
+            return [cluster.target, *structural]
+        return structural
 
     async def _fetch_parent_messages(
         self,
@@ -282,7 +295,7 @@ class DeepModeEngine:
                     missing_ids.append(parent_id)
         else:
             for stored in stored_messages.values():
-                normalized[stored.message.message_id] = self._normalize_message(stored)
+                normalized[stored.message_id] = self._normalize_message(stored)
             storage_hits = len(stored_messages)
 
             missing_ids = [
@@ -348,23 +361,59 @@ class DeepModeEngine:
         ranges = self._calculate_ranges(anchor_ids, before_ids=scan_before, after_ids=scan_after)
         seen: Set[MessageKey] = set()
         collected: List[_NormalizedContextMessage] = []
+        stored_replies = self._load_stored_replies(chat_id, anchor_ids)
 
         for start_id, end_id in ranges:
-            for message in self._load_stored_range(chat_id, start_id, end_id):
+            stored_messages = self._load_stored_range(chat_id, start_id, end_id)
+            for message in stored_messages:
                 norm = self._normalize_message(message)
                 if norm.key in seen:
                     continue
                 seen.add(norm.key)
                 collected.append(norm)
 
-            for message in await self._fetch_range(entity, start_id, end_id):
+            stored_ids = {message.message_id for message in stored_messages}
+            range_width = end_id - start_id + 1
+            missing_ids = [
+                message_id
+                for message_id in range(start_id, end_id + 1)
+                if message_id not in stored_ids
+            ]
+            self._track_range_coverage(range_width, len(stored_ids), len(missing_ids))
+
+            live_messages: List[MessageData] = []
+            if not missing_ids:
+                telemetry.track_counter("deep.fetch_range.local_only.calls", 1)
+            elif self._should_selective_live_fill(
+                range_width,
+                len(stored_ids),
+                len(missing_ids),
+                stored_reply_count=len(stored_replies),
+            ):
+                telemetry.track_counter("deep.fetch_range.selective_fill.calls", 1)
+                telemetry.track_counter("deep.fetch_range.selective_fill.ids", len(missing_ids))
+                live_messages = await self._fetch_missing_ids(entity, missing_ids)
+            elif self._should_compact_live_fill(range_width, len(stored_ids), missing_ids):
+                compact_ranges = self._build_missing_subranges(missing_ids)
+                telemetry.track_counter("deep.fetch_range.compact_fill.calls", 1)
+                telemetry.track_counter("deep.fetch_range.compact_fill.ranges", len(compact_ranges))
+                telemetry.track_counter(
+                    "deep.fetch_range.compact_fill.width",
+                    sum((end_id - start_id + 1) for start_id, end_id in compact_ranges),
+                )
+                live_messages = await self._fetch_ranges(entity, compact_ranges)
+            else:
+                telemetry.track_counter("deep.fetch_range.full_scan.calls", 1)
+                telemetry.track_counter("deep.fetch_range.full_scan.width", range_width)
+                live_messages = await self._fetch_range(entity, start_id, end_id)
+
+            for message in live_messages:
                 norm = self._normalize_message(message)
                 if norm.key in seen:
                     continue
                 seen.add(norm.key)
                 collected.append(norm)
 
-        stored_replies = self._load_stored_replies(chat_id, anchor_ids)
         for message in stored_replies:
             norm = self._normalize_message(message)
             if norm.key in seen:
@@ -379,6 +428,95 @@ class DeepModeEngine:
         telemetry.track_duration("deep.candidate_pool.total", perf_counter() - started_at)
         return collected
 
+    @staticmethod
+    def _should_selective_live_fill(
+        range_width: int,
+        stored_count: int,
+        missing_count: int,
+        stored_reply_count: int = 0,
+    ) -> bool:
+        if missing_count <= 0 or stored_count <= 0 or range_width <= 0:
+            return False
+
+        coverage = stored_count / range_width
+        if missing_count <= 25:
+            return True
+        if coverage >= 0.65 and missing_count <= 200:
+            return True
+        return stored_reply_count > 0 and coverage >= 0.5 and missing_count <= 120
+
+    @staticmethod
+    def _should_compact_live_fill(
+        range_width: int,
+        stored_count: int,
+        missing_ids: List[int],
+    ) -> bool:
+        if range_width <= 0 or stored_count <= 0 or not missing_ids:
+            return False
+        if len(missing_ids) <= 25:
+            return False
+
+        compact_ranges = DeepModeEngine._build_missing_subranges(missing_ids)
+        compact_width = sum((end_id - start_id + 1) for start_id, end_id in compact_ranges)
+        coverage = stored_count / range_width
+
+        if len(compact_ranges) > 10:
+            return False
+        if compact_width >= range_width:
+            return False
+        if compact_width <= max(40, range_width // 3):
+            return True
+        return coverage >= 0.35 and compact_width <= int(range_width * 0.55)
+
+    @staticmethod
+    def _build_missing_subranges(
+        missing_ids: List[int],
+        pad_before: int = 1,
+        pad_after: int = 2,
+        merge_gap: int = 3,
+    ) -> List[Tuple[int, int]]:
+        if not missing_ids:
+            return []
+
+        sorted_ids = sorted(set(message_id for message_id in missing_ids if message_id > 0))
+        if not sorted_ids:
+            return []
+
+        ranges: List[Tuple[int, int]] = []
+        start_id = max(1, sorted_ids[0] - pad_before)
+        end_id = sorted_ids[0] + pad_after
+
+        for message_id in sorted_ids[1:]:
+            next_start = max(1, message_id - pad_before)
+            next_end = message_id + pad_after
+            if next_start <= end_id + merge_gap:
+                end_id = max(end_id, next_end)
+            else:
+                ranges.append((start_id, end_id))
+                start_id, end_id = next_start, next_end
+
+        ranges.append((start_id, end_id))
+        return ranges
+
+    @staticmethod
+    def _track_range_coverage(range_width: int, stored_count: int, missing_count: int) -> None:
+        telemetry.track_counter("deep.fetch_range.range_width", range_width)
+        telemetry.track_counter("deep.fetch_range.stored_hits", stored_count)
+        telemetry.track_counter("deep.fetch_range.missing_ids", missing_count)
+
+        if range_width <= 0:
+            return
+
+        coverage_pct = int((stored_count * 100) / range_width)
+        if coverage_pct >= 100:
+            telemetry.track_counter("deep.fetch_range.coverage_100.calls", 1)
+        elif coverage_pct >= 80:
+            telemetry.track_counter("deep.fetch_range.coverage_ge_80.calls", 1)
+        elif coverage_pct >= 50:
+            telemetry.track_counter("deep.fetch_range.coverage_ge_50.calls", 1)
+        else:
+            telemetry.track_counter("deep.fetch_range.coverage_lt_50.calls", 1)
+
     def _associate_candidates(
         self,
         clusters: List[_ClusterState],
@@ -387,14 +525,27 @@ class DeepModeEngine:
         max_cluster: int,
     ) -> List[MessageData]:
         additions: List[MessageData] = []
+        target_index, structural_index, topic_index = self._build_candidate_indexes(
+            clusters,
+            round_number=round_number,
+            max_cluster=max_cluster,
+        )
         for candidate in candidates:
             if candidate.message.is_service:
                 continue
+            if candidate.key in self._processed_ids:
+                continue
 
-            for cluster in clusters:
+            for cluster in self._candidate_clusters(
+                candidate,
+                round_number=round_number,
+                target_index=target_index,
+                structural_index=structural_index,
+                topic_index=topic_index,
+            ):
                 if cluster.remaining_slots(max_cluster) <= 0:
                     continue
-                if candidate.key in cluster.messages or candidate.key in self._processed_ids:
+                if candidate.key in cluster.messages:
                     continue
 
                 reason, structural = self._detect_relation(cluster, candidate, round_number)
@@ -405,6 +556,63 @@ class DeepModeEngine:
                     additions.append(self._with_cluster(candidate.message, cluster.cluster_id))
                     break
         return additions
+
+    def _build_candidate_indexes(
+        self,
+        clusters: List[_ClusterState],
+        round_number: int,
+        max_cluster: int,
+    ) -> Tuple[
+        Dict[int, List[_ClusterState]],
+        Dict[int, List[_ClusterState]],
+        Dict[int, List[_ClusterState]],
+    ]:
+        target_index: Dict[int, List[_ClusterState]] = {}
+        structural_index: Dict[int, List[_ClusterState]] = {}
+        topic_index: Dict[int, List[_ClusterState]] = {}
+
+        for cluster in clusters:
+            if cluster.remaining_slots(max_cluster) <= 0:
+                continue
+
+            target_index.setdefault(cluster.target.message.message_id, []).append(cluster)
+            if round_number < 2:
+                continue
+
+            for norm in cluster.structural_messages():
+                structural_index.setdefault(norm.message.message_id, []).append(cluster)
+            if cluster.topic_id:
+                topic_index.setdefault(cluster.topic_id, []).append(cluster)
+
+        return target_index, structural_index, topic_index
+
+    @staticmethod
+    def _candidate_clusters(
+        candidate: _NormalizedContextMessage,
+        round_number: int,
+        target_index: Dict[int, List[_ClusterState]],
+        structural_index: Dict[int, List[_ClusterState]],
+        topic_index: Dict[int, List[_ClusterState]],
+    ) -> List[_ClusterState]:
+        ordered: List[_ClusterState] = []
+        seen_cluster_ids: Set[str] = set()
+
+        def append_matches(matches: List[_ClusterState]) -> None:
+            for cluster in matches:
+                if cluster.cluster_id in seen_cluster_ids:
+                    continue
+                seen_cluster_ids.add(cluster.cluster_id)
+                ordered.append(cluster)
+
+        if candidate.reply_to_id is not None:
+            append_matches(target_index.get(candidate.reply_to_id, []))
+            if round_number >= 2:
+                append_matches(structural_index.get(candidate.reply_to_id, []))
+
+        if round_number >= 2 and candidate.topic_id is not None:
+            append_matches(topic_index.get(candidate.topic_id, []))
+
+        return ordered
 
     def _detect_relation(
         self,
@@ -610,6 +818,25 @@ class DeepModeEngine:
         telemetry.track_counter("deep.fetch_range.messages", len(results))
         telemetry.track_duration("deep.fetch_range.total", perf_counter() - started_at)
         return results
+
+    async def _fetch_ranges(self, entity: Any, ranges: List[Tuple[int, int]]) -> List[MessageData]:
+        results: List[MessageData] = []
+        for start_id, end_id in ranges:
+            results.extend(await self._fetch_range(entity, start_id, end_id))
+        return results
+
+    async def _fetch_missing_ids(self, entity: Any, message_ids: List[int]) -> List[MessageData]:
+        if not message_ids:
+            return []
+
+        started_at = perf_counter()
+        try:
+            async with self.semaphore:
+                return await self.client.get_messages(entity, message_ids=message_ids)
+        finally:
+            telemetry.track_counter("deep.fetch_missing_ids.calls", 1)
+            telemetry.track_counter("deep.fetch_missing_ids.requested", len(message_ids))
+            telemetry.track_duration("deep.fetch_missing_ids.total", perf_counter() - started_at)
 
     def _load_stored_range(self, chat_id: int, start_id: int, end_id: int) -> List[MessageData]:
         getter = getattr(self.storage, "get_messages_in_id_range", None)

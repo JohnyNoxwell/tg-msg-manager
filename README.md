@@ -66,6 +66,7 @@ python3 -m tg_msg_manager.cli update
     `python3 -m tg_msg_manager.cli clean --apply --yes`
 *   **Обновление всех целей**: 
     `python3 -m tg_msg_manager.cli update`
+    После прерванного большого экспорта `update` может некоторое время выглядеть "задумавшимся" до появления построчного прогресса: в этот момент сервис делает shared head prefetch для чата и готовит общий HEAD-срез для нескольких целей.
 *   **Архив лички**:
     `python3 -m tg_msg_manager.cli export-pm --user-id 8603071440`
 *   **Экспорт из БД**:
@@ -91,6 +92,7 @@ python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 -
 * Фоновая запись в SQLite остаётся чувствительной к очень большим deep-export проходам; основная оптимизация сейчас сделана на уровне пакетных сервисных вызовов.
 * Планировщик `schedule` сейчас ориентирован на macOS `launchd`.
 * `db-export --json` по умолчанию не включает полный `raw_payload`; если когда-нибудь понадобится полный Telethon-слепок, это потребует отдельного full-профиля экспорта.
+* После прерванного `export/tge` команда `update/tgu` может иметь заметную подготовительную паузу перед первым видимым прогрессом, если системе нужно переиспользовать большой общий HEAD-срез чата.
 
 <a id="алиасы"></a>
 #### 🚀 Быстрые Алиасы (Power User)
@@ -165,6 +167,7 @@ Subcommands can be executed directly for automation:
     `python3 -m tg_msg_manager.cli clean --apply --yes`
 *   **Universal Update**: 
     `python3 -m tg_msg_manager.cli update`
+    After a large interrupted export, `update` may appear idle before per-target progress starts; during that phase the service is building a shared head prefetch slice for the chat.
 *   **PM Archive**:
     `python3 -m tg_msg_manager.cli export-pm --user-id 8603071440`
 *   **DB Export**:
@@ -190,6 +193,7 @@ python3 -m tg_msg_manager.cli export --user-id 8603071440 --chat-id 1274306614 -
 * SQLite background writing is still most sensitive during very large deep-export passes; the current optimization focus is batched service-level writes.
 * The built-in `schedule` command currently targets macOS `launchd`.
 * `db-export --json` no longer includes the full `raw_payload` by default; a future explicit full-export profile would be needed for raw Telethon dumps.
+* After an interrupted `export/tge`, `update/tgu` may have a noticeable preparation pause before the first visible per-target progress if the service needs to rebuild a large shared chat-head slice.
 
 <a id="aliases"></a>
 #### 🚀 Power User Aliases

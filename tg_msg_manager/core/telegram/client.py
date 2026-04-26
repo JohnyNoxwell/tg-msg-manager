@@ -83,6 +83,21 @@ class TelethonClientWrapper(TelegramClientInterface):
         finally:
             telemetry.track_duration("telegram.get_messages.total", perf_counter() - started_at)
 
+    @staticmethod
+    def _coerce_numeric_user_id(from_user: Optional[Any]) -> Optional[int]:
+        if isinstance(from_user, bool):
+            return None
+        if isinstance(from_user, int):
+            return from_user
+        if isinstance(from_user, str):
+            normalized = from_user.strip()
+            if normalized and (normalized.isdigit() or (normalized.startswith("-") and normalized[1:].isdigit())):
+                try:
+                    return int(normalized)
+                except ValueError:
+                    return None
+        return None
+
     def _normalize_message(self, entity, msg) -> MessageData:
         """Helper to convert Telethon Message to internal MessageData."""
         author_name = None
@@ -117,13 +132,47 @@ class TelethonClientWrapper(TelegramClientInterface):
         count = 0
         started_at = perf_counter()
         telemetry.track_counter("telegram.iter_messages.calls", 1)
+        resolved_from_user = from_user
+        local_sender_filter_id = None
+        numeric_user_id = self._coerce_numeric_user_id(from_user)
+
+        if numeric_user_id is not None:
+            prepare_started_at = perf_counter()
+            await self.throttler.throttle()
+            telemetry.track_request()
+            try:
+                resolved_from_user = await self.client.get_input_entity(from_user)
+            except Exception as e:
+                logger.warning(
+                    "Could not resolve iter_messages from_user %s; falling back to local sender_id filter: %s",
+                    from_user,
+                    e,
+                )
+                telemetry.track_counter("telegram.iter_messages.from_user_fallbacks", 1)
+                resolved_from_user = None
+                local_sender_filter_id = numeric_user_id
+            finally:
+                telemetry.track_duration(
+                    "telegram.iter_messages.from_user_prepare.total",
+                    perf_counter() - prepare_started_at,
+                )
         try:
-            async for msg in self.client.iter_messages(entity, limit=limit, offset_id=offset_id, from_user=from_user, **kwargs):
+            async for msg in self.client.iter_messages(
+                entity,
+                limit=limit,
+                offset_id=offset_id,
+                from_user=resolved_from_user,
+                **kwargs,
+            ):
                 if count % 100 == 0:
                     await self.throttler.throttle()
                     telemetry.track_counter("telegram.iter_messages.throttle_ticks", 1)
-                
-                yield self._normalize_message(entity, msg)
+
+                normalized = self._normalize_message(entity, msg)
+                if local_sender_filter_id is not None and normalized.user_id != local_sender_filter_id:
+                    continue
+
+                yield normalized
                 count += 1
         finally:
             telemetry.track_counter("telegram.iter_messages.items", count)

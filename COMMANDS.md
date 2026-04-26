@@ -52,6 +52,7 @@ tg-msg-manager export --user-id 8603071440 --depth 5 --json
 tg-msg-manager update [--force-resync]
 ```
 Обновляет все цели, используя настройки (depth, window), сохраненные в базе данных.
+После прерванного большого экспорта перед первым видимым прогрессом может быть заметная пауза: сервис готовит shared head prefetch для чата.
 
 #### `db-export` — Выгрузка из базы (New!)
 ```bash
@@ -124,6 +125,7 @@ tg-msg-manager export --user-id 8603071440 --depth 5 --json
 tg-msg-manager update
 ```
 The "Smart Sync" engine. It automatically finds all targets in the DB and brings them up to date.
+After a large interrupted export, there may be a noticeable pause before the first visible per-target progress while the service prepares a shared head prefetch slice for the chat.
 
 #### `db-export` — Local Data Retrieval
 ```bash

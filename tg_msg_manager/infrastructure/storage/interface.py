@@ -97,6 +97,13 @@ class BaseStorage(ABC):
         pass
 
     @abstractmethod
+    def get_target_message_breakdown(self, chat_id: int, target_id: int) -> dict:
+        """
+        Returns per-target counts for own messages vs. total linked messages in a chat.
+        """
+        pass
+
+    @abstractmethod
     def delete_user_data(self, user_id: int) -> tuple[int, int]:
         """
         Removes all messages and tracking data for a user.

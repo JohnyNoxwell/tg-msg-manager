@@ -152,16 +152,27 @@ class CLIContext:
 def print_target_list(targets: list):
     """Prints a formatted, color-coded list of primary targets."""
     for i, u in enumerate(targets):
-        display_name = f"{UI.CLR_USER}{u['author_name']}{UI.CLR_RESET}"
-        user_id_str = f"{UI.CLR_ID}{u['user_id']}{UI.CLR_RESET}"
-        chat_info = f" | {UI.CLR_CHAT}{u['chat_title']}{UI.CLR_RESET}" if u.get('chat_title') else ""
-        
-        u_cnt = f"{UI.CLR_SUCCESS}{u['user_msg_count']}{UI.CLR_RESET}"
-        c_cnt = f"{UI.CLR_STATS}{u['context_msg_count']}{UI.CLR_RESET}"
-        
-        stats = f" ( Сообщ: {u_cnt} | Контекст: {c_cnt} )"
-        idx_str = f"[{i+1:02}]"
-        print(f" {idx_str} 👤 {display_name}{stats} ( ID: {user_id_str} ){chat_info}")
+        display_name = UI.paint(u["author_name"], UI.CLR_USER, bold=True)
+        user_id_str = UI.paint(u["user_id"], UI.CLR_ID)
+        chat_info = f"  {UI.paint('•', UI.CLR_BORDER)}  {UI.paint(u['chat_title'], UI.CLR_CHAT)}" if u.get("chat_title") else ""
+        own_count = UI.key_value(_("label_msg_short"), u["user_msg_count"], icon="✉")
+        context_count = UI.key_value(_("label_ctx_short"), u["context_msg_count"], icon="◌")
+        is_complete = bool(u.get("is_complete", 0))
+        status_color = UI.CLR_SUCCESS if is_complete else UI.CLR_WARN
+        status_label = _("status_complete") if is_complete else _("status_incomplete")
+        status = UI.paint(status_label, status_color, bold=True)
+        idx_str = UI.paint(f"{i+1:02}.", UI.CLR_MUTED)
+        print(f" {idx_str}  {display_name}  {UI.muted(_('label_id'))} {user_id_str}  {own_count}  {context_count}  {status}{chat_info}")
+
+def get_dirty_target_ids(stats: dict) -> list:
+    """Returns only targets that actually received new messages during update."""
+    dirty_ids = []
+    for uid, item in stats.items():
+        if not isinstance(item, dict):
+            continue
+        if item.get("dirty") or item.get("count", 0) > 0:
+            dirty_ids.append(uid)
+    return dirty_ids
 
 async def run_cli():
     """Main CLI entry point with subcommand support."""
@@ -257,23 +268,25 @@ async def run_cli():
                         context_window=args.context_window, max_cluster=args.max_cluster,
                         recursive_depth=args.depth, limit=args.limit
                     )
-                elif user_ent:
+                elif user_ent or isinstance(ctx.active_uid, int):
                     processed = await ctx.exporter.sync_all_dialogs_for_user(
                         ctx.active_uid, target_chat_ids=settings.chats_to_search_user_msgs,
                         deep_mode=args.deep, force_resync=args.force_resync,
                         context_window=args.context_window, max_cluster=args.max_cluster,
                         recursive_depth=args.depth, limit=args.limit
                     )
-                else: print(f"❌ Error: Could not resolve target {args.user_id}")
+                else: print(f"{UI.paint('✖', UI.CLR_ERROR, bold=True)} {UI.paint(_('text_could_not_resolve_target', target=args.user_id), UI.CLR_ERROR)}")
                 
-                print(f"\n📂 Finalizing export to filesystem...")
+                print(f"\n{UI.section(_('section_finalizing_export'), icon='⬢')}")
                 path = await ctx.db_exporter.export_user_messages(ctx.active_uid, as_json=True)
-                if path: print(f"✅ Export successfully saved to: {path}")
+                if path:
+                    print(f"{UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_export_saved'), UI.CLR_SUCCESS)}  {UI.muted(path)}")
+                telemetry.log_summary("Export telemetry summary")
                 
                 user_info = ctx.storage.get_user(ctx.active_uid)
                 name = UI.format_name(user_info) if user_info else f"ID:{ctx.active_uid}"
                 UI.print_final_summary("sync_summary_title", [{
-                    "title": f"Export: {name}",
+                    "title": f"{_('label_export')}: {name}",
                     "lines": [("processed", processed)],
                 }])
 
@@ -282,12 +295,12 @@ async def run_cli():
 
         elif args.command == "update":
             stats = await ctx.exporter.sync_all_tracked()
-            for uid in stats:
+            for uid in get_dirty_target_ids(stats):
                 await ctx.db_exporter.export_user_messages(uid, as_json=True, include_date=False)
             telemetry.log_summary("Update telemetry summary")
             total_processed = sum(item["count"] for item in stats.values() if isinstance(item, dict))
             UI.print_final_summary("sync_summary_title", [{
-                "title": "Update",
+                "title": _("label_update"),
                 "lines": [
                     ("processed", total_processed),
                     ("targets", len(stats)),
@@ -299,8 +312,8 @@ async def run_cli():
             if args.apply or args.yes: is_dry = False
             if args.dry_run is True: is_dry = True
             deleted = await ctx.cleaner.global_self_cleanup(dry_run=is_dry)
-            print(f"\n{_('summary_header')}\n{_('total_deleted_msgs', count=deleted)}")
-            if is_dry: print(f"\033[93m{_('dry_run_info')}\033[0m")
+            print(f"\n{UI.section(_('summary_header'), icon='◆')}\n{_('total_deleted_msgs', count=deleted)}")
+            if is_dry: print(UI.paint(_('dry_run_info'), UI.CLR_WARN))
 
         elif args.command == "export-pm":
             user_ent, unused = await get_safe_user_and_chat(ctx.client, args.user_id)
@@ -320,14 +333,14 @@ async def main_menu():
         while True:
             UI.clear_screen()
             UI.print_gradient_banner()
-            print("="*105)
-            print(f" 🚀 Version 4.0 Hyper-Acceleration | Account: {me_id}")
-            print(f" 💡 Tip: Press [ESC] to Cancel/Back anytime | [0] to Exit/Back")
-            print("="*105)
+            print(UI.rule(105))
+            print(f" {UI.section(_('section_control_center'), icon='◆')}  {UI.key_value(_('label_account'), me_id, icon='◌')}")
+            print(f" {UI.muted('ESC — back/cancel   ·   0 — exit')}")
+            print(UI.rule(105))
             for i in range(1, 10):
-                print(f" [{i}] {_('menu_' + str(i))} ({_('menu_' + str(i) + '_desc')})")
-            print(f" [L] {_('menu_lang')}")
-            print(f" [0] {_('menu_exit')}")
+                print(f" {UI.paint(f'[{i}]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_' + str(i)), UI.CLR_TEXT)}  {UI.muted(_('menu_' + str(i) + '_desc'))}")
+            print(f" {UI.paint('[L]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_lang'), UI.CLR_TEXT)}")
+            print(f" {UI.paint('[0]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_exit'), UI.CLR_TEXT)}")
             
             sys.stdout.write(_("choice_prompt") + ": ")
             sys.stdout.flush()
@@ -341,16 +354,16 @@ async def main_menu():
                 target_str = TerminalInput.prompt_with_esc(_("prompt_target") + ": ")
                 if target_str is None or target_str.strip() == "0": continue
                 
-                chat_str = TerminalInput.prompt_with_esc("Chat ID (Enter for all): ")
+                chat_str = TerminalInput.prompt_with_esc(_("prompt_chat") + ": ")
                 if chat_str is None: continue
                 
-                deep_choice = TerminalInput.prompt_with_esc("Deep Mode? (y/n) [y]: ")
+                deep_choice = TerminalInput.prompt_with_esc(_("prompt_deep").replace("[y/N]", "[y]").replace("[Y/n]", "[y]") + ": ")
                 if deep_choice is None: continue
                 active_deep = deep_choice.lower() != 'n'
                 
                 active_depth = 2
                 if active_deep:
-                    depth_str = TerminalInput.prompt_with_esc("Recursive Depth (1-5) [2]: ")
+                    depth_str = TerminalInput.prompt_with_esc(f"{_('depth_label')} (1-5) [2]: ")
                     if depth_str and depth_str.isdigit(): active_depth = int(depth_str)
                 
                 user_ent, chat_ent = await get_safe_user_and_chat(ctx.client, target_str.strip(), chat_str.strip() if chat_str else None)
@@ -364,17 +377,18 @@ async def main_menu():
                 try:
                     if chat_ent:
                         processed = await ctx.exporter.sync_chat(chat_ent, from_user_id=final_uid, deep_mode=active_deep, recursive_depth=active_depth)
-                    elif user_ent:
+                    elif user_ent or isinstance(final_uid, int):
                         processed = await ctx.exporter.sync_all_dialogs_for_user(final_uid, target_chat_ids=settings.chats_to_search_user_msgs, deep_mode=active_deep, recursive_depth=active_depth)
-                    else: print(f"❌ Error: Could not resolve target {target_str}")
+                    else: print(f"{UI.paint('✖', UI.CLR_ERROR, bold=True)} {UI.paint(_('text_could_not_resolve_target', target=target_str), UI.CLR_ERROR)}")
                 finally:
-                    if ctx.pm.should_stop(): print(f"\n⚠️ Interrupted. Exporting partial data...")
+                    if ctx.pm.should_stop(): print(f"\n{UI.paint('▲', UI.CLR_WARN, bold=True)} {UI.paint(_('text_interrupted_exporting_partial'), UI.CLR_WARN)}")
                     if final_uid:
                         await ctx.db_exporter.export_user_messages(final_uid, as_json=True, include_date=False)
+                        telemetry.log_summary("Export telemetry summary")
                         u_info = ctx.storage.get_user(final_uid)
                         target_name = UI.format_name(u_info) if u_info else f"ID:{final_uid}"
                         UI.print_final_summary("sync_summary_title", [{
-                            "title": f"Export: {target_name}",
+                            "title": f"{_('label_export')}: {target_name}",
                             "lines": [("processed", processed)],
                         }])
                 
@@ -384,7 +398,8 @@ async def main_menu():
                 UI.print_header(_("menu_2"), _("menu_2_desc"))
                 updated_stats = await ctx.exporter.sync_all_tracked()
                 if updated_stats:
-                    for uid in updated_stats: await ctx.db_exporter.export_user_messages(uid, as_json=True, include_date=False)
+                    for uid in get_dirty_target_ids(updated_stats):
+                        await ctx.db_exporter.export_user_messages(uid, as_json=True, include_date=False)
                     total_processed = sum(item["count"] for item in updated_stats.values() if isinstance(item, dict))
                     UI.print_final_summary("sync_summary_title", [{
                         "title": "Update",
@@ -402,7 +417,7 @@ async def main_menu():
                 confirm = TerminalInput.prompt_with_esc(_("clean_confirm") + " (y/n): ")
                 if confirm and confirm.lower() == "y":
                     deleted = await ctx.cleaner.global_self_cleanup(dry_run=False, include_pms=(pm_choice.lower() == 'y'))
-                    print(f"\n{_('summary_header')}\n{_('total_deleted_msgs', count=deleted)}")
+                    print(f"\n{UI.section(_('summary_header'), icon='◆')}\n{_('total_deleted_msgs', count=deleted)}")
                 sys.stdout.write("\n" + _("press_enter")); sys.stdout.flush(); TerminalInput.get_char()
 
             elif choice == "4":
@@ -421,8 +436,8 @@ async def main_menu():
                     idx = TerminalInput.prompt_with_esc("\nChoice: ")
                     if idx and idx.isdigit() and 1 <= int(idx) <= len(users):
                         await ctx.cleaner.purge_user_data(users[int(idx)-1]['user_id'])
-                    else: print("Invalid selection.")
-                else: print(_("no_targets"))
+                    else: print(UI.paint(_("text_invalid_selection"), UI.CLR_WARN))
+                else: print(UI.paint(_("no_targets"), UI.CLR_WARN))
                 sys.stdout.write("\n" + _("press_enter")); sys.stdout.flush(); TerminalInput.get_char()
 
             elif choice == "6":
@@ -438,7 +453,7 @@ async def main_menu():
                     if "activate_cmd" in res: print(res["activate_cmd"])
                     print("\n" + _("alias_header"))
                     for line in ctx.alias_manager.get_alias_help()[1:]: print(line)
-                else: print(res.get("error", "Error during setup."))
+                else: print(UI.paint(res.get("error", "Error during setup."), UI.CLR_ERROR))
                 sys.stdout.write("\n" + _("press_enter")); sys.stdout.flush(); TerminalInput.get_char()
                 
             elif choice == "8":
@@ -453,10 +468,10 @@ async def main_menu():
                     idx_str = TerminalInput.prompt_with_esc("\n" + _("choice_prompt") + ": ")
                     if idx_str and idx_str.isdigit() and 1 <= int(idx_str) <= len(users):
                         u = users[int(idx_str)-1]
-                        fmt = TerminalInput.prompt_with_esc("Format: [1] JSON [2] TXT: ")
+                        fmt = TerminalInput.prompt_with_esc(_("label_format_prompt"))
                         if fmt == "1": await ctx.db_exporter.export_user_messages(u['user_id'], as_json=True)
                         elif fmt == "2": await ctx.db_exporter.export_user_messages(u['user_id'], as_json=False)
-                else: print(_("no_targets"))
+                else: print(UI.paint(_("no_targets"), UI.CLR_WARN))
                 sys.stdout.write("\n" + _("press_enter")); sys.stdout.flush(); TerminalInput.get_char()
 
             elif choice == "L": set_lang("en" if get_lang() == "ru" else "ru")

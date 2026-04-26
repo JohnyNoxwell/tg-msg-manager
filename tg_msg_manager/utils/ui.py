@@ -3,26 +3,99 @@ import os
 import platform
 from typing import Any, Optional, Union
 from datetime import datetime
+from ..i18n import _
 
 class UI:
     """
     Central utility for Terminal UI interactions, colors, and formatting.
     """
-    # ANSI Colors (8-bit / 4-bit)
-    CLR_USER = "\033[93m"    # Yellow
-    CLR_CHAT = "\033[95m"    # Magenta
-    CLR_ID = "\033[94m"      # Blue
-    CLR_SUCCESS = "\033[92m" # Green
-    CLR_ERROR = "\033[91m"   # Red
-    CLR_WARN = "\033[93m"    # Yellow/Orange
-    CLR_STATS = "\033[90m"   # Gray
+    # Unified 256-color palette for a cleaner CLI.
+    CLR_TEXT = "\033[38;5;252m"
+    CLR_MUTED = "\033[38;5;244m"
+    CLR_BORDER = "\033[38;5;240m"
+    CLR_ACCENT = "\033[38;5;81m"
+    CLR_USER = "\033[38;5;222m"
+    CLR_CHAT = "\033[38;5;117m"
+    CLR_ID = "\033[38;5;110m"
+    CLR_SUCCESS = "\033[38;5;114m"
+    CLR_ERROR = "\033[38;5;203m"
+    CLR_WARN = "\033[38;5;215m"
+    CLR_STATS = "\033[38;5;150m"
     CLR_RESET = "\033[0m"
     CLR_BOLD = "\033[1m"
-    CLR_CYAN = "\033[36m"
+    CLR_CYAN = CLR_ACCENT
+
+    STATUS_ICONS = {
+        "Syncing": "◌",
+        "Finished": "●",
+        "Cleaning": "◌",
+        "Found": "•",
+        "Archiving": "◌",
+        "Complete": "●",
+    }
+
+    SUMMARY_LABEL_KEYS = {
+        "processed": "label_processed",
+        "targets": "label_targets",
+        "messages": "label_messages",
+        "downloaded": "label_downloaded",
+        "skipped": "label_skipped",
+        "media": "label_media",
+        "user_messages": "label_user_messages",
+        "with_context": "label_with_context",
+    }
 
     @staticmethod
     def is_tty() -> bool:
         return sys.stdout.isatty()
+
+    @classmethod
+    def paint(cls, text: Any, color: Optional[str] = None, bold: bool = False) -> str:
+        rendered = str(text)
+        if not cls.is_tty():
+            return rendered
+        prefix = ""
+        if bold:
+            prefix += cls.CLR_BOLD
+        if color:
+            prefix += color
+        return f"{prefix}{rendered}{cls.CLR_RESET}"
+
+    @classmethod
+    def muted(cls, text: Any) -> str:
+        return cls.paint(text, cls.CLR_MUTED)
+
+    @classmethod
+    def status_text(cls, label: str) -> str:
+        key = f"status_{label.lower()}"
+        translated = _(key)
+        return translated if translated != key else label
+
+    @classmethod
+    def summary_label(cls, label: Any) -> str:
+        key = cls.SUMMARY_LABEL_KEYS.get(str(label))
+        if key:
+            translated = _(key)
+            if translated != key:
+                return translated
+        return str(label).replace("_", " ")
+
+    @classmethod
+    def rule(cls, width: int = 96) -> str:
+        return cls.paint("─" * width, cls.CLR_BORDER)
+
+    @classmethod
+    def section(cls, title: str, icon: str = "•") -> str:
+        return f"{cls.paint(icon, cls.CLR_ACCENT, bold=True)} {cls.paint(title, cls.CLR_TEXT, bold=True)}"
+
+    @classmethod
+    def key_value(cls, key: str, value: Any, icon: Optional[str] = None) -> str:
+        parts = []
+        if icon:
+            parts.append(cls.paint(icon, cls.CLR_ACCENT))
+        parts.append(cls.paint(key, cls.CLR_MUTED))
+        parts.append(cls.paint(value, cls.CLR_STATS, bold=True))
+        return " ".join(parts)
 
     @classmethod
     def format_name(cls, entity: Any, use_color: bool = False) -> str:
@@ -48,7 +121,7 @@ class UI:
 
         if use_color:
             color = cls.CLR_USER if hasattr(entity, 'first_name') else cls.CLR_CHAT
-            return f"{color}{name}{cls.CLR_RESET}"
+            return cls.paint(name, color, bold=True)
         return name
 
     @classmethod
@@ -59,11 +132,14 @@ class UI:
         """
         if not cls.is_tty():
             return
-            
-        c = color or cls.CLR_SUCCESS
-        # \r ensures we start at the beginning of the line
-        # \033[K clears the rest of the line
-        sys.stdout.write(f"\r   📊 [{cls.CLR_ID}{label}{cls.CLR_RESET}] {c}{value}{cls.CLR_RESET} {extra}\033[K")
+
+        icon = cls.STATUS_ICONS.get(label, "•")
+        label_text = cls.paint(cls.status_text(label), cls.CLR_TEXT, bold=True)
+        icon_text = cls.paint(icon, color or cls.CLR_ACCENT, bold=True)
+        value_text = cls.paint(value, color or cls.CLR_STATS, bold=True) if value not in ("", None) else ""
+        extra_text = extra if extra else ""
+        pieces = [piece for piece in (icon_text, label_text, value_text, extra_text) if piece]
+        sys.stdout.write(f"\r   {'  '.join(pieces)}\033[K")
         sys.stdout.flush()
 
     @classmethod
@@ -71,12 +147,11 @@ class UI:
         """Prints a standardized submenu header."""
         cls.clear_screen()
         cls.print_gradient_banner()
-        print("=" * 105)
-        print(f" 📂 {title}")
-        print("=" * 105)
+        print(cls.rule(105))
+        print(f" {cls.section(title, icon='◆')}")
         if description:
-            print(description)
-            print("-" * 105)
+            print(f" {cls.muted(description)}")
+        print(cls.rule(105))
 
     @staticmethod
     def clear_screen():
@@ -108,7 +183,7 @@ class UI:
             # We add \r to ensure column 0
             sys.stdout.write(f"\r\033[38;2;{r};{g};{b}m{line}\033[0m\n")
         
-        sys.stdout.write(f"\r\n{cls.CLR_CYAN}{cls.CLR_BOLD}                     TG_MSG_MNGR by R.P.{cls.CLR_RESET}\n")
+        sys.stdout.write(f"\r\n{cls.paint('                     TG_MSG_MNGR by R.P.', cls.CLR_CYAN, bold=True)}\n")
         sys.stdout.flush()
 
     @classmethod
@@ -129,25 +204,19 @@ class UI:
 
     @classmethod
     def print_final_summary(cls, title_key: str, summaries: list[dict]):
-        from ..i18n import _
         if not summaries:
             return
 
-        is_tty = cls.is_tty()
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        c_title = cls.CLR_CYAN if is_tty else ""
-        c_label = cls.CLR_USER if is_tty else ""
-        c_value = cls.CLR_SUCCESS if is_tty else ""
-        c_reset = cls.CLR_RESET if is_tty else ""
-
-        print("\n" + "=" * 60)
-        print(f" {c_title}📊 {_('sync_summary_title')}{c_reset} [{now_str}]")
-        print("=" * 60)
+        print()
+        print(cls.rule(72))
+        print(f" {cls.section(_(title_key), icon='◆')}  {cls.muted(now_str)}")
+        print(cls.rule(72))
 
         for item in summaries:
-            print(f" {c_label}{item.get('title', 'Summary')}{c_reset}")
+            print(f" {cls.paint(item.get('title', 'Summary'), cls.CLR_TEXT, bold=True)}")
             for label, value in item.get("lines", []):
-                print(f"   {label}: {c_value}{value}{c_reset}")
-            print("-" * 60)
-
-        print("=" * 60)
+                label_text = cls.paint(cls.summary_label(label), cls.CLR_MUTED)
+                value_text = cls.paint(value, cls.CLR_STATS, bold=True)
+                print(f"   {label_text}  {value_text}")
+            print(cls.rule(72))

@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tg_msg_manager.core.models.message import MessageData
+from tg_msg_manager.core.telemetry import telemetry
 from tg_msg_manager.services.exporter import ExportService
 from tg_msg_manager.services.context_engine import DeepModeEngine
 from tg_msg_manager.services.private_archive import PrivateArchiveService
@@ -33,6 +34,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         self.mock_storage.upsert_user = MagicMock()
         self.mock_storage.register_target = MagicMock()
         self.mock_storage.update_last_sync_at = MagicMock()
+        self.mock_storage.should_stop = MagicMock(return_value=False)
         self.mock_storage.flush = AsyncMock()
         self.mock_storage.get_last_msg_id.return_value = 10
         self.mock_storage.get_message_count.return_value = 0
@@ -114,6 +116,296 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(self.mock_client.iter_messages.call_count, 1)
         self.assertEqual(self.mock_client.iter_messages.call_args.kwargs["limit"], 1)
+        self.assertEqual(self.mock_client.iter_messages.call_args.kwargs["offset_id"], 16)
+
+    def test_build_scan_ranges_first_full_sync_has_no_overlap(self):
+        service = ExportService(self.mock_client, self.mock_storage)
+        ranges = service._build_scan_ranges(
+            current_max=100,
+            head_id=0,
+            tail_id=0,
+            is_complete=False,
+            limit=None,
+        )
+
+        self.assertTrue(ranges)
+        self.assertTrue(all(item["role"] == "TAIL" for item in ranges))
+
+        covered = set()
+        for item in ranges:
+            chunk = set(range(item["lower"], item["upper"] + 1))
+            self.assertTrue(covered.isdisjoint(chunk))
+            covered.update(chunk)
+
+        self.assertEqual(covered, set(range(1, 101)))
+
+    def test_build_scan_ranges_resume_separates_head_and_history(self):
+        service = ExportService(self.mock_client, self.mock_storage)
+        ranges = service._build_scan_ranges(
+            current_max=120,
+            head_id=100,
+            tail_id=40,
+            is_complete=False,
+            limit=None,
+        )
+
+        head_ranges = [item for item in ranges if item["role"] == "HEAD"]
+        tail_ranges = [item for item in ranges if item["role"] == "TAIL"]
+
+        self.assertEqual(head_ranges, [{"upper": 120, "lower": 101, "role": "HEAD"}])
+        self.assertTrue(tail_ranges)
+
+        covered = set()
+        for item in ranges:
+            chunk = set(range(item["lower"], item["upper"] + 1))
+            self.assertTrue(covered.isdisjoint(chunk))
+            covered.update(chunk)
+
+        self.assertEqual(covered, set(range(1, 40)) | set(range(101, 121)))
+
+    def test_build_scan_ranges_update_mode_skips_history_resume(self):
+        service = ExportService(self.mock_client, self.mock_storage)
+        ranges = service._build_scan_ranges(
+            current_max=120,
+            head_id=100,
+            tail_id=40,
+            is_complete=False,
+            limit=None,
+            allow_history=False,
+        )
+
+        self.assertEqual(ranges, [{"upper": 120, "lower": 101, "role": "HEAD"}])
+
+    def test_resolve_tail_progress_checkpoint_uses_highest_contiguous_prefix_only(self):
+        service = ExportService(self.mock_client, self.mock_storage)
+        checkpoint = service._resolve_tail_progress_checkpoint([
+            {"upper": 120, "lower": 91, "tail_scan_complete": True, "tail": 91},
+            {"upper": 90, "lower": 61, "tail_scan_complete": False, "tail": 74},
+            {"upper": 60, "lower": 31, "tail_scan_complete": True, "tail": 31},
+        ])
+
+        self.assertEqual(checkpoint, 74)
+
+    def test_resolve_tail_progress_checkpoint_stops_when_top_range_has_no_progress(self):
+        service = ExportService(self.mock_client, self.mock_storage)
+        checkpoint = service._resolve_tail_progress_checkpoint([
+            {"upper": 120, "lower": 91, "tail_scan_complete": False, "tail": None},
+            {"upper": 90, "lower": 61, "tail_scan_complete": True, "tail": 61},
+        ])
+
+        self.assertIsNone(checkpoint)
+
+    async def test_sync_chat_update_mode_returns_fast_when_only_history_remains(self):
+        latest = self._message(120, chat_id=1, user_id=1, author_name="Exporter User")
+        self.mock_client.get_messages.return_value = [latest]
+        self.mock_client.iter_messages = MagicMock(return_value=AsyncIterator([]))
+        self.mock_storage.get_sync_status.return_value = {
+            "last_msg_id": 120,
+            "tail_msg_id": 40,
+            "is_complete": 0,
+            "deep_mode": 0,
+            "recursive_depth": 0,
+        }
+
+        service = ExportService(self.mock_client, self.mock_storage)
+        processed = await service.sync_chat(MagicMock(id=1), resume_history=False)
+
+        self.assertEqual(processed, 0)
+        self.assertFalse(self.mock_client.iter_messages.called)
+
+    async def test_sync_chat_marks_terminal_history_complete_when_tail_reaches_one(self):
+        latest = self._message(120, chat_id=1, user_id=999, author_name="Tracked User")
+        self.mock_client.get_messages.return_value = [latest]
+        self.mock_storage.get_sync_status.return_value = {
+            "last_msg_id": 120,
+            "tail_msg_id": 1,
+            "is_complete": 0,
+            "deep_mode": 0,
+            "recursive_depth": 0,
+            "author_name": "Tracked User",
+        }
+
+        service = ExportService(self.mock_client, self.mock_storage)
+        processed = await service.sync_chat(
+            MagicMock(id=1),
+            from_user_id=999,
+            current_max_hint=120,
+            resolve_user_entity=False,
+        )
+
+        self.assertEqual(processed, 0)
+        self.mock_client.iter_messages.assert_not_called()
+        self.mock_storage.update_sync_tail.assert_any_call(1, 999, 0, is_complete=True)
+        self.mock_storage.update_last_sync_at.assert_called_once_with(1, 999)
+
+    async def test_sync_chat_advances_head_cursor_after_empty_head_scan(self):
+        stale = self._message(105, chat_id=1, user_id=999, author_name="Tracked User")
+        self.mock_client.iter_messages = MagicMock(return_value=AsyncIterator([stale]))
+        self.mock_storage.get_sync_status.return_value = {
+            "last_msg_id": 100,
+            "tail_msg_id": 0,
+            "is_complete": 1,
+            "deep_mode": 0,
+            "recursive_depth": 0,
+            "author_name": "Tracked User",
+        }
+        self.mock_storage.filter_missing_target_links.return_value = []
+
+        service = ExportService(self.mock_client, self.mock_storage)
+        processed = await service.sync_chat(
+            MagicMock(id=1),
+            from_user_id=999,
+            resume_history=False,
+            current_max_hint=120,
+            resolve_user_entity=False,
+        )
+
+        self.assertEqual(processed, 0)
+        self.mock_storage.update_last_msg_id.assert_any_call(1, 999, 120)
+
+    async def test_sync_chat_advances_tail_cursor_after_empty_history_scan(self):
+        latest = self._message(120, chat_id=1, user_id=999, author_name="Tracked User")
+        self.mock_client.get_messages.return_value = [latest]
+        self.mock_client.iter_messages = MagicMock(side_effect=[
+            AsyncIterator([]),
+            AsyncIterator([]),
+            AsyncIterator([]),
+            AsyncIterator([]),
+        ])
+        self.mock_storage.get_sync_status.return_value = {
+            "last_msg_id": 120,
+            "tail_msg_id": 40,
+            "is_complete": 0,
+            "deep_mode": 0,
+            "recursive_depth": 0,
+            "author_name": "Tracked User",
+        }
+
+        service = ExportService(self.mock_client, self.mock_storage)
+        processed = await service.sync_chat(
+            MagicMock(id=1),
+            from_user_id=999,
+            resolve_user_entity=False,
+        )
+
+        self.assertEqual(processed, 0)
+        self.mock_storage.update_sync_tail.assert_any_call(1, 999, 0, is_complete=True)
+
+    async def test_sync_chat_uses_prefetched_head_messages_without_network_iter(self):
+        prefetched = [
+            self._message(120, chat_id=1, user_id=222, author_name="Noise User"),
+            self._message(118, chat_id=1, user_id=999, author_name="Tracked User"),
+            self._message(114, chat_id=1, user_id=999, author_name="Tracked User"),
+            self._message(109, chat_id=1, user_id=777, author_name="Other User"),
+        ]
+        self.mock_client.iter_messages = MagicMock(side_effect=AssertionError("network iter should not run"))
+        self.mock_storage.get_sync_status.return_value = {
+            "last_msg_id": 110,
+            "tail_msg_id": 0,
+            "is_complete": 1,
+            "deep_mode": 0,
+            "recursive_depth": 0,
+            "author_name": "Tracked User",
+        }
+        self.mock_storage.filter_missing_target_links.return_value = [118, 114]
+
+        service = ExportService(self.mock_client, self.mock_storage)
+        processed = await service.sync_chat(
+            MagicMock(id=1),
+            from_user_id=999,
+            resume_history=False,
+            current_max_hint=120,
+            prefetched_messages=prefetched,
+            prefetched_head_complete=True,
+            resolve_user_entity=False,
+        )
+
+        self.assertEqual(processed, 2)
+        saved_ids = self._saved_message_ids()
+        self.assertEqual(saved_ids, [118, 114])
+        self.mock_storage.update_last_msg_id.assert_any_call(1, 999, 120)
+
+    async def test_sync_chat_falls_back_to_client_side_sender_filter_when_user_is_unresolved(self):
+        self.mock_client.get_entity = AsyncMock(side_effect=Exception("unresolved"))
+        self.mock_client.iter_messages = MagicMock(return_value=AsyncIterator([
+            self._message(105, chat_id=1, user_id=111, author_name="Noise User"),
+            self._message(104, chat_id=1, user_id=999, author_name="Tracked User"),
+            self._message(103, chat_id=1, user_id=222, author_name="Noise User"),
+        ]))
+        self.mock_storage.get_sync_status.return_value = {
+            "last_msg_id": 100,
+            "tail_msg_id": 0,
+            "is_complete": 1,
+            "deep_mode": 0,
+            "recursive_depth": 0,
+            "author_name": "Tracked User",
+        }
+
+        service = ExportService(self.mock_client, self.mock_storage)
+        processed = await service.sync_chat(
+            MagicMock(id=1),
+            from_user_id=999,
+            resume_history=False,
+            current_max_hint=105,
+        )
+
+        self.assertEqual(processed, 1)
+        self.assertIsNone(self.mock_client.iter_messages.call_args.kwargs["from_user"])
+        saved_ids = self._saved_message_ids()
+        self.assertEqual(saved_ids, [104])
+
+    async def test_sync_chat_does_not_auto_complete_based_on_low_tail_checkpoint(self):
+        self.mock_client.iter_messages = MagicMock(return_value=AsyncIterator([]))
+        self.mock_storage.get_sync_status.return_value = {
+            "last_msg_id": 120,
+            "tail_msg_id": 5,
+            "is_complete": 0,
+            "deep_mode": 0,
+            "recursive_depth": 0,
+            "author_name": "Tracked User",
+        }
+
+        service = ExportService(self.mock_client, self.mock_storage)
+        processed = await service.sync_chat(
+            MagicMock(id=1),
+            from_user_id=999,
+            current_max_hint=120,
+            resolve_user_entity=False,
+        )
+
+        self.assertEqual(processed, 0)
+        self.mock_client.iter_messages.assert_called()
+        self.assertTrue(any(
+            call.args == (1, 999, 0) and call.kwargs == {"is_complete": True}
+            for call in self.mock_storage.update_sync_tail.call_args_list
+        ))
+
+    async def test_sync_chat_does_not_mark_history_complete_when_stop_is_requested(self):
+        self.mock_client.iter_messages = MagicMock(return_value=AsyncIterator([]))
+        self.mock_storage.should_stop = MagicMock(return_value=True)
+        self.mock_storage.get_sync_status.return_value = {
+            "last_msg_id": 120,
+            "tail_msg_id": 5,
+            "is_complete": 0,
+            "deep_mode": 0,
+            "recursive_depth": 0,
+            "author_name": "Tracked User",
+        }
+
+        service = ExportService(self.mock_client, self.mock_storage)
+        processed = await service.sync_chat(
+            MagicMock(id=1),
+            from_user_id=999,
+            current_max_hint=120,
+            resolve_user_entity=False,
+        )
+
+        self.assertEqual(processed, 0)
+        self.assertFalse(any(
+            call.args == (1, 999, 0) and call.kwargs == {"is_complete": True}
+            for call in self.mock_storage.update_sync_tail.call_args_list
+        ))
+        self.mock_storage.update_last_sync_at.assert_not_called()
 
     async def test_deep_mode_clustering(self):
         target = self._message(100, user_id=1, author_name="Deep User", text="Target")
@@ -165,6 +457,186 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         saved_ids = self._saved_message_ids()
         self.assertIn(50, saved_ids)
 
+    async def test_deep_mode_includes_parent_message_from_batched_storage_lookup(self):
+        parent = self._message(50, user_id=2, author_name="Parent", text="Parent")
+        target = self._message(
+            100,
+            user_id=1,
+            author_name="Deep User",
+            text="Target",
+            reply_to_id=50,
+            raw_payload={"reply_to": {"reply_to_msg_id": 50}},
+        )
+
+        self.mock_storage.get_messages_by_ids.return_value = [parent]
+        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: AsyncIterator([target])
+
+        engine = DeepModeEngine(self.mock_client, self.mock_storage)
+        await engine.extract_batch_context(MagicMock(id=1), [target], target_id=1, recursive_depth=1)
+
+        saved_ids = self._saved_message_ids()
+        self.assertIn(50, saved_ids)
+        self.mock_client.get_messages.assert_not_awaited()
+
+    async def test_deep_mode_uses_local_range_without_live_fetch_when_range_is_complete(self):
+        telemetry.reset()
+        base_time = datetime.now()
+        target = self._message(100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time)
+        stored_reply = self._message(
+            101,
+            user_id=2,
+            author_name="Stored Reply",
+            text="Reply",
+            timestamp=base_time + timedelta(seconds=15),
+            reply_to_id=100,
+            raw_payload={"reply_to": {"reply_to_msg_id": 100}},
+        )
+
+        stored_range = []
+        for message_id in range(92, 161):
+            if message_id == 100:
+                stored_range.append(target)
+            elif message_id == 101:
+                stored_range.append(stored_reply)
+            else:
+                stored_range.append(
+                    self._message(
+                        message_id,
+                        user_id=9,
+                        author_name="Noise",
+                        text=f"Noise {message_id}",
+                        timestamp=base_time + timedelta(seconds=message_id - 100),
+                    )
+                )
+
+        self.mock_storage.get_messages_in_id_range.return_value = stored_range
+        self.mock_storage.get_messages_replying_to.return_value = []
+        self.mock_client.iter_messages = MagicMock(return_value=AsyncIterator([]))
+
+        engine = DeepModeEngine(self.mock_client, self.mock_storage)
+        await engine.extract_batch_context(
+            MagicMock(id=1),
+            [target],
+            target_id=1,
+            window_size=1,
+            max_cluster=2,
+            recursive_depth=1,
+        )
+
+        saved_ids = self._saved_message_ids()
+        self.assertIn(101, saved_ids)
+        self.assertFalse(self.mock_client.iter_messages.called)
+        summary = telemetry.get_summary()
+        self.assertEqual(summary["counters"]["deep.fetch_range.local_only.calls"], 1)
+        self.assertEqual(summary["counters"]["deep.fetch_range.range_width"], 69)
+        self.assertEqual(summary["counters"]["deep.fetch_range.stored_hits"], 69)
+        self.assertEqual(summary["counters"]["deep.fetch_range.missing_ids"], 0)
+        self.assertEqual(summary["counters"]["deep.fetch_range.coverage_100.calls"], 1)
+
+    async def test_deep_mode_prefers_selective_fill_when_replies_exist_and_coverage_is_good(self):
+        telemetry.reset()
+        base_time = datetime.now()
+        target = self._message(100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time)
+        stored_reply = self._message(
+            101,
+            user_id=2,
+            author_name="Stored Reply",
+            text="Stored reply",
+            timestamp=base_time + timedelta(seconds=15),
+            reply_to_id=100,
+            raw_payload={"reply_to": {"reply_to_msg_id": 100}},
+        )
+
+        stored_range = []
+        for message_id in range(92, 161):
+            if message_id % 2 == 0:
+                payload = {"reply_to": {"reply_to_msg_id": 100}} if message_id == 100 else {}
+                stored_range.append(
+                    self._message(
+                        message_id,
+                        user_id=9,
+                        author_name="Cached",
+                        text=f"Cached {message_id}",
+                        timestamp=base_time + timedelta(seconds=message_id - 100),
+                        reply_to_id=100 if message_id == 100 else None,
+                        raw_payload=payload,
+                    )
+                )
+
+        self.mock_storage.get_messages_in_id_range.return_value = stored_range
+        self.mock_storage.get_messages_replying_to.return_value = [stored_reply]
+        self.mock_client.get_messages = AsyncMock(return_value=[])
+        self.mock_client.iter_messages = MagicMock(return_value=AsyncIterator([]))
+
+        engine = DeepModeEngine(self.mock_client, self.mock_storage)
+        await engine.extract_batch_context(
+            MagicMock(id=1),
+            [target],
+            target_id=1,
+            window_size=1,
+            max_cluster=2,
+            recursive_depth=1,
+        )
+
+        self.mock_client.get_messages.assert_awaited()
+        self.assertFalse(self.mock_client.iter_messages.called)
+        summary = telemetry.get_summary()
+        self.assertEqual(summary["counters"]["deep.fetch_range.selective_fill.calls"], 1)
+
+    async def test_deep_mode_uses_compact_fill_before_full_scan_for_fragmented_holes(self):
+        telemetry.reset()
+        base_time = datetime.now()
+        target = self._message(100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time)
+
+        stored_range = []
+        stored_ids = set(range(92, 161)) - {
+            98, 99, 100, 101, 102, 103, 104,
+            115, 116, 117, 118, 119, 120, 121,
+            132, 133, 134, 135, 136, 137, 138,
+            149, 150, 151, 152, 153, 154, 155,
+        }
+        for message_id in sorted(stored_ids):
+            raw_payload = {"reply_to": {"reply_to_msg_id": 100}} if message_id == 100 else {}
+            stored_range.append(
+                self._message(
+                    message_id,
+                    user_id=9,
+                    author_name="Cached",
+                    text=f"Cached {message_id}",
+                    timestamp=base_time + timedelta(seconds=message_id - 100),
+                    reply_to_id=100 if message_id == 100 else None,
+                    raw_payload=raw_payload,
+                )
+            )
+
+        live_fill = [
+            [self._message(98, user_id=2, author_name="Live", text="Live 98", timestamp=base_time - timedelta(seconds=2))],
+            [self._message(118, user_id=2, author_name="Live", text="Live 118", timestamp=base_time + timedelta(seconds=18))],
+            [self._message(135, user_id=2, author_name="Live", text="Live 135", timestamp=base_time + timedelta(seconds=35), reply_to_id=100, raw_payload={"reply_to": {"reply_to_msg_id": 100}})],
+            [self._message(152, user_id=2, author_name="Live", text="Live 152", timestamp=base_time + timedelta(seconds=52))],
+        ]
+
+        self.mock_storage.get_messages_in_id_range.return_value = stored_range
+        self.mock_storage.get_messages_replying_to.return_value = []
+        self.mock_client.get_messages = AsyncMock(return_value=[])
+        self.mock_client.iter_messages = MagicMock(side_effect=[AsyncIterator(batch) for batch in live_fill])
+
+        engine = DeepModeEngine(self.mock_client, self.mock_storage)
+        await engine.extract_batch_context(
+            MagicMock(id=1),
+            [target],
+            target_id=1,
+            window_size=1,
+            max_cluster=3,
+            recursive_depth=1,
+        )
+
+        summary = telemetry.get_summary()
+        self.assertEqual(summary["counters"]["deep.fetch_range.compact_fill.calls"], 1)
+        self.assertEqual(summary["counters"]["deep.fetch_range.compact_fill.ranges"], 4)
+        self.assertNotIn("deep.fetch_range.full_scan.calls", summary["counters"])
+        self.assertEqual(self.mock_client.iter_messages.call_count, 4)
+
     async def test_deep_mode_same_topic_requires_topic_match(self):
         target = self._message(
             100,
@@ -198,6 +670,50 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         saved_ids = self._saved_message_ids()
         self.assertIn(104, saved_ids)
         self.assertNotIn(105, saved_ids)
+
+    async def test_deep_mode_skips_redundant_round_two_for_non_topic_without_structure(self):
+        telemetry.reset()
+        base_time = datetime.now()
+        target = self._message(100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time)
+        noise = self._message(
+            101,
+            user_id=2,
+            author_name="Noise",
+            text="Noise",
+            timestamp=base_time + timedelta(seconds=15),
+        )
+
+        self.mock_client.iter_messages = MagicMock(return_value=AsyncIterator([noise, target]))
+
+        engine = DeepModeEngine(self.mock_client, self.mock_storage)
+        await engine.extract_batch_context(MagicMock(id=1), [target], target_id=1, recursive_depth=2)
+
+        self.assertEqual(self.mock_client.iter_messages.call_count, 1)
+        summary = telemetry.get_summary()
+        self.assertEqual(summary["counters"]["deep.round_2.skipped_empty_clusters"], 1)
+        self.assertNotIn("deep.round_2.clusters", summary["counters"])
+
+    def test_candidate_index_routes_reply_to_matching_cluster_only(self):
+        engine = DeepModeEngine(self.mock_client, self.mock_storage)
+        target_a = self._message(100, user_id=1, author_name="A", text="Target A")
+        target_b = self._message(200, user_id=2, author_name="B", text="Target B")
+        reply_b = self._message(
+            201,
+            user_id=3,
+            author_name="Reply",
+            text="Reply to B",
+            reply_to_id=200,
+            raw_payload={"reply_to": {"reply_to_msg_id": 200}},
+        )
+
+        clusters = engine._initialize_clusters([target_a, target_b])
+        candidate = engine._normalize_message(reply_b)
+        additions = engine._associate_candidates(clusters, [candidate], round_number=1, max_cluster=10)
+
+        self.assertEqual(len(additions), 1)
+        self.assertEqual(additions[0].context_group_id, clusters[1].cluster_id)
+        self.assertNotIn(candidate.key, clusters[0].messages)
+        self.assertIn(candidate.key, clusters[1].messages)
 
     async def test_deep_mode_time_fallback_requires_missing_structural_metadata(self):
         base_time = datetime.now()

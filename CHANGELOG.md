@@ -1,6 +1,28 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.4] - 2026-04-26
+
+### Changed (EN)
+- **Update UX Notes**: Documented that `update/tgu` can spend time in a shared head prefetch phase before visible per-target progress appears, especially after a large interrupted export.
+- **Target Status Visibility**: Primary target listings now show explicit `Done` / `Incomplete` state instead of relying only on message counters.
+
+### Fixed (EN)
+- Fixed sync freshness semantics so `register_target()`, `update_last_msg_id()`, and `update_sync_tail()` no longer refresh `last_sync_at` during partial progress or startup bookkeeping.
+- Fixed interrupted multi-range history resume so tail checkpoints only advance across the highest contiguous completed prefix, preventing broken `tail_msg_id = 0` / `is_complete = 0` states after `Ctrl+C`.
+- Fixed terminal history resume so targets that legitimately reach the bottom (`tail_msg_id <= 1`) can be finalized on the next pass instead of hanging forever as incomplete.
+- Fixed emergency AI JSON export after `SIGINT` when the fast row-export path skipped an unchanged file via manifest reuse.
+
+### Изменения (RU)
+- **Примечание по UX обновления**: Задокументировано, что `update/tgu` может тратить заметное время на фазу shared head prefetch до появления видимого прогресса по целям, особенно после большого прерванного экспорта.
+- **Видимость статуса целей**: В списках primary targets теперь явно показывается состояние `Готово` / `Не докачано`, а не только счётчики сообщений.
+
+### Исправления (RU)
+- Исправлена семантика freshness: `register_target()`, `update_last_msg_id()` и `update_sync_tail()` больше не обновляют `last_sync_at` во время частичного прогресса или стартового bookkeeping.
+- Исправлена докачка многодиапазонной истории после прерывания: tail-checkpoint теперь двигается только по верхнему непрерывному префиксу реально пройденных диапазонов, что убирает битые состояния вида `tail_msg_id = 0` при `is_complete = 0` после `Ctrl+C`.
+- Исправлена финализация терминального хвоста истории: цели, которые реально дошли до дна (`tail_msg_id <= 1`), теперь могут закрываться на следующем проходе, а не висеть бесконечно в incomplete-state.
+- Исправлен emergency AI JSON export после `SIGINT`, когда fast row-export path переиспользовал manifest и падал на unchanged-файле.
+
 ## [4.2.3] - 2026-04-25
 
 ### Changed (EN)

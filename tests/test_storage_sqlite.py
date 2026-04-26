@@ -1,5 +1,6 @@
 import sys
 import os
+import time
 import unittest
 from datetime import datetime
 # Add project root to sys.path
@@ -137,6 +138,93 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(author_status["last_msg_id"], 0)
         self.assertEqual(len(self.storage.get_user_messages(999)), 1)
 
+    async def test_register_target_preserves_last_sync_at_on_existing_target(self):
+        self.storage.register_target(999, "Target User", 321)
+        with self.storage._read_connection() as conn:
+            before = conn.execute(
+                "SELECT last_sync_at FROM sync_targets WHERE user_id = ? AND chat_id = ?",
+                (999, 321),
+            ).fetchone()["last_sync_at"]
+
+        time.sleep(1)
+        self.storage.register_target(999, "Target User Renamed", 321)
+
+        with self.storage._read_connection() as conn:
+            row = conn.execute(
+                "SELECT author_name, last_sync_at FROM sync_targets WHERE user_id = ? AND chat_id = ?",
+                (999, 321),
+            ).fetchone()
+
+        self.assertEqual(row["author_name"], "Target User Renamed")
+        self.assertEqual(row["last_sync_at"], before)
+
+    async def test_checkpoint_updates_do_not_refresh_last_sync_at(self):
+        self.storage.register_target(999, "Target User", 321)
+        with self.storage._read_connection() as conn:
+            before = conn.execute(
+                "SELECT last_sync_at FROM sync_targets WHERE user_id = ? AND chat_id = ?",
+                (999, 321),
+            ).fetchone()["last_sync_at"]
+
+        time.sleep(1)
+        self.storage.update_last_msg_id(321, 999, 50)
+        self.storage.update_sync_tail(321, 999, 10, is_complete=False)
+
+        with self.storage._read_connection() as conn:
+            row = conn.execute(
+                "SELECT last_msg_id, tail_msg_id, is_complete, last_sync_at FROM sync_targets WHERE user_id = ? AND chat_id = ?",
+                (999, 321),
+            ).fetchone()
+
+        self.assertEqual(row["last_msg_id"], 50)
+        self.assertEqual(row["tail_msg_id"], 10)
+        self.assertEqual(row["is_complete"], 0)
+        self.assertEqual(row["last_sync_at"], before)
+
+    async def test_repair_terminal_incomplete_targets_marks_only_tail_threshold_rows_complete(self):
+        self.storage.register_target(999, "Tail One", 321)
+        self.storage.register_target(888, "Still Incomplete", 321)
+
+        with self.storage._write_transaction() as conn:
+            conn.execute(
+                """
+                UPDATE sync_targets
+                SET last_msg_id = ?, tail_msg_id = ?, is_complete = ?, last_sync_at = ?
+                WHERE user_id = ? AND chat_id = ?
+                """,
+                (50, 1, 0, 1234567890, 999, 321),
+            )
+            conn.execute(
+                """
+                UPDATE sync_targets
+                SET last_msg_id = ?, tail_msg_id = ?, is_complete = ?, last_sync_at = ?
+                WHERE user_id = ? AND chat_id = ?
+                """,
+                (60, 5, 0, 1234567891, 888, 321),
+            )
+
+        repaired = self.storage.repair_terminal_incomplete_targets()
+
+        self.assertEqual(len(repaired), 1)
+        self.assertEqual(repaired[0]["user_id"], 999)
+
+        with self.storage._read_connection() as conn:
+            repaired_row = conn.execute(
+                "SELECT tail_msg_id, is_complete, last_sync_at FROM sync_targets WHERE user_id = ? AND chat_id = ?",
+                (999, 321),
+            ).fetchone()
+            pending_row = conn.execute(
+                "SELECT tail_msg_id, is_complete, last_sync_at FROM sync_targets WHERE user_id = ? AND chat_id = ?",
+                (888, 321),
+            ).fetchone()
+
+        self.assertEqual(repaired_row["tail_msg_id"], 0)
+        self.assertEqual(repaired_row["is_complete"], 1)
+        self.assertEqual(repaired_row["last_sync_at"], 1234567890)
+        self.assertEqual(pending_row["tail_msg_id"], 5)
+        self.assertEqual(pending_row["is_complete"], 0)
+        self.assertEqual(pending_row["last_sync_at"], 1234567891)
+
 
     async def test_get_all_message_ids(self):
         msg = MessageData(1, 100, 1, "Test User", datetime.now(), "Test", None, None, None, None, {})
@@ -193,6 +281,41 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         await self.storage.save_message(msg, target_id=1)
         missing = self.storage.filter_missing_target_links(777, 1, [1, 2, 3])
         self.assertEqual(missing, [2, 3])
+
+    async def test_get_target_message_breakdown_counts_own_and_context(self):
+        self.storage.register_target(1, "Target User", 777)
+        own_msg = MessageData(
+            message_id=1,
+            chat_id=777,
+            user_id=1,
+            author_name="Target User",
+            timestamp=datetime.now(),
+            text="Mine",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={}
+        )
+        context_msg = MessageData(
+            message_id=2,
+            chat_id=777,
+            user_id=2,
+            author_name="Other User",
+            timestamp=datetime.now(),
+            text="Context",
+            media_type=None,
+            reply_to_id=1,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={}
+        )
+
+        await self.storage.save_message(own_msg, target_id=1)
+        await self.storage.save_message(context_msg, target_id=1)
+        breakdown = self.storage.get_target_message_breakdown(777, 1)
+        self.assertEqual(breakdown["own_messages"], 1)
+        self.assertEqual(breakdown["with_context"], 2)
 
     async def asyncTearDown(self):
         await self.storage.close()

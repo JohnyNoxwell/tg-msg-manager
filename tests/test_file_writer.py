@@ -60,6 +60,22 @@ class TestFileRotateWriter(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(os.path.exists(new_state_path))
         self.assertFalse(os.path.exists(legacy_state_path))
 
+    async def test_finalize_persists_state_when_persist_is_batched(self):
+        base_path = os.path.join(self.tmpdir, "chat_log.txt")
+
+        writer = FileRotateWriter(base_path, as_json=False, max_msgs=10, overwrite=True, persist_every_writes=5)
+        await writer.write_block("first\n", 1)
+
+        state_path = os.path.join(self.tmpdir, ".writer_state", "chat_log.json")
+        with open(state_path, "r", encoding="utf-8") as f:
+            state_before = json.load(f)
+        self.assertEqual(state_before["current_count"], 0)
+
+        await writer.finalize()
+        with open(state_path, "r", encoding="utf-8") as f:
+            state_after = json.load(f)
+        self.assertEqual(state_after["current_count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

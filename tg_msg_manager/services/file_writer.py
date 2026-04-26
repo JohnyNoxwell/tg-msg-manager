@@ -12,10 +12,18 @@ class FileRotateWriter:
     Handles writing content to files with automatic rotation into multiple parts.
     Ensures that individual files do not exceed a certain message count.
     """
-    def __init__(self, base_path: str, as_json: bool = False, max_msgs: int = 5000, overwrite: bool = False):
+    def __init__(
+        self,
+        base_path: str,
+        as_json: bool = False,
+        max_msgs: int = 5000,
+        overwrite: bool = False,
+        persist_every_writes: int = 1,
+    ):
         self.base_path = base_path
         self.as_json = as_json
         self.max_msgs = max_msgs
+        self.persist_every_writes = max(1, persist_every_writes)
         self.lock = asyncio.Lock()
         
         self.directory = os.path.dirname(base_path)
@@ -34,6 +42,7 @@ class FileRotateWriter:
         self.write_calls = 0
         self.state_persist_count = 0
         self.rotation_count = 0
+        self._writes_since_persist = 0
         
         if overwrite:
             self._cleanup_existing_files()
@@ -84,6 +93,11 @@ class FileRotateWriter:
         self.state_persist_count += 1
         telemetry.track_counter("file_writer.state_persists", 1)
 
+    def _maybe_persist_state(self, force: bool = False):
+        if force or self._writes_since_persist >= self.persist_every_writes:
+            self._persist_state()
+            self._writes_since_persist = 0
+
     def _detect_current_state(self):
         """Finds the highest part number that exists and counts its messages."""
         existing_state_path = self.state_path if os.path.exists(self.state_path) else self.legacy_state_path
@@ -129,11 +143,13 @@ class FileRotateWriter:
     async def write_block(self, content: str, msg_count: int = 1):
         """Writes a block of content to the current file, rotating if needed."""
         async with self.lock:
+            rotated = False
             if self.current_count + msg_count > self.max_msgs:
                 self.current_part += 1
                 self.current_count = 0
                 self.current_file_path = self._get_path()
                 self.rotation_count += 1
+                rotated = True
                 telemetry.track_counter("file_writer.rotations", 1)
                 logger.info(f"File limit reached. Rotating to part {self.current_part}: {self.current_file_path}")
 
@@ -145,7 +161,12 @@ class FileRotateWriter:
             self.current_count += msg_count
             self.bytes_written += len(content.encode("utf-8"))
             self.write_calls += 1
+            self._writes_since_persist += 1
             telemetry.track_counter("file_writer.write_calls", 1)
             telemetry.track_counter("file_writer.messages_written", msg_count)
             telemetry.track_counter("file_writer.bytes_written", len(content.encode("utf-8")))
-            self._persist_state()
+            self._maybe_persist_state(force=rotated)
+
+    async def finalize(self):
+        async with self.lock:
+            self._maybe_persist_state(force=True)
