@@ -129,6 +129,37 @@ def _render_service_event(event: ServiceEvent) -> None:
             print(f"\n{UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_history_fully_synced'), UI.CLR_SUCCESS)}")
         return
 
+    if event.name == "export.targeted_dialog_search_started":
+        if sys.stdout.isatty():
+            print(f"\n{UI.section(_('section_targeted_search'), icon='◆')}  {UI.key_value(_('label_user'), payload['from_user_id'], icon='◌')}  {UI.key_value(_('label_dialogs'), payload['dialog_count'], icon='◌')}")
+        return
+
+    if event.name == "export.dialog_search_started":
+        if sys.stdout.isatty():
+            print(f"\n{UI.section(_('section_dialog_search'), icon='◆')}  {UI.key_value(_('label_user'), payload['from_user_id'], icon='◌')}")
+        return
+
+    if event.name == "export.dialog_search_scanning":
+        if sys.stdout.isatty():
+            print(f"   {UI.muted(_('label_scanning'))} {UI.paint(payload['dialog_count'], UI.CLR_STATS, bold=True)} {UI.muted(_('label_dialogs'))}")
+        return
+
+    if event.name == "export.dialog_scan_started":
+        if UI.is_tty():
+            progress_label = f"{payload['index']}/{payload['total']}"
+            print(f"\n   {UI.paint(progress_label, UI.CLR_MUTED)}  {UI.paint(payload['dialog_title'], UI.CLR_CHAT, bold=True)}")
+        return
+
+    if event.name == "export.global_export_finished":
+        if UI.is_tty():
+            print(f"\n{UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_global_export_finished'), UI.CLR_SUCCESS)}  {UI.key_value(_('label_processed'), payload['total_processed'], icon='✉')}")
+        return
+
+    if event.name == "export.tracked_update_started":
+        if UI.is_tty():
+            print(f"\n{UI.section(_('section_update'), icon='◆')}  {UI.key_value(_('label_targets'), payload['target_count'], icon='◌')}")
+        return
+
     if event.name == "cleaner.dialog_scan_started":
         UI.print_status("Cleaning", f"[{payload['index']}/{payload['total']}] {payload['name']}")
         return

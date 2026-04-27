@@ -274,5 +274,46 @@ class TestSyncSystem(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(stats[222]["count"], 0)
         self.assertFalse(stats[222]["dirty"])
 
+    async def test_sync_all_dialogs_for_user_emits_bulk_search_events(self):
+        dialog_entity = MagicMock(id=200, title="Tracked Chat", broadcast=False)
+        dialog = MagicMock(is_group=True, is_channel=False, entity=dialog_entity)
+        self.mock_client.get_dialogs = AsyncMock(return_value=[dialog])
+        events = []
+
+        service = ExportService(self.mock_client, self.storage, event_sink=events.append)
+        service.sync_chat = AsyncMock(return_value=3)
+
+        processed = await service.sync_all_dialogs_for_user(999)
+
+        self.assertEqual(processed, 3)
+        self.assertEqual(
+            [event.name for event in events],
+            [
+                "export.dialog_search_started",
+                "export.dialog_search_scanning",
+                "export.dialog_scan_started",
+                "export.global_export_finished",
+            ],
+        )
+        self.assertEqual(events[-1].payload["total_processed"], 3)
+
+    async def test_sync_all_tracked_emits_update_started_event(self):
+        self.storage.get_primary_targets = MagicMock(return_value=[
+            {"chat_id": 200, "user_id": 999},
+        ])
+        self.storage.get_sync_status = MagicMock(return_value={"author_name": "Tracked User"})
+        self.storage.get_user = MagicMock(return_value=None)
+        self.mock_client.get_entity = AsyncMock(return_value=MagicMock(id=200))
+        self.mock_client.get_messages = AsyncMock(return_value=[MagicMock(message_id=777)])
+        events = []
+
+        service = ExportService(self.mock_client, self.storage, event_sink=events.append)
+        service.sync_chat = AsyncMock(return_value=0)
+
+        await service.sync_all_tracked()
+
+        self.assertEqual(events[0].name, "export.tracked_update_started")
+        self.assertEqual(events[0].payload["target_count"], 1)
+
 if __name__ == "__main__":
     unittest.main()

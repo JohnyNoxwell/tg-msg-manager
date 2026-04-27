@@ -1072,8 +1072,11 @@ class ExportService:
         """
         if target_chat_ids:
             started_at = perf_counter()
-            if sys.stdout.isatty():
-                print(f"\n{UI.section(_('section_targeted_search'), icon='◆')}  {UI.key_value(_('label_user'), from_user_id, icon='◌')}  {UI.key_value(_('label_dialogs'), len(target_chat_ids), icon='◌')}")
+            self._emit_event(
+                "export.targeted_dialog_search_started",
+                from_user_id=from_user_id,
+                dialog_count=len(target_chat_ids),
+            )
             # Resolve specific entities from IDs/usernames
             targets = []
             for cid in target_chat_ids:
@@ -1091,22 +1094,24 @@ class ExportService:
                     logger.warning(f"Could not resolve config chat {cid}: {e}")
         else:
             started_at = perf_counter()
-            if sys.stdout.isatty():
-                print(f"\n{UI.section(_('section_dialog_search'), icon='◆')}  {UI.key_value(_('label_user'), from_user_id, icon='◌')}")
+            self._emit_event("export.dialog_search_started", from_user_id=from_user_id)
             dialogs = await self.client.get_dialogs()
             # Filter for groups and supergroups only
             targets = [d.entity for d in dialogs if (d.is_group or d.is_channel) and not getattr(d.entity, 'broadcast', False)]
         
-        if sys.stdout.isatty():
-            print(f"   {UI.muted(_('label_scanning'))} {UI.paint(len(targets), UI.CLR_STATS, bold=True)} {UI.muted(_('label_dialogs'))}")
+        self._emit_event("export.dialog_search_scanning", dialog_count=len(targets))
         
         total_processed = 0
 
         for i, dialog in enumerate(targets):
             try:
                 dialog_title = UI.format_name(dialog)
-                if UI.is_tty():
-                    print(f"\n   {UI.paint(f'{i+1}/{len(targets)}', UI.CLR_MUTED)}  {UI.paint(dialog_title, UI.CLR_CHAT, bold=True)}")
+                self._emit_event(
+                    "export.dialog_scan_started",
+                    index=i + 1,
+                    total=len(targets),
+                    dialog_title=dialog_title,
+                )
                 
                 processed = await self.sync_chat(
                     dialog,
@@ -1125,8 +1130,7 @@ class ExportService:
             except Exception as e:
                 logger.error(f"Error scanning dialog {getattr(dialog, 'name', 'Unknown')}: {e}")
         
-        if UI.is_tty():
-            print(f"\n{UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_global_export_finished'), UI.CLR_SUCCESS)}  {UI.key_value(_('label_processed'), total_processed, icon='✉')}")
+        self._emit_event("export.global_export_finished", total_processed=total_processed)
         telemetry.track_counter("sync.dialogs.scanned", len(targets))
         telemetry.track_duration("sync.dialogs_for_user.total", perf_counter() - started_at)
         return total_processed
@@ -1153,8 +1157,7 @@ class ExportService:
         if not items:
             return user_stats
 
-        if UI.is_tty():
-            print(f"\n{UI.section(_('section_update'), icon='◆')}  {UI.key_value(_('label_targets'), len(items), icon='◌')}")
+        self._emit_event("export.tracked_update_started", target_count=len(items))
 
         started_at = perf_counter()
         telemetry.track_counter("sync.tracked_items.total", len(items))

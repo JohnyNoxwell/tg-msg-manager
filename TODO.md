@@ -164,7 +164,7 @@
 
 ### Queued Blocks
 
-- [ ] Block B: Separate service outcomes from terminal rendering so `services/` stop owning direct UI emission.
+- [x] Block B: Separate service outcomes from terminal rendering so `services/` stop owning direct UI emission.
 - [x] Block B.1 Introduce a lightweight service-event sink that can carry progress/status payloads without binding services to terminal rendering.
 - [x] Block B.1.1 Keep the sink optional so non-CLI callers and existing tests stay compatible.
 - [x] Block B.2 Convert `CleanerService` progress/status output to service events.
@@ -173,12 +173,12 @@
 - [x] Block B.3 Convert `PrivateArchiveService` progress/media/status output to service events.
 - [x] Block B.3.1 Update `cli.py` to render PM archive events through the sink.
 - [x] Block B.3.2 Add regression coverage for PM archive event emission.
-- [ ] Block B.4 Convert `ExportService` progress/header/summary terminal output to service events.
+- [x] Block B.4 Convert `ExportService` progress/header/summary terminal output to service events.
 - [x] Block B.4.1 Convert `sync_chat()` header/progress/final-summary output to service events.
 - [x] Block B.4.1.1 Keep current CLI behavior intact while moving single-chat rendering out of the service.
 - [x] Block B.4.1.2 Add regression coverage for `sync_chat()` event emission.
-- [ ] Block B.4.2 Convert bulk dialog search/update output in `sync_all_dialogs_for_user()` and `_sync_target_items()` to service events.
-- [ ] Block B.4.2.1 Keep current CLI behavior intact while moving bulk-flow rendering out of the service.
-- [ ] Block B.4.2.2 Add regression coverage for bulk export/update event emission.
-  Current delta: `CleanerService`, `PrivateArchiveService`, and single-chat `ExportService.sync_chat()` now emit typed service events through an optional sink; direct terminal rendering for those flows moved into `cli.py`, and coverage now asserts both service-side event emission and CLI-side sink wiring.
+- [x] Block B.4.2 Convert bulk dialog search/update output in `sync_all_dialogs_for_user()` and `_sync_target_items()` to service events.
+- [x] Block B.4.2.1 Keep current CLI behavior intact while moving bulk-flow rendering out of the service.
+- [x] Block B.4.2.2 Add regression coverage for bulk export/update event emission.
+  Current delta: `CleanerService`, `PrivateArchiveService`, and all currently user-facing `ExportService` flows now emit typed service events through an optional sink; direct terminal rendering for those flows moved into `cli.py`, and coverage asserts both service-side event emission and CLI-side sink wiring.
 - [ ] Block C: Split the storage contract into smaller read/write/target-oriented interfaces once current service call sites are stable.
