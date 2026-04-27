@@ -4,6 +4,7 @@ import shutil
 import tempfile
 import unittest
 import json
+from unittest.mock import patch
 
 # Add project root to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -75,6 +76,22 @@ class TestFileRotateWriter(unittest.IsolatedAsyncioTestCase):
         with open(state_path, "r", encoding="utf-8") as f:
             state_after = json.load(f)
         self.assertEqual(state_after["current_count"], 1)
+
+    async def test_write_block_and_finalize_offload_disk_io_to_threads(self):
+        base_path = os.path.join(self.tmpdir, "chat_log.txt")
+        writer = FileRotateWriter(base_path, as_json=False, max_msgs=10, overwrite=True, persist_every_writes=5)
+
+        async def run_inline(func, *args, **kwargs):
+            return func(*args, **kwargs)
+
+        with patch("tg_msg_manager.services.file_writer.asyncio.to_thread", side_effect=run_inline) as mocked_to_thread:
+            await writer.write_block("first\n", 1)
+            await writer.finalize()
+
+        called_funcs = [call.args[0].__name__ for call in mocked_to_thread.await_args_list]
+        self.assertIn("_append_content_sync", called_funcs)
+        self.assertIn("_persist_state_sync", called_funcs)
+        self.assertTrue(os.path.exists(base_path))
 
 
 if __name__ == "__main__":

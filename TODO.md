@@ -153,6 +153,15 @@
 - [x] A.4 Add regression coverage for streaming exports, unchanged-export skipping, and legacy fallback behavior.
   Current delta: AI JSON DB export now prefers `get_user_export_summary()` plus `iter_user_export_rows()` for deterministic streaming writes, `DBExportService` no longer assumes every fast-path source supports `len()`, and legacy materialized-row backends remain supported through the compatibility fallback.
 
+### Block D: Non-Blocking File Writer Path
+
+- [x] D.1 Move async file append work off the event loop thread inside `FileRotateWriter`.
+- [x] D.1.1 Keep rotation accounting and persisted state deterministic while writes move to thread-offloaded helpers.
+- [x] D.2 Move state persistence in `write_block()` and `finalize()` off the event loop thread.
+- [x] D.2.1 Preserve current resume, overwrite, and legacy-state migration behavior.
+- [x] D.3 Add regression coverage for the new non-blocking write/persist path.
+  Current delta: `FileRotateWriter.write_block()` and `finalize()` now offload file append and state persistence through `asyncio.to_thread()`, while rotation bookkeeping, resume semantics, overwrite cleanup, and legacy-state migration remain unchanged.
+
 ### Queued Blocks
 
 - [ ] Block B: Separate service outcomes from terminal rendering so `services/` stop owning direct UI emission.
