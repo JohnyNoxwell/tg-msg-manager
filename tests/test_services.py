@@ -881,5 +881,46 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(self.mock_storage.save_message.await_args.kwargs["target_id"], 1)
         self.mock_storage.update_last_sync_at.assert_called_once_with(1, 1)
 
+    async def test_private_archive_stops_at_last_synced_message(self):
+        new_message = MessageData(
+            message_id=6,
+            chat_id=1,
+            user_id=9,
+            author_name="PM User",
+            timestamp=datetime.now(),
+            text="new",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        stale_message = MessageData(
+            message_id=5,
+            chat_id=1,
+            user_id=9,
+            author_name="PM User",
+            timestamp=datetime.now(),
+            text="old photo",
+            media_type="Photo",
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+            media_ref=MagicMock(),
+        )
+
+        self.mock_client.iter_messages.return_value = AsyncIterator([new_message, stale_message])
+        self.mock_storage.get_last_msg_id.return_value = 5
+        self.mock_storage.register_target = MagicMock()
+
+        service = PrivateArchiveService(self.mock_client, self.mock_storage, base_dir="/tmp/tg_pm_test")
+        await service.archive_pm(MagicMock(id=1, first_name="PM", last_name="User", username="pmuser"))
+
+        self.assertEqual(self.mock_storage.save_message.await_count, 1)
+        self.assertEqual(self.mock_storage.save_message.await_args.args[0].message_id, 6)
+        self.mock_client.download_media.assert_not_awaited()
+        self.mock_storage.update_last_sync_at.assert_called_once_with(1, 1)
+
 if __name__ == "__main__":
     unittest.main()

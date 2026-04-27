@@ -3,8 +3,6 @@ import sys
 import asyncio
 import logging
 from typing import Optional, List, Dict, Any
-from datetime import datetime
-import shutil
 
 from .file_writer import FileRotateWriter
 from ..infrastructure.storage.interface import BaseStorage
@@ -59,91 +57,202 @@ class PrivateArchiveService:
 
         return await self.client.download_media(media_ref, file=target_path)
 
-    async def archive_pm(self, user_entity: Any):
-        """
-        Main entry point for PM archiving.
-        """
+    def _prepare_archive_context(self, user_entity: Any) -> Dict[str, Any]:
         user_id = getattr(user_entity, 'id', 0)
         first_name = getattr(user_entity, 'first_name', '') or ''
         last_name = getattr(user_entity, 'last_name', '') or ''
         username = getattr(user_entity, 'username', '') or ''
-        
+
         target_name = UI.format_name(user_entity)
         folder_name = self._get_user_folder_name(user_id, first_name, last_name, username)
         user_dir = os.path.join(self.base_dir, folder_name)
         media_dir = os.path.join(user_dir, "media")
-        
+        chat_log_path = os.path.join(user_dir, "chat_log.txt")
+        return {
+            "user_id": user_id,
+            "target_name": target_name,
+            "user_dir": user_dir,
+            "media_dir": media_dir,
+            "chat_log_path": chat_log_path,
+        }
+
+    def _ensure_archive_dirs(self, media_dir: str) -> None:
         for sub in ("photos", "videos", "voices", "documents"):
             os.makedirs(os.path.join(media_dir, sub), exist_ok=True)
-            
-        chat_log_path = os.path.join(user_dir, "chat_log.txt")
-        writer = FileRotateWriter(chat_log_path, as_json=False, max_msgs=5000)
-        
-        last_id = self.storage.get_last_msg_id(user_id) 
-        
-        # Register as primary target
-        self.storage.register_target(user_id, target_name, user_id)
-        
+
+    @staticmethod
+    def _initial_media_stats() -> Dict[str, int]:
+        return {"Photo": 0, "Video": 0, "Voice": 0, "Document": 0}
+
+    @staticmethod
+    def _initial_archive_stats() -> Dict[str, int]:
+        return {"downloaded": 0, "skipped": 0}
+
+    def _media_summary(self, stats: Dict[str, int]) -> str:
+        return f"P:{stats['Photo']} V:{stats['Video']} S:{stats['Voice']} D:{stats['Document']}"
+
+    def _archive_progress_summary(self, archive_stats: Dict[str, int]) -> str:
+        return f"{_('label_downloaded')}={archive_stats['downloaded']} {_('label_skipped')}={archive_stats['skipped']}"
+
+    def _emit_archive_start(self, *, target_name: str, user_id: int, user_dir: str, last_id: int) -> None:
         if UI.is_tty():
             print(f"\n{UI.section(_('section_pm_archive'), icon='◆')}  {UI.paint(target_name, UI.CLR_USER, bold=True)}  {UI.muted(_('label_id'))} {UI.paint(user_id, UI.CLR_ID)}")
             print(f"   {UI.muted(_('label_path'))} {UI.paint(user_dir, UI.CLR_CHAT)}")
         logger.info(f"PM Archive start for {user_id}. Last ID: {last_id}")
-        
+
+    def _emit_archive_progress(self, *, count: int, stats: Dict[str, int], archive_stats: Dict[str, int]) -> None:
+        UI.print_status(
+            "Archiving",
+            count,
+            extra=f"{_('label_messages')} | {self._archive_progress_summary(archive_stats)} | {_('label_media')}: {self._media_summary(stats)}",
+        )
+
+    def _emit_archive_complete(
+        self,
+        *,
+        user_entity: Any,
+        count: int,
+        stats: Dict[str, int],
+        archive_stats: Dict[str, int],
+    ) -> None:
+        if not UI.is_tty():
+            return
+
+        UI.print_status(
+            "Complete",
+            count,
+            extra=f"{_('label_messages')} | {self._archive_progress_summary(archive_stats)} | {_('label_media')}: {self._media_summary(stats)}",
+        )
+        UI.print_final_summary("sync_summary_title", [{
+            "title": UI.format_name(user_entity),
+            "lines": [
+                ("messages", count),
+                ("downloaded", archive_stats["downloaded"]),
+                ("skipped", archive_stats["skipped"]),
+                ("media", sum(stats.values())),
+            ],
+        }])
+        sys.stdout.write("\n")
+        sys.stdout.flush()
+
+    def _track_media_stats(self, stats: Dict[str, int], media_type: Optional[str]) -> None:
+        if not media_type:
+            return
+        if media_type in stats:
+            stats[media_type] += 1
+        else:
+            stats["Document"] += 1
+
+    async def _process_archive_media(
+        self,
+        msg_data: MessageData,
+        *,
+        media_dir: str,
+        stats: Dict[str, int],
+        archive_stats: Dict[str, int],
+    ) -> None:
+        if not msg_data.media_type:
+            return
+
+        self._track_media_stats(stats, msg_data.media_type)
+        telemetry.track_messages(1)
+        downloaded_path = await self._download_media(msg_data, media_dir)
+        if downloaded_path and UI.is_tty():
+            print(f"   {UI.paint('↳', UI.CLR_MUTED)} {UI.muted(_('label_saved_media'))} {UI.paint(os.path.basename(downloaded_path), UI.CLR_STATS)}")
+        if downloaded_path:
+            archive_stats["downloaded"] += 1
+        else:
+            archive_stats["skipped"] += 1
+
+    async def _archive_message(
+        self,
+        msg_data: MessageData,
+        *,
+        user_id: int,
+        media_dir: str,
+        writer: FileRotateWriter,
+        stats: Dict[str, int],
+        archive_stats: Dict[str, int],
+    ) -> None:
+        await self.storage.save_message(msg_data, target_id=user_id)
+        await self._process_archive_media(
+            msg_data,
+            media_dir=media_dir,
+            stats=stats,
+            archive_stats=archive_stats,
+        )
+        log_entry = self._format_pm_log(msg_data)
+        await writer.write_block(log_entry + "\n\n" + "-" * 40 + "\n\n", 1)
+
+    async def _archive_message_stream(
+        self,
+        user_entity: Any,
+        *,
+        user_id: int,
+        last_id: int,
+        media_dir: str,
+        writer: FileRotateWriter,
+    ) -> tuple[int, Dict[str, int], Dict[str, int]]:
         count = 0
-        stats = {"Photo": 0, "Video": 0, "Voice": 0, "Document": 0}
-        archive_stats = {"downloaded": 0, "skipped": 0}
-        
+        stats = self._initial_media_stats()
+        archive_stats = self._initial_archive_stats()
+
         async for msg_data in self.client.iter_messages(user_entity, limit=None, offset_id=0):
             if msg_data.message_id <= last_id:
                 break
-                
-            await self.storage.save_message(msg_data, target_id=user_id)
-            log_entry = self._format_pm_log(msg_data)
-            
-            if msg_data.media_type:
-                # Track media count by type
-                m_type = msg_data.media_type
-                if m_type in stats:
-                    stats[m_type] += 1
-                else:
-                    # Generic document if not matched
-                    stats["Document"] += 1
-                telemetry.track_messages(1)
-                downloaded_path = await self._download_media(msg_data, media_dir)
-                if downloaded_path and UI.is_tty():
-                    print(f"   {UI.paint('↳', UI.CLR_MUTED)} {UI.muted(_('label_saved_media'))} {UI.paint(os.path.basename(downloaded_path), UI.CLR_STATS)}")
-                if downloaded_path:
-                    archive_stats["downloaded"] += 1
-                else:
-                    archive_stats["skipped"] += 1
-                
-            await writer.write_block(log_entry + "\n\n" + "-"*40 + "\n\n", 1)
+
+            await self._archive_message(
+                msg_data,
+                user_id=user_id,
+                media_dir=media_dir,
+                writer=writer,
+                stats=stats,
+                archive_stats=archive_stats,
+            )
             count += 1
-            
+
             if count % 5 == 0:
-                media_str = f"P:{stats['Photo']} V:{stats['Video']} S:{stats['Voice']} D:{stats['Document']}"
-                media_progress = f"{_('label_downloaded')}={archive_stats['downloaded']} {_('label_skipped')}={archive_stats['skipped']}"
-                UI.print_status("Archiving", count, extra=f"{_('label_messages')} | {media_progress} | {_('label_media')}: {media_str}")
-            
-        media_total = f"P:{stats['Photo']} V:{stats['Video']} S:{stats['Voice']} D:{stats['Document']}"
-        if UI.is_tty():
-            final_progress = f"{_('label_downloaded')}={archive_stats['downloaded']} {_('label_skipped')}={archive_stats['skipped']}"
-            UI.print_status("Complete", count, extra=f"{_('label_messages')} | {final_progress} | {_('label_media')}: {media_total}")
-            UI.print_final_summary("sync_summary_title", [{
-                "title": UI.format_name(user_entity),
-                "lines": [
-                    ("messages", count),
-                    ("downloaded", archive_stats["downloaded"]),
-                    ("skipped", archive_stats["skipped"]),
-                    ("media", sum(stats.values())),
-                ],
-            }])
-            sys.stdout.write("\n")
-            sys.stdout.flush()
+                self._emit_archive_progress(count=count, stats=stats, archive_stats=archive_stats)
+
+        return count, stats, archive_stats
+
+    async def archive_pm(self, user_entity: Any):
+        """
+        Main entry point for PM archiving.
+        """
+        archive_ctx = self._prepare_archive_context(user_entity)
+        self._ensure_archive_dirs(archive_ctx["media_dir"])
+
+        writer = FileRotateWriter(archive_ctx["chat_log_path"], as_json=False, max_msgs=5000)
+        last_id = self.storage.get_last_msg_id(archive_ctx["user_id"])
+
+        self.storage.register_target(archive_ctx["user_id"], archive_ctx["target_name"], archive_ctx["user_id"])
+        self._emit_archive_start(
+            target_name=archive_ctx["target_name"],
+            user_id=archive_ctx["user_id"],
+            user_dir=archive_ctx["user_dir"],
+            last_id=last_id,
+        )
+        count, stats, archive_stats = await self._archive_message_stream(
+            user_entity,
+            user_id=archive_ctx["user_id"],
+            last_id=last_id,
+            media_dir=archive_ctx["media_dir"],
+            writer=writer,
+        )
+        self._emit_archive_complete(
+            user_entity=user_entity,
+            count=count,
+            stats=stats,
+            archive_stats=archive_stats,
+        )
         if hasattr(self.storage, "update_last_sync_at"):
-            self.storage.update_last_sync_at(user_id, user_id)
-        logger.info(f"PM Archive complete for {user_id}. {count} messages, {sum(stats.values())} media, downloaded={archive_stats['downloaded']}, skipped={archive_stats['skipped']}.")
-        return user_dir
+            self.storage.update_last_sync_at(archive_ctx["user_id"], archive_ctx["user_id"])
+        logger.info(
+            f"PM Archive complete for {archive_ctx['user_id']}. {count} messages, {sum(stats.values())} media, "
+            f"downloaded={archive_stats['downloaded']}, skipped={archive_stats['skipped']}."
+        )
+        return archive_ctx["user_dir"]
 
     def _format_pm_log(self, m: MessageData) -> str:
         dt_str = m.timestamp.strftime("%Y-%m-%d][%H:%M")

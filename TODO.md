@@ -130,3 +130,10 @@
 - [x] Step 7: Re-run static metrics and compare hotspot deltas against the baseline.
   Current snapshot: `33` Python files, `358` functions, `32` classes, `881` branch nodes (`-43` vs baseline `924`).
   Hotspot delta by branch count: `services/exporter.py` `217 -> 191`, `cli.py` `116 -> 97`, `services/context_engine.py` `160 -> 158`; the main function hotspot moved from `ExportService.sync_chat()` (`111` branches at baseline) to `CleanerService.global_self_cleanup()` (`24` branches), with `sync_chat()` now at `19`.
+
+## Follow-up Hotspots
+
+- [x] Refactor `CleanerService.global_self_cleanup()` into dialog-filtering, self-message collection, and per-dialog execution helpers.
+  Current delta: `global_self_cleanup()` is down to `31` lines / `3` branches, with eligibility routing moved to `_dialog_is_cleanup_eligible()` (`9` / `5`), dialog prefiltering to `_eligible_cleanup_dialogs()` (`6` / `1`), and per-dialog work to `_cleanup_dialog()` (`23` / `1`).
+- [x] Refactor `PrivateArchiveService.archive_pm()` into source-fetch, media handling, and export-writing helpers.
+  Current delta: `archive_pm()` is down to `37` lines / `1` branch, with stream orchestration moved to `_archive_message_stream()` (`31` / `3`), media handling to `_process_archive_media()` (`20` / `4`), and final UI/reporting to `_emit_archive_complete()` (`27` / `1`).
