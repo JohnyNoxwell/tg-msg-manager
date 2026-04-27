@@ -25,7 +25,9 @@ class TestFileRotateWriter(unittest.IsolatedAsyncioTestCase):
         writer = FileRotateWriter(base_path, as_json=False, max_msgs=2, overwrite=True)
         await writer.write_block("first\n", 1)
 
-        resumed = FileRotateWriter(base_path, as_json=False, max_msgs=2, overwrite=False)
+        resumed = FileRotateWriter(
+            base_path, as_json=False, max_msgs=2, overwrite=False
+        )
         await resumed.write_block("second\n", 1)
         await resumed.write_block("third\n", 1)
 
@@ -54,7 +56,9 @@ class TestFileRotateWriter(unittest.IsolatedAsyncioTestCase):
         with open(legacy_state_path, "w", encoding="utf-8") as f:
             json.dump({"current_part": 1, "current_count": 1}, f)
 
-        resumed = FileRotateWriter(base_path, as_json=False, max_msgs=2, overwrite=False)
+        resumed = FileRotateWriter(
+            base_path, as_json=False, max_msgs=2, overwrite=False
+        )
         await resumed.write_block("second\n", 1)
 
         new_state_path = os.path.join(self.tmpdir, ".writer_state", "chat_log.json")
@@ -64,7 +68,13 @@ class TestFileRotateWriter(unittest.IsolatedAsyncioTestCase):
     async def test_finalize_persists_state_when_persist_is_batched(self):
         base_path = os.path.join(self.tmpdir, "chat_log.txt")
 
-        writer = FileRotateWriter(base_path, as_json=False, max_msgs=10, overwrite=True, persist_every_writes=5)
+        writer = FileRotateWriter(
+            base_path,
+            as_json=False,
+            max_msgs=10,
+            overwrite=True,
+            persist_every_writes=5,
+        )
         await writer.write_block("first\n", 1)
 
         state_path = os.path.join(self.tmpdir, ".writer_state", "chat_log.json")
@@ -79,16 +89,27 @@ class TestFileRotateWriter(unittest.IsolatedAsyncioTestCase):
 
     async def test_write_block_and_finalize_offload_disk_io_to_threads(self):
         base_path = os.path.join(self.tmpdir, "chat_log.txt")
-        writer = FileRotateWriter(base_path, as_json=False, max_msgs=10, overwrite=True, persist_every_writes=5)
+        writer = FileRotateWriter(
+            base_path,
+            as_json=False,
+            max_msgs=10,
+            overwrite=True,
+            persist_every_writes=5,
+        )
 
         async def run_inline(func, *args, **kwargs):
             return func(*args, **kwargs)
 
-        with patch("tg_msg_manager.services.file_writer.asyncio.to_thread", side_effect=run_inline) as mocked_to_thread:
+        with patch(
+            "tg_msg_manager.services.file_writer.asyncio.to_thread",
+            side_effect=run_inline,
+        ) as mocked_to_thread:
             await writer.write_block("first\n", 1)
             await writer.finalize()
 
-        called_funcs = [call.args[0].__name__ for call in mocked_to_thread.await_args_list]
+        called_funcs = [
+            call.args[0].__name__ for call in mocked_to_thread.await_args_list
+        ]
         self.assertIn("_append_content_sync", called_funcs)
         self.assertIn("_persist_state_sync", called_funcs)
         self.assertTrue(os.path.exists(base_path))

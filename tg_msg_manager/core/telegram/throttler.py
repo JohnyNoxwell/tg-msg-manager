@@ -4,13 +4,16 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class RateThrottler:
     """
     Advanced Token Bucket throttler with burst support.
     Allows for initial high-speed bursts while maintaining an average rate.
     """
 
-    def __init__(self, rps: float = 3.0, burst: int = 10, max_requests_per_second: float = None):
+    def __init__(
+        self, rps: float = 3.0, burst: int = 10, max_requests_per_second: float = None
+    ):
         if max_requests_per_second is not None:
             rps = max_requests_per_second
         self.rps = rps
@@ -31,7 +34,7 @@ class RateThrottler:
                     wait_time = (1.0 - self.tokens) / self.rps
                     await asyncio.sleep(wait_time)
                 self._refill()
-            
+
             self.tokens -= 1
             # Ensure we don't refill too far in the past if we haven't used it for a while
             self.last_refill = time.perf_counter()
@@ -41,7 +44,7 @@ class RateThrottler:
         now = time.perf_counter()
         elapsed = now - self.last_refill
         new_tokens = elapsed * self.rps
-        
+
         self.tokens = min(self.capacity, self.tokens + new_tokens)
         self.last_refill = now
 
@@ -52,7 +55,9 @@ class RateThrottler:
 
     def wrap(self, func):
         """Decorator to automatically throttle an async function."""
+
         async def wrapper(*args, **kwargs):
             await self.throttle()
             return await func(*args, **kwargs)
+
         return wrapper

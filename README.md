@@ -75,8 +75,11 @@ python3 -m tg_msg_manager.cli update
 ### ✅ Локальная проверка
 
 ```bash
-python3 -m compileall tg_msg_manager tests
-python3 -m unittest discover -s tests -q
+pip install -e .[dev]
+make lint
+make format-check
+make test
+make verify
 ```
 
 Минимальный smoke-check с текущей Telegram-сессией:
@@ -176,8 +179,11 @@ Subcommands can be executed directly for automation:
 ### ✅ Local Verification
 
 ```bash
-python3 -m compileall tg_msg_manager tests
-python3 -m unittest discover -s tests -q
+pip install -e .[dev]
+make lint
+make format-check
+make test
+make verify
 ```
 
 Minimal live smoke-check with the current Telegram session:

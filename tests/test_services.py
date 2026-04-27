@@ -1,6 +1,5 @@
 import sys
 import os
-import asyncio
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime, timedelta, timezone
@@ -14,15 +13,19 @@ from tg_msg_manager.services.exporter import ExportService
 from tg_msg_manager.services.context_engine import DeepModeEngine
 from tg_msg_manager.services.private_archive import PrivateArchiveService
 
+
 class AsyncIterator:
     def __init__(self, items):
         self.items = items
+
     def __aiter__(self):
         return self
+
     async def __anext__(self):
         if not self.items:
             raise StopAsyncIteration
         return self.items.pop(0)
+
 
 class TestServices(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -84,25 +87,36 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         )
 
     def _saved_message_ids(self):
-        saved_batches = [call.args[0] for call in self.mock_storage.save_messages.await_args_list]
+        saved_batches = [
+            call.args[0] for call in self.mock_storage.save_messages.await_args_list
+        ]
         return [msg.message_id for batch in saved_batches for msg in batch]
 
     async def test_exporter_sync(self):
         # Mock last_id in storage
         self.mock_storage.get_last_msg_id.return_value = 10
-        
+
         # Create mock message stream
-        msg1 = MessageData(message_id=15, chat_id=1, user_id=1, author_name="Exporter User",
-                          timestamp=datetime.now(), 
-                          text="New", media_type=None, reply_to_id=None, 
-                          fwd_from_id=None, context_group_id=None, raw_payload={})
-        
+        msg1 = MessageData(
+            message_id=15,
+            chat_id=1,
+            user_id=1,
+            author_name="Exporter User",
+            timestamp=datetime.now(),
+            text="New",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+
         self.mock_client.get_messages.return_value = [msg1]
         self.mock_client.iter_messages.return_value = AsyncIterator([msg1])
-        
+
         service = ExportService(self.mock_client, self.mock_storage)
         count = await service.sync_chat(MagicMock(id=1), limit=10)
-        
+
         self.assertGreaterEqual(count, 0)
         self.mock_storage.flush.assert_awaited()
 
@@ -124,7 +138,9 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         self.mock_client.iter_messages.return_value = AsyncIterator([msg1])
         events = []
 
-        service = ExportService(self.mock_client, self.mock_storage, event_sink=events.append)
+        service = ExportService(
+            self.mock_client, self.mock_storage, event_sink=events.append
+        )
         await service.sync_chat(MagicMock(id=1, title="Test Chat"), limit=10)
 
         event_names = [event.name for event in events]
@@ -134,10 +150,19 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         self.assertIn("export.sync_summary", event_names)
 
     async def test_export_limit_uses_single_worker_range(self):
-        msg1 = MessageData(message_id=15, chat_id=1, user_id=1, author_name="Exporter User",
-                          timestamp=datetime.now(),
-                          text="New", media_type=None, reply_to_id=None,
-                          fwd_from_id=None, context_group_id=None, raw_payload={})
+        msg1 = MessageData(
+            message_id=15,
+            chat_id=1,
+            user_id=1,
+            author_name="Exporter User",
+            timestamp=datetime.now(),
+            text="New",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
 
         self.mock_client.get_messages.return_value = [msg1]
         self.mock_client.iter_messages.return_value = AsyncIterator([msg1])
@@ -147,7 +172,9 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(self.mock_client.iter_messages.call_count, 1)
         self.assertEqual(self.mock_client.iter_messages.call_args.kwargs["limit"], 1)
-        self.assertEqual(self.mock_client.iter_messages.call_args.kwargs["offset_id"], 16)
+        self.assertEqual(
+            self.mock_client.iter_messages.call_args.kwargs["offset_id"], 16
+        )
 
     def test_build_scan_ranges_first_full_sync_has_no_overlap(self):
         service = ExportService(self.mock_client, self.mock_storage)
@@ -209,20 +236,26 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
 
     def test_resolve_tail_progress_checkpoint_uses_highest_contiguous_prefix_only(self):
         service = ExportService(self.mock_client, self.mock_storage)
-        checkpoint = service._resolve_tail_progress_checkpoint([
-            {"upper": 120, "lower": 91, "tail_scan_complete": True, "tail": 91},
-            {"upper": 90, "lower": 61, "tail_scan_complete": False, "tail": 74},
-            {"upper": 60, "lower": 31, "tail_scan_complete": True, "tail": 31},
-        ])
+        checkpoint = service._resolve_tail_progress_checkpoint(
+            [
+                {"upper": 120, "lower": 91, "tail_scan_complete": True, "tail": 91},
+                {"upper": 90, "lower": 61, "tail_scan_complete": False, "tail": 74},
+                {"upper": 60, "lower": 31, "tail_scan_complete": True, "tail": 31},
+            ]
+        )
 
         self.assertEqual(checkpoint, 74)
 
-    def test_resolve_tail_progress_checkpoint_stops_when_top_range_has_no_progress(self):
+    def test_resolve_tail_progress_checkpoint_stops_when_top_range_has_no_progress(
+        self,
+    ):
         service = ExportService(self.mock_client, self.mock_storage)
-        checkpoint = service._resolve_tail_progress_checkpoint([
-            {"upper": 120, "lower": 91, "tail_scan_complete": False, "tail": None},
-            {"upper": 90, "lower": 61, "tail_scan_complete": True, "tail": 61},
-        ])
+        checkpoint = service._resolve_tail_progress_checkpoint(
+            [
+                {"upper": 120, "lower": 91, "tail_scan_complete": False, "tail": None},
+                {"upper": 90, "lower": 61, "tail_scan_complete": True, "tail": 61},
+            ]
+        )
 
         self.assertIsNone(checkpoint)
 
@@ -244,7 +277,9 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(processed, 0)
         self.assertFalse(self.mock_client.iter_messages.called)
 
-    async def test_sync_chat_marks_terminal_history_complete_when_tail_reaches_one(self):
+    async def test_sync_chat_marks_terminal_history_complete_when_tail_reaches_one(
+        self,
+    ):
         latest = self._message(120, chat_id=1, user_id=999, author_name="Tracked User")
         self.mock_client.get_messages.return_value = [latest]
         self.mock_storage.get_sync_status.return_value = {
@@ -297,12 +332,14 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
     async def test_sync_chat_advances_tail_cursor_after_empty_history_scan(self):
         latest = self._message(120, chat_id=1, user_id=999, author_name="Tracked User")
         self.mock_client.get_messages.return_value = [latest]
-        self.mock_client.iter_messages = MagicMock(side_effect=[
-            AsyncIterator([]),
-            AsyncIterator([]),
-            AsyncIterator([]),
-            AsyncIterator([]),
-        ])
+        self.mock_client.iter_messages = MagicMock(
+            side_effect=[
+                AsyncIterator([]),
+                AsyncIterator([]),
+                AsyncIterator([]),
+                AsyncIterator([]),
+            ]
+        )
         self.mock_storage.get_sync_status.return_value = {
             "last_msg_id": 120,
             "tail_msg_id": 40,
@@ -329,7 +366,9 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             self._message(114, chat_id=1, user_id=999, author_name="Tracked User"),
             self._message(109, chat_id=1, user_id=777, author_name="Other User"),
         ]
-        self.mock_client.iter_messages = MagicMock(side_effect=AssertionError("network iter should not run"))
+        self.mock_client.iter_messages = MagicMock(
+            side_effect=AssertionError("network iter should not run")
+        )
         self.mock_storage.get_sync_status.return_value = {
             "last_msg_id": 110,
             "tail_msg_id": 0,
@@ -356,13 +395,25 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(saved_ids, [118, 114])
         self.mock_storage.update_last_msg_id.assert_any_call(1, 999, 120)
 
-    async def test_sync_chat_falls_back_to_client_side_sender_filter_when_user_is_unresolved(self):
+    async def test_sync_chat_falls_back_to_client_side_sender_filter_when_user_is_unresolved(
+        self,
+    ):
         self.mock_client.get_entity = AsyncMock(side_effect=Exception("unresolved"))
-        self.mock_client.iter_messages = MagicMock(return_value=AsyncIterator([
-            self._message(105, chat_id=1, user_id=111, author_name="Noise User"),
-            self._message(104, chat_id=1, user_id=999, author_name="Tracked User"),
-            self._message(103, chat_id=1, user_id=222, author_name="Noise User"),
-        ]))
+        self.mock_client.iter_messages = MagicMock(
+            return_value=AsyncIterator(
+                [
+                    self._message(
+                        105, chat_id=1, user_id=111, author_name="Noise User"
+                    ),
+                    self._message(
+                        104, chat_id=1, user_id=999, author_name="Tracked User"
+                    ),
+                    self._message(
+                        103, chat_id=1, user_id=222, author_name="Noise User"
+                    ),
+                ]
+            )
+        )
         self.mock_storage.get_sync_status.return_value = {
             "last_msg_id": 100,
             "tail_msg_id": 0,
@@ -406,12 +457,16 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(processed, 0)
         self.mock_client.iter_messages.assert_called()
-        self.assertTrue(any(
-            call.args == (1, 999, 0) and call.kwargs == {"is_complete": True}
-            for call in self.mock_storage.update_sync_tail.call_args_list
-        ))
+        self.assertTrue(
+            any(
+                call.args == (1, 999, 0) and call.kwargs == {"is_complete": True}
+                for call in self.mock_storage.update_sync_tail.call_args_list
+            )
+        )
 
-    async def test_sync_chat_does_not_mark_history_complete_when_stop_is_requested(self):
+    async def test_sync_chat_does_not_mark_history_complete_when_stop_is_requested(
+        self,
+    ):
         self.mock_client.iter_messages = MagicMock(return_value=AsyncIterator([]))
         self.mock_storage.should_stop = MagicMock(return_value=True)
         self.mock_storage.get_sync_status.return_value = {
@@ -432,10 +487,12 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(processed, 0)
-        self.assertFalse(any(
-            call.args == (1, 999, 0) and call.kwargs == {"is_complete": True}
-            for call in self.mock_storage.update_sync_tail.call_args_list
-        ))
+        self.assertFalse(
+            any(
+                call.args == (1, 999, 0) and call.kwargs == {"is_complete": True}
+                for call in self.mock_storage.update_sync_tail.call_args_list
+            )
+        )
         self.mock_storage.update_last_sync_at.assert_not_called()
 
     async def test_deep_mode_clustering(self):
@@ -457,9 +514,13 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             timestamp=target.timestamp - timedelta(seconds=30),
         )
 
-        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: AsyncIterator([direct_reply, unrelated, target])
+        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: (
+            AsyncIterator([direct_reply, unrelated, target])
+        )
         engine = DeepModeEngine(self.mock_client, self.mock_storage)
-        cluster_id = await engine.extract_context(MagicMock(id=1), target, window_size=1)
+        cluster_id = await engine.extract_context(
+            MagicMock(id=1), target, window_size=1
+        )
 
         self.assertTrue(cluster_id)
         self.mock_storage.save_messages.assert_awaited()
@@ -479,11 +540,15 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             raw_payload={"reply_to": {"reply_to_msg_id": 50}},
         )
 
-        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: AsyncIterator([target])
+        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: (
+            AsyncIterator([target])
+        )
         self.mock_client.get_messages.return_value = [parent]
 
         engine = DeepModeEngine(self.mock_client, self.mock_storage)
-        await engine.extract_batch_context(MagicMock(id=1), [target], target_id=1, recursive_depth=1)
+        await engine.extract_batch_context(
+            MagicMock(id=1), [target], target_id=1, recursive_depth=1
+        )
 
         saved_ids = self._saved_message_ids()
         self.assertIn(50, saved_ids)
@@ -500,19 +565,27 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         )
 
         self.mock_storage.get_messages_by_ids.return_value = [parent]
-        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: AsyncIterator([target])
+        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: (
+            AsyncIterator([target])
+        )
 
         engine = DeepModeEngine(self.mock_client, self.mock_storage)
-        await engine.extract_batch_context(MagicMock(id=1), [target], target_id=1, recursive_depth=1)
+        await engine.extract_batch_context(
+            MagicMock(id=1), [target], target_id=1, recursive_depth=1
+        )
 
         saved_ids = self._saved_message_ids()
         self.assertIn(50, saved_ids)
         self.mock_client.get_messages.assert_not_awaited()
 
-    async def test_deep_mode_uses_local_range_without_live_fetch_when_range_is_complete(self):
+    async def test_deep_mode_uses_local_range_without_live_fetch_when_range_is_complete(
+        self,
+    ):
         telemetry.reset()
         base_time = datetime.now()
-        target = self._message(100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time)
+        target = self._message(
+            100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time
+        )
         stored_reply = self._message(
             101,
             user_id=2,
@@ -564,10 +637,14 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(summary["counters"]["deep.fetch_range.missing_ids"], 0)
         self.assertEqual(summary["counters"]["deep.fetch_range.coverage_100.calls"], 1)
 
-    async def test_deep_mode_prefers_selective_fill_when_replies_exist_and_coverage_is_good(self):
+    async def test_deep_mode_prefers_selective_fill_when_replies_exist_and_coverage_is_good(
+        self,
+    ):
         telemetry.reset()
         base_time = datetime.now()
-        target = self._message(100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time)
+        target = self._message(
+            100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time
+        )
         stored_reply = self._message(
             101,
             user_id=2,
@@ -581,7 +658,9 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         stored_range = []
         for message_id in range(92, 161):
             if message_id % 2 == 0:
-                payload = {"reply_to": {"reply_to_msg_id": 100}} if message_id == 100 else {}
+                payload = (
+                    {"reply_to": {"reply_to_msg_id": 100}} if message_id == 100 else {}
+                )
                 stored_range.append(
                     self._message(
                         message_id,
@@ -612,22 +691,54 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         self.mock_client.get_messages.assert_awaited()
         self.assertFalse(self.mock_client.iter_messages.called)
         summary = telemetry.get_summary()
-        self.assertEqual(summary["counters"]["deep.fetch_range.selective_fill.calls"], 1)
+        self.assertEqual(
+            summary["counters"]["deep.fetch_range.selective_fill.calls"], 1
+        )
 
-    async def test_deep_mode_uses_compact_fill_before_full_scan_for_fragmented_holes(self):
+    async def test_deep_mode_uses_compact_fill_before_full_scan_for_fragmented_holes(
+        self,
+    ):
         telemetry.reset()
         base_time = datetime.now()
-        target = self._message(100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time)
+        target = self._message(
+            100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time
+        )
 
         stored_range = []
         stored_ids = set(range(92, 161)) - {
-            98, 99, 100, 101, 102, 103, 104,
-            115, 116, 117, 118, 119, 120, 121,
-            132, 133, 134, 135, 136, 137, 138,
-            149, 150, 151, 152, 153, 154, 155,
+            98,
+            99,
+            100,
+            101,
+            102,
+            103,
+            104,
+            115,
+            116,
+            117,
+            118,
+            119,
+            120,
+            121,
+            132,
+            133,
+            134,
+            135,
+            136,
+            137,
+            138,
+            149,
+            150,
+            151,
+            152,
+            153,
+            154,
+            155,
         }
         for message_id in sorted(stored_ids):
-            raw_payload = {"reply_to": {"reply_to_msg_id": 100}} if message_id == 100 else {}
+            raw_payload = (
+                {"reply_to": {"reply_to_msg_id": 100}} if message_id == 100 else {}
+            )
             stored_range.append(
                 self._message(
                     message_id,
@@ -641,16 +752,52 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             )
 
         live_fill = [
-            [self._message(98, user_id=2, author_name="Live", text="Live 98", timestamp=base_time - timedelta(seconds=2))],
-            [self._message(118, user_id=2, author_name="Live", text="Live 118", timestamp=base_time + timedelta(seconds=18))],
-            [self._message(135, user_id=2, author_name="Live", text="Live 135", timestamp=base_time + timedelta(seconds=35), reply_to_id=100, raw_payload={"reply_to": {"reply_to_msg_id": 100}})],
-            [self._message(152, user_id=2, author_name="Live", text="Live 152", timestamp=base_time + timedelta(seconds=52))],
+            [
+                self._message(
+                    98,
+                    user_id=2,
+                    author_name="Live",
+                    text="Live 98",
+                    timestamp=base_time - timedelta(seconds=2),
+                )
+            ],
+            [
+                self._message(
+                    118,
+                    user_id=2,
+                    author_name="Live",
+                    text="Live 118",
+                    timestamp=base_time + timedelta(seconds=18),
+                )
+            ],
+            [
+                self._message(
+                    135,
+                    user_id=2,
+                    author_name="Live",
+                    text="Live 135",
+                    timestamp=base_time + timedelta(seconds=35),
+                    reply_to_id=100,
+                    raw_payload={"reply_to": {"reply_to_msg_id": 100}},
+                )
+            ],
+            [
+                self._message(
+                    152,
+                    user_id=2,
+                    author_name="Live",
+                    text="Live 152",
+                    timestamp=base_time + timedelta(seconds=52),
+                )
+            ],
         ]
 
         self.mock_storage.get_messages_in_id_range.return_value = stored_range
         self.mock_storage.get_messages_replying_to.return_value = []
         self.mock_client.get_messages = AsyncMock(return_value=[])
-        self.mock_client.iter_messages = MagicMock(side_effect=[AsyncIterator(batch) for batch in live_fill])
+        self.mock_client.iter_messages = MagicMock(
+            side_effect=[AsyncIterator(batch) for batch in live_fill]
+        )
 
         engine = DeepModeEngine(self.mock_client, self.mock_storage)
         await engine.extract_batch_context(
@@ -693,19 +840,27 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             timestamp=target.timestamp + timedelta(seconds=25),
         )
 
-        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: AsyncIterator([other_topic, same_topic, target])
+        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: (
+            AsyncIterator([other_topic, same_topic, target])
+        )
 
         engine = DeepModeEngine(self.mock_client, self.mock_storage)
-        await engine.extract_batch_context(MagicMock(id=1), [target], target_id=1, recursive_depth=2)
+        await engine.extract_batch_context(
+            MagicMock(id=1), [target], target_id=1, recursive_depth=2
+        )
 
         saved_ids = self._saved_message_ids()
         self.assertIn(104, saved_ids)
         self.assertNotIn(105, saved_ids)
 
-    async def test_deep_mode_skips_redundant_round_two_for_non_topic_without_structure(self):
+    async def test_deep_mode_skips_redundant_round_two_for_non_topic_without_structure(
+        self,
+    ):
         telemetry.reset()
         base_time = datetime.now()
-        target = self._message(100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time)
+        target = self._message(
+            100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time
+        )
         noise = self._message(
             101,
             user_id=2,
@@ -714,10 +869,14 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             timestamp=base_time + timedelta(seconds=15),
         )
 
-        self.mock_client.iter_messages = MagicMock(return_value=AsyncIterator([noise, target]))
+        self.mock_client.iter_messages = MagicMock(
+            return_value=AsyncIterator([noise, target])
+        )
 
         engine = DeepModeEngine(self.mock_client, self.mock_storage)
-        await engine.extract_batch_context(MagicMock(id=1), [target], target_id=1, recursive_depth=2)
+        await engine.extract_batch_context(
+            MagicMock(id=1), [target], target_id=1, recursive_depth=2
+        )
 
         self.assertEqual(self.mock_client.iter_messages.call_count, 1)
         summary = telemetry.get_summary()
@@ -739,7 +898,9 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
 
         clusters = engine._initialize_clusters([target_a, target_b])
         candidate = engine._normalize_message(reply_b)
-        additions = engine._associate_candidates(clusters, [candidate], round_number=1, max_cluster=10)
+        additions = engine._associate_candidates(
+            clusters, [candidate], round_number=1, max_cluster=10
+        )
 
         self.assertEqual(len(additions), 1)
         self.assertEqual(additions[0].context_group_id, clusters[1].cluster_id)
@@ -748,7 +909,9 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
 
     async def test_deep_mode_time_fallback_requires_missing_structural_metadata(self):
         base_time = datetime.now()
-        target = self._message(100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time)
+        target = self._message(
+            100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time
+        )
         prev_msg = self._message(
             99,
             user_id=2,
@@ -764,10 +927,14 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             timestamp=base_time + timedelta(seconds=50),
         )
 
-        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: AsyncIterator([next_msg, target, prev_msg])
+        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: (
+            AsyncIterator([next_msg, target, prev_msg])
+        )
 
         engine = DeepModeEngine(self.mock_client, self.mock_storage)
-        await engine.extract_batch_context(MagicMock(id=1), [target], target_id=1, recursive_depth=3)
+        await engine.extract_batch_context(
+            MagicMock(id=1), [target], target_id=1, recursive_depth=3
+        )
 
         saved_ids = self._saved_message_ids()
         self.assertIn(99, saved_ids)
@@ -792,10 +959,14 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             timestamp=base_time + timedelta(seconds=30),
         )
         self.mock_client.get_messages.return_value = [parent]
-        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: AsyncIterator([noise, structural_target])
+        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: (
+            AsyncIterator([noise, structural_target])
+        )
 
         engine = DeepModeEngine(self.mock_client, self.mock_storage)
-        await engine.extract_batch_context(MagicMock(id=1), [structural_target], target_id=1, recursive_depth=3)
+        await engine.extract_batch_context(
+            MagicMock(id=1), [structural_target], target_id=1, recursive_depth=3
+        )
 
         saved_ids = self._saved_message_ids()
         self.assertIn(50, saved_ids)
@@ -803,7 +974,9 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
 
     async def test_deep_mode_skips_service_messages(self):
         base_time = datetime.now()
-        target = self._message(100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time)
+        target = self._message(
+            100, user_id=1, author_name="Deep User", text="Target", timestamp=base_time
+        )
         service = self._message(
             101,
             user_id=2,
@@ -813,10 +986,14 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             is_service=True,
         )
 
-        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: AsyncIterator([service, target])
+        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: (
+            AsyncIterator([service, target])
+        )
 
         engine = DeepModeEngine(self.mock_client, self.mock_storage)
-        await engine.extract_batch_context(MagicMock(id=1), [target], target_id=1, recursive_depth=3)
+        await engine.extract_batch_context(
+            MagicMock(id=1), [target], target_id=1, recursive_depth=3
+        )
 
         saved_ids = self._saved_message_ids()
         self.assertIn(100, saved_ids)
@@ -850,66 +1027,100 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             raw_payload={"reply_to": {"reply_to_msg_id": 100}},
         )
 
-        self.mock_storage.get_message.return_value = MessageData.from_dict(stored_parent.to_dict())
-        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: AsyncIterator([live_reply, target])
+        self.mock_storage.get_message.return_value = MessageData.from_dict(
+            stored_parent.to_dict()
+        )
+        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: (
+            AsyncIterator([live_reply, target])
+        )
 
         engine = DeepModeEngine(self.mock_client, self.mock_storage)
-        await engine.extract_batch_context(MagicMock(id=1), [target], target_id=1, recursive_depth=3)
+        await engine.extract_batch_context(
+            MagicMock(id=1), [target], target_id=1, recursive_depth=3
+        )
 
         saved_ids = self._saved_message_ids()
         self.assertIn(50, saved_ids)
         self.assertIn(101, saved_ids)
 
     async def test_deep_mode_processed_ids_do_not_leak_between_chats(self):
-        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: AsyncIterator([])
+        self.mock_client.iter_messages.side_effect = lambda *args, **kwargs: (
+            AsyncIterator([])
+        )
 
         engine = DeepModeEngine(self.mock_client, self.mock_storage)
         target_chat_1 = MessageData(
-            message_id=100, chat_id=1, user_id=1, author_name="Chat One",
+            message_id=100,
+            chat_id=1,
+            user_id=1,
+            author_name="Chat One",
             timestamp=datetime.now(),
-            text="Target 1", media_type=None, reply_to_id=None,
-            fwd_from_id=None, context_group_id=None, raw_payload={}
+            text="Target 1",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
         )
         target_chat_2 = MessageData(
-            message_id=100, chat_id=2, user_id=1, author_name="Chat Two",
+            message_id=100,
+            chat_id=2,
+            user_id=1,
+            author_name="Chat Two",
             timestamp=datetime.now(),
-            text="Target 2", media_type=None, reply_to_id=None,
-            fwd_from_id=None, context_group_id=None, raw_payload={}
+            text="Target 2",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
         )
 
-        await engine.extract_batch_context(MagicMock(id=1), [target_chat_1], target_id=1, recursive_depth=1)
-        await engine.extract_batch_context(MagicMock(id=2), [target_chat_2], target_id=1, recursive_depth=1)
+        await engine.extract_batch_context(
+            MagicMock(id=1), [target_chat_1], target_id=1, recursive_depth=1
+        )
+        await engine.extract_batch_context(
+            MagicMock(id=2), [target_chat_2], target_id=1, recursive_depth=1
+        )
 
         self.assertEqual(self.mock_storage.save_messages.await_count, 2)
 
     async def test_private_archive_downloads_media(self):
-        self.mock_client.iter_messages.return_value = AsyncIterator([
-            MessageData(
-                message_id=5,
-                chat_id=1,
-                user_id=9,
-                author_name="PM User",
-                timestamp=datetime.now(),
-                text="photo",
-                media_type="Photo",
-                reply_to_id=None,
-                fwd_from_id=None,
-                context_group_id=None,
-                raw_payload={},
-                media_ref=MagicMock()
-            )
-        ])
+        self.mock_client.iter_messages.return_value = AsyncIterator(
+            [
+                MessageData(
+                    message_id=5,
+                    chat_id=1,
+                    user_id=9,
+                    author_name="PM User",
+                    timestamp=datetime.now(),
+                    text="photo",
+                    media_type="Photo",
+                    reply_to_id=None,
+                    fwd_from_id=None,
+                    context_group_id=None,
+                    raw_payload={},
+                    media_ref=MagicMock(),
+                )
+            ]
+        )
         self.mock_client.download_media.return_value = "/tmp/test_media.jpg"
         self.mock_storage.get_last_msg_id.return_value = 0
         self.mock_storage.register_target = MagicMock()
 
-        service = PrivateArchiveService(self.mock_client, self.mock_storage, base_dir="/tmp/tg_pm_test")
-        result_dir = await service.archive_pm(MagicMock(id=1, first_name="PM", last_name="User", username="pmuser"))
+        service = PrivateArchiveService(
+            self.mock_client, self.mock_storage, base_dir="/tmp/tg_pm_test"
+        )
+        result_dir = await service.archive_pm(
+            MagicMock(id=1, first_name="PM", last_name="User", username="pmuser")
+        )
 
         self.assertIn("/tmp/tg_pm_test", result_dir)
         self.mock_client.download_media.assert_awaited()
         self.mock_storage.save_message.assert_awaited()
-        self.assertEqual(self.mock_storage.save_message.await_args.kwargs["target_id"], 1)
+        self.assertEqual(
+            self.mock_storage.save_message.await_args.kwargs["target_id"], 1
+        )
         self.mock_storage.update_last_sync_at.assert_called_once_with(1, 1)
 
     async def test_private_archive_stops_at_last_synced_message(self):
@@ -941,35 +1152,45 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             media_ref=MagicMock(),
         )
 
-        self.mock_client.iter_messages.return_value = AsyncIterator([new_message, stale_message])
+        self.mock_client.iter_messages.return_value = AsyncIterator(
+            [new_message, stale_message]
+        )
         self.mock_storage.get_last_msg_id.return_value = 5
         self.mock_storage.register_target = MagicMock()
 
-        service = PrivateArchiveService(self.mock_client, self.mock_storage, base_dir="/tmp/tg_pm_test")
-        await service.archive_pm(MagicMock(id=1, first_name="PM", last_name="User", username="pmuser"))
+        service = PrivateArchiveService(
+            self.mock_client, self.mock_storage, base_dir="/tmp/tg_pm_test"
+        )
+        await service.archive_pm(
+            MagicMock(id=1, first_name="PM", last_name="User", username="pmuser")
+        )
 
         self.assertEqual(self.mock_storage.save_message.await_count, 1)
-        self.assertEqual(self.mock_storage.save_message.await_args.args[0].message_id, 6)
+        self.assertEqual(
+            self.mock_storage.save_message.await_args.args[0].message_id, 6
+        )
         self.mock_client.download_media.assert_not_awaited()
         self.mock_storage.update_last_sync_at.assert_called_once_with(1, 1)
 
     async def test_private_archive_emits_service_events(self):
-        self.mock_client.iter_messages.return_value = AsyncIterator([
-            MessageData(
-                message_id=5,
-                chat_id=1,
-                user_id=9,
-                author_name="PM User",
-                timestamp=datetime.now(),
-                text="photo",
-                media_type="Photo",
-                reply_to_id=None,
-                fwd_from_id=None,
-                context_group_id=None,
-                raw_payload={},
-                media_ref=MagicMock(),
-            )
-        ])
+        self.mock_client.iter_messages.return_value = AsyncIterator(
+            [
+                MessageData(
+                    message_id=5,
+                    chat_id=1,
+                    user_id=9,
+                    author_name="PM User",
+                    timestamp=datetime.now(),
+                    text="photo",
+                    media_type="Photo",
+                    reply_to_id=None,
+                    fwd_from_id=None,
+                    context_group_id=None,
+                    raw_payload={},
+                    media_ref=MagicMock(),
+                )
+            ]
+        )
         self.mock_client.download_media.return_value = "/tmp/test_media.jpg"
         self.mock_storage.get_last_msg_id.return_value = 0
         self.mock_storage.register_target = MagicMock()
@@ -981,7 +1202,9 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             base_dir="/tmp/tg_pm_test",
             event_sink=events.append,
         )
-        await service.archive_pm(MagicMock(id=1, first_name="PM", last_name="User", username="pmuser"))
+        await service.archive_pm(
+            MagicMock(id=1, first_name="PM", last_name="User", username="pmuser")
+        )
 
         self.assertEqual(
             [event.name for event in events],
@@ -994,6 +1217,7 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(events[0].payload["user_id"], 1)
         self.assertEqual(events[1].payload["filename"], "test_media.jpg")
         self.assertEqual(events[2].payload["count"], 1)
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -26,7 +26,9 @@ class SQLiteStorage(
     SQLite storage with separated schema, write-path, read-path, and sync-state concerns.
     """
 
-    def __init__(self, db_path: str = "messages.db", process_manager: Optional[Any] = None):
+    def __init__(
+        self, db_path: str = "messages.db", process_manager: Optional[Any] = None
+    ):
         self.db_path = db_path
         self._pm = process_manager
         self._lock = threading.Lock()

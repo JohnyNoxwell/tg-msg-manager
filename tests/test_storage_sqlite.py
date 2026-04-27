@@ -3,6 +3,7 @@ import os
 import time
 import unittest
 from datetime import datetime
+
 # Add project root to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -15,6 +16,7 @@ from tg_msg_manager.infrastructure.storage.interface import (
     PrivateArchiveStorage,
 )
 from tg_msg_manager.infrastructure.storage.sqlite import SQLiteStorage
+
 
 class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -43,16 +45,16 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             reply_to_id=None,
             fwd_from_id=None,
             context_group_id=None,
-            raw_payload={"test": "data"}
+            raw_payload={"test": "data"},
         )
-        
+
         # Test save
         success = await self.storage.save_message(msg)
         self.assertTrue(success)
-        
+
         # Test existence
         self.assertTrue(self.storage.message_exists(123, 1))
-        
+
         # Test retrieval
         retrieved = self.storage.get_message(123, 1)
         self.assertIsNotNone(retrieved)
@@ -69,58 +71,95 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
 
     async def test_batch_save(self):
         msgs = [
-            MessageData(message_id=i, chat_id=789, user_id=1, author_name="Batch User",
-                        timestamp=datetime.now(), 
-                        text=f"Batch {i}", media_type=None, reply_to_id=None, 
-                        fwd_from_id=None, context_group_id=None, raw_payload={})
+            MessageData(
+                message_id=i,
+                chat_id=789,
+                user_id=1,
+                author_name="Batch User",
+                timestamp=datetime.now(),
+                text=f"Batch {i}",
+                media_type=None,
+                reply_to_id=None,
+                fwd_from_id=None,
+                context_group_id=None,
+                raw_payload={},
+            )
             for i in range(1, 11)
         ]
-        
+
         count = await self.storage.save_messages(msgs)
         self.assertEqual(count, 10)
         self.assertEqual(self.storage.get_last_msg_id(789), 10)
 
     async def test_upsert_logic(self):
         msg = MessageData(
-            message_id=1, chat_id=1, user_id=1, author_name="Orig User",
-            timestamp=datetime.now(), 
-            text="Original", media_type=None, reply_to_id=None, 
-            fwd_from_id=None, context_group_id=None, raw_payload={}
+            message_id=1,
+            chat_id=1,
+            user_id=1,
+            author_name="Orig User",
+            timestamp=datetime.now(),
+            text="Original",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
         )
         await self.storage.save_message(msg)
-        
+
         # Update text for the same message_id
         updated_msg = MessageData(
-            message_id=1, chat_id=1, user_id=1, author_name="Upd User",
-            timestamp=datetime.now(), 
-            text="Updated", media_type=None, reply_to_id=None, 
-            fwd_from_id=None, context_group_id=None, raw_payload={}
+            message_id=1,
+            chat_id=1,
+            user_id=1,
+            author_name="Upd User",
+            timestamp=datetime.now(),
+            text="Updated",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
         )
         await self.storage.save_message(updated_msg)
-        
+
         retrieved = self.storage.get_message(1, 1)
         self.assertEqual(retrieved.text, "Updated")
 
     async def test_payload_hashing(self):
         msg = MessageData(
-            message_id=55, chat_id=1, user_id=1, author_name="Hash User",
-            timestamp=datetime.now(), 
-            text="Original", media_type=None, reply_to_id=None, 
-            fwd_from_id=None, context_group_id=None, raw_payload={"v": 1}
+            message_id=55,
+            chat_id=1,
+            user_id=1,
+            author_name="Hash User",
+            timestamp=datetime.now(),
+            text="Original",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={"v": 1},
         )
         await self.storage.save_message(msg)
         h1 = msg.get_payload_hash()
-        
+
         # Test hash detection
         msg2 = MessageData(
-            message_id=55, chat_id=1, user_id=1, author_name="Hash User",
-            timestamp=datetime.now(), 
-            text="Original", media_type=None, reply_to_id=None, 
-            fwd_from_id=None, context_group_id=None, raw_payload={"v": 2}
+            message_id=55,
+            chat_id=1,
+            user_id=1,
+            author_name="Hash User",
+            timestamp=datetime.now(),
+            text="Original",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={"v": 2},
         )
         h2 = msg2.get_payload_hash()
         self.assertNotEqual(h1, h2)
-        
+
         # Test that update occurs when hash changes
         await self.storage.save_message(msg2)
         retrieved = self.storage.get_message(1, 55)
@@ -141,7 +180,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             reply_to_id=None,
             fwd_from_id=None,
             context_group_id=None,
-            raw_payload={}
+            raw_payload={},
         )
 
         await self.storage.save_message(msg, target_id=999)
@@ -251,7 +290,9 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["is_complete"], 0)
         self.assertEqual(row["last_sync_at"], before)
 
-    async def test_repair_terminal_incomplete_targets_marks_only_tail_threshold_rows_complete(self):
+    async def test_repair_terminal_incomplete_targets_marks_only_tail_threshold_rows_complete(
+        self,
+    ):
         self.storage.register_target(999, "Tail One", 321)
         self.storage.register_target(888, "Still Incomplete", 321)
 
@@ -295,9 +336,10 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(pending_row["is_complete"], 0)
         self.assertEqual(pending_row["last_sync_at"], 1234567891)
 
-
     async def test_get_all_message_ids(self):
-        msg = MessageData(1, 100, 1, "Test User", datetime.now(), "Test", None, None, None, None, {})
+        msg = MessageData(
+            1, 100, 1, "Test User", datetime.now(), "Test", None, None, None, None, {}
+        )
         await self.storage.save_message(msg)
         ids = self.storage.get_all_message_ids_for_chat(100)
         self.assertEqual(ids, [1])
@@ -315,7 +357,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             reply_to_id=None,
             fwd_from_id=None,
             context_group_id=None,
-            raw_payload={}
+            raw_payload={},
         )
 
         await self.storage.save_message(msg, target_id=1)
@@ -328,7 +370,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         with self.storage._get_connection() as conn:
             row = conn.execute(
                 "SELECT COUNT(*) AS count FROM message_target_links WHERE chat_id = ? AND message_id = ? AND target_user_id = ?",
-                (777, 1, 1)
+                (777, 1, 1),
             ).fetchone()
             self.assertEqual(row["count"], 0)
 
@@ -345,7 +387,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             reply_to_id=None,
             fwd_from_id=None,
             context_group_id=None,
-            raw_payload={}
+            raw_payload={},
         )
 
         await self.storage.save_message(msg, target_id=1)
@@ -365,7 +407,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             reply_to_id=None,
             fwd_from_id=None,
             context_group_id=None,
-            raw_payload={}
+            raw_payload={},
         )
         context_msg = MessageData(
             message_id=2,
@@ -378,7 +420,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             reply_to_id=1,
             fwd_from_id=None,
             context_group_id=None,
-            raw_payload={}
+            raw_payload={},
         )
 
         await self.storage.save_message(own_msg, target_id=1)

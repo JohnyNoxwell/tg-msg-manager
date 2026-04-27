@@ -12,13 +12,21 @@ from ..telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
+
 class TelethonClientWrapper(TelegramClientInterface):
     """
     Implementation of TelegramClientInterface using the Telethon library.
     Automatically handles throttling and FloodWait errors.
     """
 
-    def __init__(self, session_name: str, api_id: int, api_hash: str, max_rps: float = 3.0, burst: int = 5):
+    def __init__(
+        self,
+        session_name: str,
+        api_id: int,
+        api_hash: str,
+        max_rps: float = 3.0,
+        burst: int = 5,
+    ):
         self.client = TelegramClient(session_name, api_id, api_hash)
         self.throttler = RateThrottler(rps=max_rps, burst=burst)
 
@@ -43,7 +51,9 @@ class TelethonClientWrapper(TelegramClientInterface):
             telemetry.track_counter("telegram.get_dialogs.items", len(dialogs))
             return dialogs
         finally:
-            telemetry.track_duration("telegram.get_dialogs.total", perf_counter() - started_at)
+            telemetry.track_duration(
+                "telegram.get_dialogs.total", perf_counter() - started_at
+            )
 
     async def get_entity(self, entity_id: Any) -> Any:
         started_at = perf_counter()
@@ -52,9 +62,16 @@ class TelethonClientWrapper(TelegramClientInterface):
         try:
             return await self.client.get_entity(entity_id)
         finally:
-            telemetry.track_duration("telegram.get_entity.total", perf_counter() - started_at)
+            telemetry.track_duration(
+                "telegram.get_entity.total", perf_counter() - started_at
+            )
 
-    async def get_messages(self, entity, message_ids: Optional[List[int]] = None, limit: Optional[int] = None) -> List[MessageData]:
+    async def get_messages(
+        self,
+        entity,
+        message_ids: Optional[List[int]] = None,
+        limit: Optional[int] = None,
+    ) -> List[MessageData]:
         """
         Fetches multiple messages by ID or limit with adaptive throttling.
         """
@@ -64,7 +81,7 @@ class TelethonClientWrapper(TelegramClientInterface):
         started_at = perf_counter()
         await self.throttler.throttle()
         telemetry.track_request()
-        
+
         try:
             # Telethon's get_messages handles both ids and limit
             msgs = await self.client.get_messages(entity, ids=message_ids, limit=limit)
@@ -75,13 +92,17 @@ class TelethonClientWrapper(TelegramClientInterface):
             telemetry.track_counter("telegram.get_messages.items", len(results))
             return results
         except FloodWaitError as e:
-            logger.debug(f"FloodWait during get_messages: {e.seconds}s. Slowing down rps.")
+            logger.debug(
+                f"FloodWait during get_messages: {e.seconds}s. Slowing down rps."
+            )
             self.throttler.adjust_rate(0.6)
             telemetry.track_flood_wait(e.seconds)
             await asyncio.sleep(e.seconds)
             return await self.get_messages(entity, message_ids=message_ids, limit=limit)
         finally:
-            telemetry.track_duration("telegram.get_messages.total", perf_counter() - started_at)
+            telemetry.track_duration(
+                "telegram.get_messages.total", perf_counter() - started_at
+            )
 
     @staticmethod
     def _coerce_numeric_user_id(from_user: Optional[Any]) -> Optional[int]:
@@ -91,7 +112,10 @@ class TelethonClientWrapper(TelegramClientInterface):
             return from_user
         if isinstance(from_user, str):
             normalized = from_user.strip()
-            if normalized and (normalized.isdigit() or (normalized.startswith("-") and normalized[1:].isdigit())):
+            if normalized and (
+                normalized.isdigit()
+                or (normalized.startswith("-") and normalized[1:].isdigit())
+            ):
                 try:
                     return int(normalized)
                 except ValueError:
@@ -102,29 +126,53 @@ class TelethonClientWrapper(TelegramClientInterface):
         """Helper to convert Telethon Message to internal MessageData."""
         author_name = None
         if msg.sender:
-            author_name = " ".join(filter(None, [getattr(msg.sender, 'first_name', ''), getattr(msg.sender, 'last_name', '')]))
-        
+            author_name = " ".join(
+                filter(
+                    None,
+                    [
+                        getattr(msg.sender, "first_name", ""),
+                        getattr(msg.sender, "last_name", ""),
+                    ],
+                )
+            )
+
         is_service = isinstance(msg, types.MessageService)
-        
+
         return MessageData(
             message_id=msg.id,
-            chat_id=getattr(entity, 'id', 0),
+            chat_id=getattr(entity, "id", 0),
             user_id=msg.sender_id or 0,
             author_name=author_name,
             timestamp=msg.date,
-            text=msg.message if hasattr(msg, 'message') else "",
-            media_type=type(msg.media).__name__ if (hasattr(msg, 'media') and msg.media) else None,
-            reply_to_id=msg.reply_to.reply_to_msg_id if (hasattr(msg, 'reply_to') and msg.reply_to) else None,
-            fwd_from_id=msg.fwd_from.from_id.user_id if (hasattr(msg, 'fwd_from') and msg.fwd_from and msg.fwd_from.from_id and hasattr(msg.fwd_from.from_id, 'user_id')) else None,
+            text=msg.message if hasattr(msg, "message") else "",
+            media_type=type(msg.media).__name__
+            if (hasattr(msg, "media") and msg.media)
+            else None,
+            reply_to_id=msg.reply_to.reply_to_msg_id
+            if (hasattr(msg, "reply_to") and msg.reply_to)
+            else None,
+            fwd_from_id=msg.fwd_from.from_id.user_id
+            if (
+                hasattr(msg, "fwd_from")
+                and msg.fwd_from
+                and msg.fwd_from.from_id
+                and hasattr(msg.fwd_from.from_id, "user_id")
+            )
+            else None,
             context_group_id=None,
             raw_payload=msg.to_dict(),
             is_service=is_service,
-            media_ref=msg
+            media_ref=msg,
         )
 
-
-    async def iter_messages(self, entity, limit: Optional[int] = None, 
-                            offset_id: int = 0, from_user: Optional[Any] = None, **kwargs) -> AsyncGenerator[MessageData, None]:
+    async def iter_messages(
+        self,
+        entity,
+        limit: Optional[int] = None,
+        offset_id: int = 0,
+        from_user: Optional[Any] = None,
+        **kwargs,
+    ) -> AsyncGenerator[MessageData, None]:
         """
         Iterates over messages and yields MessageData objects.
         Throttling is applied per batch (roughly every 100 messages) to maintain speed.
@@ -169,14 +217,19 @@ class TelethonClientWrapper(TelegramClientInterface):
                     telemetry.track_counter("telegram.iter_messages.throttle_ticks", 1)
 
                 normalized = self._normalize_message(entity, msg)
-                if local_sender_filter_id is not None and normalized.user_id != local_sender_filter_id:
+                if (
+                    local_sender_filter_id is not None
+                    and normalized.user_id != local_sender_filter_id
+                ):
                     continue
 
                 yield normalized
                 count += 1
         finally:
             telemetry.track_counter("telegram.iter_messages.items", count)
-            telemetry.track_duration("telegram.iter_messages.total", perf_counter() - started_at)
+            telemetry.track_duration(
+                "telegram.iter_messages.total", perf_counter() - started_at
+            )
 
     async def delete_messages(self, entity, message_ids: List[int]) -> int:
         """
@@ -207,7 +260,9 @@ class TelethonClientWrapper(TelegramClientInterface):
             telemetry.track_error()
             return 0
         finally:
-            telemetry.track_duration("telegram.delete_messages.total", perf_counter() - started_at)
+            telemetry.track_duration(
+                "telegram.delete_messages.total", perf_counter() - started_at
+            )
 
     async def download_media(self, media, file: Optional[str] = None) -> Optional[str]:
         """Downloads media through Telethon with throttling and flood-wait handling."""
@@ -220,7 +275,9 @@ class TelethonClientWrapper(TelegramClientInterface):
         try:
             return await self.client.download_media(media, file=file)
         except FloodWaitError as e:
-            logger.debug(f"FloodWait during download_media: {e.seconds}s. Slowing down rps.")
+            logger.debug(
+                f"FloodWait during download_media: {e.seconds}s. Slowing down rps."
+            )
             self.throttler.adjust_rate(0.6)
             telemetry.track_flood_wait(e.seconds)
             await asyncio.sleep(e.seconds)
@@ -230,4 +287,6 @@ class TelethonClientWrapper(TelegramClientInterface):
             telemetry.track_error()
             return None
         finally:
-            telemetry.track_duration("telegram.download_media.total", perf_counter() - started_at)
+            telemetry.track_duration(
+                "telegram.download_media.total", perf_counter() - started_at
+            )

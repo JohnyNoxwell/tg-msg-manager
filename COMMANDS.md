@@ -153,8 +153,11 @@ tg-msg-manager export-pm --user-id 8603071440
 ## 🔎 Verification / Проверка
 
 ```bash
-python3 -m compileall tg_msg_manager tests
-python3 -m unittest discover -s tests -q
+pip install -e .[dev]
+make lint
+make format-check
+make test
+make verify
 ```
 
 Live smoke-check:

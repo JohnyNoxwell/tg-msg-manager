@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import AsyncGenerator, List, Optional, Any
 from ..models.message import MessageData
 
+
 class TelegramClientInterface(ABC):
     """
     Abstract interface for Telegram client interactions.
@@ -24,8 +25,13 @@ class TelegramClientInterface(ABC):
         pass
 
     @abstractmethod
-    async def iter_messages(self, entity, limit: Optional[int] = None, 
-                            offset_id: int = 0, from_user: Optional[Any] = None) -> AsyncGenerator[MessageData, None]:
+    async def iter_messages(
+        self,
+        entity,
+        limit: Optional[int] = None,
+        offset_id: int = 0,
+        from_user: Optional[Any] = None,
+    ) -> AsyncGenerator[MessageData, None]:
         """Iterates over messages in a chat and returns them as normalized MessageData."""
         pass
 
@@ -50,6 +56,8 @@ class TelegramClientInterface(ABC):
         pass
 
     @abstractmethod
-    async def download_media(self, media: Any, file: Optional[str] = None) -> Optional[str]:
+    async def download_media(
+        self, media: Any, file: Optional[str] = None
+    ) -> Optional[str]:
         """Downloads a media object and returns the resulting file path."""
         pass

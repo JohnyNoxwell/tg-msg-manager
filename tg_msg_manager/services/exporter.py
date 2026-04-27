@@ -1,4 +1,3 @@
-import sys
 import asyncio
 import logging
 from dataclasses import dataclass, field
@@ -40,6 +39,7 @@ class _TrackedTargetPlan:
     is_complete: bool
     prefetched_messages: Optional[List[Any]] = None
     prefetched_head_complete: bool = False
+
 
 class ExportService:
     """
@@ -84,7 +84,9 @@ class ExportService:
 
         while current_upper >= lower_id:
             current_lower = max(lower_id, current_upper - step + 1)
-            ranges.append({"upper": current_upper, "lower": current_lower, "role": role})
+            ranges.append(
+                {"upper": current_upper, "lower": current_lower, "role": role}
+            )
             current_upper = current_lower - 1
 
         return ranges
@@ -106,13 +108,19 @@ class ExportService:
         if limit is not None:
             if current_max > head_id and head_id > 0:
                 return [{"upper": current_max, "lower": head_id + 1, "role": "HEAD"}]
-            history_upper = current_max if first_full_sync else (tail_id - 1 if tail_id > 0 else head_id - 1)
+            history_upper = (
+                current_max
+                if first_full_sync
+                else (tail_id - 1 if tail_id > 0 else head_id - 1)
+            )
             if allow_history and history_upper >= 1 and not is_complete:
                 return [{"upper": history_upper, "lower": 1, "role": "TAIL"}]
             return []
 
         if first_full_sync and allow_history:
-            return self._partition_descending_ranges(current_max, 1, history_workers, "TAIL")
+            return self._partition_descending_ranges(
+                current_max, 1, history_workers, "TAIL"
+            )
 
         ranges: List[Dict[str, int]] = []
         if current_max > head_id and head_id > 0:
@@ -121,15 +129,23 @@ class ExportService:
         if allow_history and not is_complete:
             history_upper = tail_id - 1 if tail_id > 0 else head_id - 1
             if history_upper >= 1:
-                ranges.extend(self._partition_descending_ranges(history_upper, 1, history_workers, "TAIL"))
+                ranges.extend(
+                    self._partition_descending_ranges(
+                        history_upper, 1, history_workers, "TAIL"
+                    )
+                )
 
         if not ranges and current_max > head_id:
-            ranges.append({"upper": current_max, "lower": max(1, head_id + 1), "role": "HEAD"})
+            ranges.append(
+                {"upper": current_max, "lower": max(1, head_id + 1), "role": "HEAD"}
+            )
 
         return ranges
 
     @staticmethod
-    def _resolve_tail_progress_checkpoint(tail_results: List[Dict[str, Any]]) -> Optional[int]:
+    def _resolve_tail_progress_checkpoint(
+        tail_results: List[Dict[str, Any]],
+    ) -> Optional[int]:
         """
         Resolve the lowest contiguous history point we can safely checkpoint.
 
@@ -185,7 +201,9 @@ class ExportService:
         chat_id = getattr(entity, "id", 0)
         chat_title = UI.format_name(entity)
         set_chat_id(chat_id)
-        self.storage.upsert_chat(chat_id, chat_title, chat_type=getattr(entity, "_", None))
+        self.storage.upsert_chat(
+            chat_id, chat_title, chat_type=getattr(entity, "_", None)
+        )
 
         uid = from_user_id or chat_id
         target_name = chat_title
@@ -219,7 +237,11 @@ class ExportService:
         saved_deep = bool(status.get("deep_mode", 0))
         saved_depth = status.get("recursive_depth", 0)
         active_deep = deep_mode or saved_deep
-        active_depth = recursive_depth if recursive_depth > 0 else (saved_depth if saved_depth > 0 else 2)
+        active_depth = (
+            recursive_depth
+            if recursive_depth > 0
+            else (saved_depth if saved_depth > 0 else 2)
+        )
 
         head_id = 0 if force_resync else status["last_msg_id"]
         tail_id = 0 if force_resync else status["tail_msg_id"]
@@ -279,10 +301,14 @@ class ExportService:
             telemetry.track_counter("sync.head_ranges_completed", len(completed_heads))
 
         tail_results = [r for r in results if r["role"] == "TAIL"]
-        completed_tails = [r["lower"] for r in tail_results if r.get("tail_scan_complete")]
+        completed_tails = [
+            r["lower"] for r in tail_results if r.get("tail_scan_complete")
+        ]
         tail_progress = self._resolve_tail_progress_checkpoint(tail_results)
         if tail_progress is not None:
-            self.storage.update_sync_tail(chat_id, uid, tail_progress, is_complete=False)
+            self.storage.update_sync_tail(
+                chat_id, uid, tail_progress, is_complete=False
+            )
         if completed_tails:
             telemetry.track_counter("sync.tail_ranges_completed", len(completed_tails))
 
@@ -317,7 +343,9 @@ class ExportService:
         if force_resync or not messages:
             resolved = {msg.message_id for msg in messages}
             telemetry.track_counter("sync.target_link_lookup.fast_path", len(resolved))
-            telemetry.track_duration("sync.target_link_lookup.total", perf_counter() - started_at)
+            telemetry.track_duration(
+                "sync.target_link_lookup.total", perf_counter() - started_at
+            )
             return resolved
 
         message_ids = [msg.message_id for msg in messages]
@@ -340,7 +368,9 @@ class ExportService:
         telemetry.track_counter("sync.target_link_lookup.batches", 1)
         telemetry.track_counter("sync.target_link_lookup.candidates", len(message_ids))
         telemetry.track_counter("sync.target_link_lookup.missing", len(missing))
-        telemetry.track_duration("sync.target_link_lookup.total", perf_counter() - started_at)
+        telemetry.track_duration(
+            "sync.target_link_lookup.total", perf_counter() - started_at
+        )
         return missing
 
     def _checkpoint_worker_progress(
@@ -353,7 +383,9 @@ class ExportService:
         worker_state: _ScanWorkerState,
     ) -> None:
         if role == "TAIL" and can_checkpoint_tail and worker_state.tail_id is not None:
-            self.storage.update_sync_tail(chat_id, uid, worker_state.tail_id, is_complete=False)
+            self.storage.update_sync_tail(
+                chat_id, uid, worker_state.tail_id, is_complete=False
+            )
         elif role == "HEAD":
             self.storage.update_last_msg_id(chat_id, uid, worker_state.head_id)
 
@@ -373,7 +405,9 @@ class ExportService:
 
         batch_started = perf_counter()
         await self.storage.save_messages(worker_state.batch, target_id=uid, flush=False)
-        telemetry.track_duration("sync.flat_batch_save.total", perf_counter() - batch_started)
+        telemetry.track_duration(
+            "sync.flat_batch_save.total", perf_counter() - batch_started
+        )
         progress_stats["linked"] += len(worker_state.batch)
         telemetry.track_counter("sync.flat_batches", 1)
         telemetry.track_counter("sync.flat_messages", len(worker_state.batch))
@@ -484,7 +518,9 @@ class ExportService:
                     )
                     progress_stats["linked"] += saved_count
                     telemetry.track_counter("sync.deep_batches", 1)
-                    telemetry.track_counter("sync.deep_messages", len(worker_state.context_batch))
+                    telemetry.track_counter(
+                        "sync.deep_messages", len(worker_state.context_batch)
+                    )
                     worker_state.context_batch = []
                     await draw_status()
             else:
@@ -575,10 +611,19 @@ class ExportService:
                     worker_state.tail_scan_complete = True
                 break
 
-            if (prefetched_iter is not None or local_sender_filter_id is not None) and from_user_id and msg_data.user_id != from_user_id:
+            if (
+                (prefetched_iter is not None or local_sender_filter_id is not None)
+                and from_user_id
+                and msg_data.user_id != from_user_id
+            ):
                 continue
 
-            if not force_resync and role == "TAIL" and tail_id > 0 and tail_id < msg_data.message_id <= head_id:
+            if (
+                not force_resync
+                and role == "TAIL"
+                and tail_id > 0
+                and tail_id < msg_data.message_id <= head_id
+            ):
                 continue
             worker_state.scan_buffer.append(msg_data)
             if len(worker_state.scan_buffer) >= 100:
@@ -607,7 +652,11 @@ class ExportService:
             and (prefetched_iter is None or prefetched_head_complete)
         ):
             worker_state.head_scan_complete = True
-        if role == "TAIL" and single_worker_limit is None and not self.storage.should_stop():
+        if (
+            role == "TAIL"
+            and single_worker_limit is None
+            and not self.storage.should_stop()
+        ):
             worker_state.tail_scan_complete = True
 
         await self._process_scan_buffer(
@@ -755,11 +804,15 @@ class ExportService:
         status_cache: Dict[tuple[int, int], Dict[str, Any]],
     ) -> None:
         for chat_id, target_ids in items_by_chat.items():
-            user_targets = [target_id for target_id in target_ids if target_id != chat_id]
+            user_targets = [
+                target_id for target_id in target_ids if target_id != chat_id
+            ]
             if len(user_targets) < 2:
                 continue
 
-            entity = await self._get_or_load_entity(chat_id=chat_id, entity_cache=entity_cache)
+            entity = await self._get_or_load_entity(
+                chat_id=chat_id, entity_cache=entity_cache
+            )
             if entity is None:
                 continue
 
@@ -803,7 +856,9 @@ class ExportService:
         status_cache: Dict[tuple[int, int], Dict[str, Any]],
     ) -> Optional[_TrackedTargetPlan]:
         chat_id, from_user_id = self._normalize_target_item(item)
-        entity = await self._get_or_load_entity(chat_id=chat_id, entity_cache=entity_cache)
+        entity = await self._get_or_load_entity(
+            chat_id=chat_id, entity_cache=entity_cache
+        )
         if entity is None:
             return None
 
@@ -850,7 +905,9 @@ class ExportService:
         target_status: Dict[str, Any],
     ) -> str:
         name = target_status.get("author_name") or f"ID:{from_user_id}"
-        if not target_status.get("author_name") or target_status.get("author_name").startswith("ID:"):
+        if not target_status.get("author_name") or target_status.get(
+            "author_name"
+        ).startswith("ID:"):
             user_info = self.storage.get_user(from_user_id)
             if user_info:
                 first = user_info.get("first_name") or ""
@@ -877,20 +934,23 @@ class ExportService:
             "dirty": False,
         }
 
-    async def sync_chat(self, entity: Any, 
-                        from_user_id: Optional[int] = None,
-                        limit: Optional[int] = None, 
-                        deep_mode: bool = False,
-                        force_resync: bool = False,
-                        context_window: int = 3,
-                        max_cluster: int = 20,
-                        recursive_depth: int = 0,
-                        resume_history: bool = True,
-                        current_max_hint: Optional[int] = None,
-                        prefetched_messages: Optional[List[Any]] = None,
-                        prefetched_head_complete: bool = False,
-                        resolve_user_entity: bool = True,
-                        emit_summary: bool = True):
+    async def sync_chat(
+        self,
+        entity: Any,
+        from_user_id: Optional[int] = None,
+        limit: Optional[int] = None,
+        deep_mode: bool = False,
+        force_resync: bool = False,
+        context_window: int = 3,
+        max_cluster: int = 20,
+        recursive_depth: int = 0,
+        resume_history: bool = True,
+        current_max_hint: Optional[int] = None,
+        prefetched_messages: Optional[List[Any]] = None,
+        prefetched_head_complete: bool = False,
+        resolve_user_entity: bool = True,
+        emit_summary: bool = True,
+    ):
         """
         Synchronizes a specific chat with a clean real-time global status counter.
         Now supports Resume and Dual-Sync (New + Historical).
@@ -906,7 +966,6 @@ class ExportService:
             resolve_user_entity=resolve_user_entity,
         )
         chat_id = sync_ctx["chat_id"]
-        chat_title = sync_ctx["chat_title"]
         uid = sync_ctx["uid"]
         api_from_user = sync_ctx["api_from_user"]
         local_sender_filter_id = sync_ctx["local_sender_filter_id"]
@@ -916,14 +975,14 @@ class ExportService:
         tail_id = sync_ctx["tail_id"]
         is_complete = sync_ctx["is_complete"]
         self._emit_event("export.sync_chat_started", **sync_ctx["header_payload"])
-        
+
         # 5. Determine Scan Boundaries
         # Get the latest message to determine current max
         current_max = current_max_hint
         if current_max is None:
             latest_msg = await self.client.get_messages(entity, limit=1)
             current_max = latest_msg[0].message_id if latest_msg else 1000000
-        
+
         # 6. Parallel Scanning Strategy
         batch_size = 200
         context_batch_size = 50
@@ -971,37 +1030,39 @@ class ExportService:
 
         done_event = asyncio.Event()
         status_task = asyncio.create_task(draw_status_loop())
-        
+
         try:
-            results = await asyncio.gather(*[
-                self._scan_range(
-                    entity=entity,
-                    upper_id=r["upper"],
-                    lower_id=r["lower"],
-                    role=r["role"],
-                    chat_id=chat_id,
-                    uid=uid,
-                    head_id=head_id,
-                    tail_id=tail_id,
-                    api_from_user=api_from_user,
-                    from_user_id=from_user_id,
-                    local_sender_filter_id=local_sender_filter_id,
-                    force_resync=force_resync,
-                    active_deep=active_deep,
-                    active_depth=active_depth,
-                    context_window=context_window,
-                    max_cluster=max_cluster,
-                    batch_size=batch_size,
-                    context_batch_size=context_batch_size,
-                    single_worker_limit=single_worker_limit,
-                    can_checkpoint_tail=can_checkpoint_tail,
-                    prefetched_messages=prefetched_messages,
-                    prefetched_head_complete=prefetched_head_complete,
-                    progress_stats=progress_stats,
-                    draw_status=draw_status,
-                )
-                for r in ranges
-            ])
+            results = await asyncio.gather(
+                *[
+                    self._scan_range(
+                        entity=entity,
+                        upper_id=r["upper"],
+                        lower_id=r["lower"],
+                        role=r["role"],
+                        chat_id=chat_id,
+                        uid=uid,
+                        head_id=head_id,
+                        tail_id=tail_id,
+                        api_from_user=api_from_user,
+                        from_user_id=from_user_id,
+                        local_sender_filter_id=local_sender_filter_id,
+                        force_resync=force_resync,
+                        active_deep=active_deep,
+                        active_depth=active_depth,
+                        context_window=context_window,
+                        max_cluster=max_cluster,
+                        batch_size=batch_size,
+                        context_batch_size=context_batch_size,
+                        single_worker_limit=single_worker_limit,
+                        can_checkpoint_tail=can_checkpoint_tail,
+                        prefetched_messages=prefetched_messages,
+                        prefetched_head_complete=prefetched_head_complete,
+                        progress_stats=progress_stats,
+                        draw_status=draw_status,
+                    )
+                    for r in ranges
+                ]
+            )
             total_processed = sum(r["processed"] for r in results)
             self._apply_sync_scan_results(
                 chat_id=chat_id,
@@ -1017,13 +1078,15 @@ class ExportService:
 
         flush_started = perf_counter()
         await self.storage.flush()
-        telemetry.track_duration("sync.storage_flush.total", perf_counter() - flush_started)
-            
+        telemetry.track_duration(
+            "sync.storage_flush.total", perf_counter() - flush_started
+        )
+
         # 4. Final summary
         db_count = self.storage.get_message_count(chat_id, target_id=uid)
         breakdown = self.storage.get_target_message_breakdown(chat_id, uid)
         self._emit_event("export.sync_finished", db_count=db_count)
-        
+
         # Only mark a target as freshly synced after a non-interrupted pass.
         if not self.storage.should_stop():
             self.storage.update_last_sync_at(chat_id, uid)
@@ -1056,17 +1119,20 @@ class ExportService:
                 own_messages=breakdown["own_messages"],
                 with_context=breakdown["with_context"],
             )
-        
+
         return total_processed
 
-    async def sync_all_dialogs_for_user(self, from_user_id: int, 
-                                       target_chat_ids: Optional[Set[Any]] = None,
-                                       limit: Optional[int] = None, 
-                                       deep_mode: bool = False,
-                                       force_resync: bool = False,
-                                       context_window: int = 3,
-                                       max_cluster: int = 20,
-                                       recursive_depth: int = 3):
+    async def sync_all_dialogs_for_user(
+        self,
+        from_user_id: int,
+        target_chat_ids: Optional[Set[Any]] = None,
+        limit: Optional[int] = None,
+        deep_mode: bool = False,
+        force_resync: bool = False,
+        context_window: int = 3,
+        max_cluster: int = 20,
+        recursive_depth: int = 3,
+    ):
         """
         Scans specified dialogs (from config or all) for a specific user's messages.
         """
@@ -1082,12 +1148,14 @@ class ExportService:
             for cid in target_chat_ids:
                 try:
                     # Resolve string IDs to int if they are numeric
-                    if isinstance(cid, str) and (cid.startswith('-') or cid.isdigit()):
-                        try: resolved_cid = int(cid)
-                        except ValueError: resolved_cid = cid
+                    if isinstance(cid, str) and (cid.startswith("-") or cid.isdigit()):
+                        try:
+                            resolved_cid = int(cid)
+                        except ValueError:
+                            resolved_cid = cid
                     else:
                         resolved_cid = cid
-                        
+
                     ent = await self.client.get_entity(resolved_cid)
                     targets.append(ent)
                 except Exception as e:
@@ -1097,10 +1165,15 @@ class ExportService:
             self._emit_event("export.dialog_search_started", from_user_id=from_user_id)
             dialogs = await self.client.get_dialogs()
             # Filter for groups and supergroups only
-            targets = [d.entity for d in dialogs if (d.is_group or d.is_channel) and not getattr(d.entity, 'broadcast', False)]
-        
+            targets = [
+                d.entity
+                for d in dialogs
+                if (d.is_group or d.is_channel)
+                and not getattr(d.entity, "broadcast", False)
+            ]
+
         self._emit_event("export.dialog_search_scanning", dialog_count=len(targets))
-        
+
         total_processed = 0
 
         for i, dialog in enumerate(targets):
@@ -1112,7 +1185,7 @@ class ExportService:
                     total=len(targets),
                     dialog_title=dialog_title,
                 )
-                
+
                 processed = await self.sync_chat(
                     dialog,
                     from_user_id=from_user_id,
@@ -1122,17 +1195,23 @@ class ExportService:
                     context_window=context_window,
                     max_cluster=max_cluster,
                     recursive_depth=recursive_depth,
-                    emit_summary=False
+                    emit_summary=False,
                 )
                 total_processed += processed
                 # Small pause to be friendly
                 await asyncio.sleep(0.5)
             except Exception as e:
-                logger.error(f"Error scanning dialog {getattr(dialog, 'name', 'Unknown')}: {e}")
-        
-        self._emit_event("export.global_export_finished", total_processed=total_processed)
+                logger.error(
+                    f"Error scanning dialog {getattr(dialog, 'name', 'Unknown')}: {e}"
+                )
+
+        self._emit_event(
+            "export.global_export_finished", total_processed=total_processed
+        )
         telemetry.track_counter("sync.dialogs.scanned", len(targets))
-        telemetry.track_duration("sync.dialogs_for_user.total", perf_counter() - started_at)
+        telemetry.track_duration(
+            "sync.dialogs_for_user.total", perf_counter() - started_at
+        )
         return total_processed
 
     async def sync_all_outdated(self, threshold_seconds: int = 86400) -> dict:
@@ -1148,7 +1227,7 @@ class ExportService:
 
     async def _sync_target_items(self, items: list) -> dict:
         """Synchronize a list of target tuples in `(chat_id, user_id)` form."""
-        user_stats = {} # user_id -> {"name": str, "count": int, "dirty": bool}
+        user_stats = {}  # user_id -> {"name": str, "count": int, "dirty": bool}
         entity_cache: Dict[int, Any] = {}
         current_max_cache: Dict[int, int] = {}
         shared_prefetch_cache: Dict[int, tuple[List[Any], bool]] = {}
@@ -1219,7 +1298,7 @@ class ExportService:
             if processed > 0:
                 user_stats[plan.from_user_id]["dirty"] = True
                 telemetry.track_counter("sync.tracked_items.changed", 1)
-                
+
         telemetry.track_duration("sync.all_tracked.total", perf_counter() - started_at)
         telemetry.log_summary("Tracked sync telemetry summary")
         return user_stats

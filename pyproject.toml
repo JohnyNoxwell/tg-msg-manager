@@ -15,9 +15,17 @@ dependencies = [
   "pydantic-settings>=2.0.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+  "ruff>=0.15.0,<0.16",
+]
+
 [project.scripts]
 tg-msg-manager = "tg_msg_manager.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["tg_msg_manager*"]
+
+[tool.ruff]
+target-version = "py39"

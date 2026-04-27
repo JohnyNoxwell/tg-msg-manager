@@ -1,15 +1,16 @@
-import os
-
 # Текущий выбранный язык (по умолчанию русский)
 _CURRENT_LANG = "ru"
+
 
 def set_lang(lang_code: str):
     global _CURRENT_LANG
     if lang_code in STRINGS:
         _CURRENT_LANG = lang_code
 
+
 def get_lang() -> str:
     return _CURRENT_LANG
+
 
 def _t(key: str, **kwargs) -> str:
     """Возвращает переведенную строку по ключу."""
@@ -19,6 +20,7 @@ def _t(key: str, **kwargs) -> str:
     if kwargs:
         return text.format(**kwargs)
     return text
+
 
 STRINGS = {
     "ru": {
@@ -62,7 +64,6 @@ STRINGS = {
         "about_text": "TG_MSG_MNGR — профессиональный инструмент для управления данными в Telegram.\n\nКлючевые возможности:\n  1. 📥 Инкрементальный экспорт: Сканирование чатов и выгрузка сообщений цели.\n  2. 🧠 Deep Mode: Рекурсивный поиск контекста (цепочки ответов и соседи).\n  3. 🧨 Глобальная очистка: Массовое удаление ВАШИХ сообщений из всех групп.\n  4. 💬 Личный Архив: Текстовая выгрузка PM-чатов с подготовленной структурой папок под медиа.\n  5. 📊 Экспорт из БД: Генерация красивых TXT или JSONL отчетов из локальной базы.\n  6. ⏱️ Автоматизация: Планировщик фоновых задач (launchd/cron).\n\nПостроен на базе Telethon. Использует SQLite с WAL-режимом для максимальной скорости.",
         "goodbye": "До свидания!",
         "error_locked": "Ошибка: Процесс уже запущен (файл блокировки активен).",
-        
         # Общие элементы
         "back": "Назад",
         "cancel": "Отмена",
@@ -108,25 +109,21 @@ STRINGS = {
         "text_interrupted_exporting_partial": "Остановлено. Выгружаю частичные данные…",
         "text_could_not_resolve_target": "Не удалось определить цель {target}",
         "text_invalid_selection": "Некорректный выбор.",
-        
         # Промпты
         "enter_id": "Введите ID или username",
         "search_depth": "Глубина поиска (окно)",
         "depth_label": "Глубина",
         "mode_select": "Выберите режим",
         "invalid_choice": "Некорректный выбор. Пожалуйста, выберите пункт от {start} до {end}.",
-        
         # Подменю Экспорт
         "sub_export_title": "Экспорт пользователя",
         "sub_export_info": "Выкачка истории из чатов, где вы состоите и хотя бы раз пересекались с целью.",
         "export_start": "Запуск экспорта для {uid} (окно: {window})...",
-        
         # Подменю Обновление
         "sub_update_title": "Обновление архивов",
         "sub_update_info": "Синхронизация новых сообщений для всех ранее выгруженных целей.",
         "update_run": "Запустить синхронизацию",
         "update_starting": "Запуск массового обновления...",
-        
         # Подменю Очистка
         "sub_clean_confirm": "ВНИМАНИЕ: Это запустит очистку ВАШИХ сообщений из ВСЕХ групп и супергрупп.",
         "sub_clean_info": "Личные диалоги не будут тронуты. Будут учтены исключения из config.json.",
@@ -136,27 +133,21 @@ STRINGS = {
         "prompt_clean_pms": "Включить очистку в ЛИЧНЫХ переписках (PM)? [y/N]",
         "clean_progress": " 🔍 [{n}/{total}] Сканирование: {name}",
         "clean_found_messages": "    ✨ Найдено сообщений для удаления: {count}",
-
-
-        
         # Подменю Удаление данных
         "sub_delete_title": "Полное удаление данных",
         "sub_delete_info": "Безвозвратное удаление всех локальных данных (БД + файлы) по ID пользователя.",
         "no_targets": "В базе данных пока нет отслеживаемых пользователей.",
         "select_user_to_delete": "Выберите пользователя для полного удаления данных",
         "delete_warning": "ВНИМАНИЕ: Будут удалены ВСЕ сообщения и файлы для '{name}'.",
-        
         # Подменю Расписание
         "sub_sched_title": "Планировщик задач",
         "sub_sched_info": "Настройка системы для автоматической очистки сообщений в фоновом режиме.",
         "sched_setup": "Настроить расписание",
-        
         # Подменю Настройка
         "sub_setup_title": "Настройка системы",
         "sub_setup_info": "Установка быстрых алиасов (tg, tge, tgu) для удобного запуска из терминала.",
         "setup_aliases": "Установить алиасы (tg, tge, tgu...)",
         "setup_api": "Настроить Telegram API (ID/Hash)",
-        
         # Подменю Экспорт из БД
         "sub_db_export_title": "Экспорт из базы данных",
         "sub_db_export_info": "Создать новые файлы (.txt/.json) на основе истории из SQLite.",
@@ -176,7 +167,6 @@ STRINGS = {
         "export_finished_simple": "Экспорт завершен!",
         "error_user_update": "Ошибка при обновлении пользователя {uid}: {error}",
         "update_complete": "Обновление завершено. Всего новых сообщений: {total}",
-        
         # PM Exporter
         "cat_photos": "фото",
         "cat_videos": "видео",
@@ -197,7 +187,6 @@ STRINGS = {
         "stats_skipped": "⏭️  Пропущено (превышение {max}): {count}",
         "pm_export_complete": "✅ Экспорт приватного диалога завершён!",
         "pm_folder": "📂 Результат: {dir}",
-        
         # Setup
         "setup_title": "=== Установка быстрых алиасов tg-msg-manager ===\n",
         "setup_work_dir": "📂 Рабочая директория: {dir}",
@@ -216,7 +205,6 @@ STRINGS = {
         "alias_tgu": "🔄  Обновить все экспорты",
         "alias_tgpm": "💬  Текстовый архив личной переписки (+ user ID)",
         "alias_tg": "📖  Показать эту справку",
-        
         # Scheduler
         "sched_exclusions_title": "\n=== Настройка исключений ===",
         "sched_exclusions_info": "Вызовы авто-очистки могут обходить важные чаты (Blacklist).",
@@ -235,7 +223,6 @@ STRINGS = {
         "sched_daily_at": "ежедневно в {time}",
         "sched_every_x_hours": "каждые {hours} ч.",
         "sched_complete": "\nНастройка завершена!",
-        
         # Core
         "db_locked_waiting": "⚠️ База данных сессии заблокирована другим процессом. Ожидание {delay} сек... (Попытка {i}/{max})",
         "db_locked_error": "❌ Ошибка: База данных сессии остается заблокированной слишком долго.",
@@ -256,14 +243,12 @@ STRINGS = {
         "sync_summary_title": "ИТОГИ СИНХРОНИЗАЦИИ",
         "settings_loaded": "Настройки загружены:",
         "continue_with_settings": "Продолжить с этими настройками? [y/N]: ",
-        
         # Настройка API
         "api_setup_title": "Настройка Telegram API",
         "api_help_1": "Для работы скрипта требуются API ID и API Hash.",
         "api_help_site": "Перейдите на сайт: https://my.telegram.org",
         "api_help_steps": "Введите номер телефона -> API development tools -> Создайте приложение -> Скопируйте API ID и API Hash.",
         "api_save_success": "Настройки API успешно сохранены в config.local.json!",
-        
         # Прочее из exporter/pm
         "msg_processed": "Обработано: {count}/{total}...",
         "pm_export_start": "Запуск выгрузки приватного чата {uid}...",
@@ -309,7 +294,6 @@ STRINGS = {
         "about_text": "TG_MSG_MNGR — a professional tool for Telegram data management.\n\nKey Features:\n  1. 📥 Incremental Export: Scan chats and download target user's history.\n  2. 🧠 Deep Mode: Recursive context search (reply chains and neighbors).\n  3. 🧨 Global Cleanup: Mass delete YOUR messages from all groups.\n  4. 💬 Private Archive: Text backup of PM chats with a prepared media folder structure.\n  5. 📊 DB Export: Generate beautiful TXT or structured JSONL reports from local storage.\n  6. ⏱️ Automation: Background task scheduler (launchd/cron) support.\n\nBuilt with Telethon. Uses SQLite with WAL mode for extreme performance.",
         "goodbye": "Goodbye!",
         "error_locked": "Error: Process already running (lock file active).",
-        
         # General Elements
         "back": "Back",
         "cancel": "Cancel",
@@ -355,25 +339,21 @@ STRINGS = {
         "text_interrupted_exporting_partial": "Interrupted. Exporting partial data…",
         "text_could_not_resolve_target": "Could not resolve target {target}",
         "text_invalid_selection": "Invalid selection.",
-        
         # Prompts
         "enter_id": "Enter ID or username",
         "search_depth": "Search depth (window)",
         "depth_label": "Depth",
         "mode_select": "Choose mode",
         "invalid_choice": "Invalid choice. Please select item from {start} to {end}.",
-        
         # Submenu Export
         "sub_export_title": "User Export",
         "sub_export_info": "Download history from chats where you are present and have met the target at least once.",
         "export_start": "Starting export for {uid} (window: {window})...",
-        
         # Submenu Update
         "sub_update_title": "Archive Update",
         "sub_update_info": "Sync new messages for all previously exported targets.",
         "update_run": "Run synchronization",
         "update_starting": "Starting mass update...",
-        
         # Clean Submenu
         "sub_clean_confirm": "ATTENTION: This will trigger a cleanup of YOUR messages in ALL groups/supergroups.",
         "sub_clean_info": "Private dialogues are NOT affected. Whitelist from config.json is respected.",
@@ -383,27 +363,21 @@ STRINGS = {
         "prompt_clean_pms": "Include PRIVATE dialogues (PM) in cleanup? [y/N]",
         "clean_progress": " 🔍 [{n}/{total}] Scanning: {name}",
         "clean_found_messages": "    ✨ Found messages to delete: {count}",
-
-
-        
         # Submenu Delete Data
         "sub_delete_title": "Complete Data Removal",
         "sub_delete_info": "Irreversible deletion of all local data (DB + files) by user ID.",
         "no_targets": "No tracked users in the database yet.",
         "select_user_to_delete": "Select user for complete data removal",
         "delete_warning": "WARNING: ALL messages and files for '{name}' will be deleted.",
-        
         # Submenu Scheduler
         "sub_sched_title": "Task Scheduler",
         "sub_sched_info": "Set up the system to automatically clear messages in the background.",
         "sched_setup": "Configure schedule",
-        
         # Submenu Settings
         "sub_setup_title": "System Settings",
         "sub_setup_info": "Install quick aliases (tg, tge, tgu) for easy terminal startup.",
         "setup_aliases": "Install aliases (tg, tge, tgu...)",
         "setup_api": "Configure Telegram API (ID/Hash)",
-        
         # Submenu DB Export
         "sub_db_export_title": "Export from Database",
         "sub_db_export_info": "Create new files (.txt/.json) based on history from SQLite.",
@@ -423,7 +397,6 @@ STRINGS = {
         "export_finished_simple": "Export finished!",
         "error_user_update": "Error updating user {uid}: {error}",
         "update_complete": "Update complete. Total new messages: {total}",
-        
         # PM Exporter
         "cat_photos": "photo",
         "cat_videos": "video",
@@ -444,7 +417,6 @@ STRINGS = {
         "stats_skipped": "⏭️  Skipped (exceeding {max}): {count}",
         "pm_export_complete": "✅ Private dialog export complete!",
         "pm_folder": "📂 Results: {dir}",
-        
         # Setup
         "setup_title": "=== Installing quick aliases for tg-msg-manager ===\n",
         "setup_work_dir": "📂 Working directory: {dir}",
@@ -463,7 +435,6 @@ STRINGS = {
         "alias_tgu": "🔄  Update all exports",
         "alias_tgpm": "💬  Private chat text archive (+ user ID)",
         "alias_tg": "📖  Show this help",
-        
         # Scheduler
         "sched_exclusions_title": "\n=== Configuration Exclusions ===",
         "sched_exclusions_info": "Auto-clean calls can bypass important chats (Blacklist).",
@@ -482,7 +453,6 @@ STRINGS = {
         "sched_daily_at": "daily at {time}",
         "sched_every_x_hours": "every {hours} hours",
         "sched_complete": "\nConfiguration complete!",
-        
         # Core
         "db_locked_waiting": "⚠️ Session database is locked by another process. Waiting {delay}s... (Attempt {i}/{max})",
         "db_locked_error": "❌ Error: Session database remains locked for too long.",
@@ -503,18 +473,15 @@ STRINGS = {
         "sync_summary_title": "SYNC SUMMARY",
         "settings_loaded": "Settings loaded:",
         "continue_with_settings": "Continue with these settings? [y/N]: ",
-        
         # API Setup
         "api_setup_title": "Telegram API Setup",
         "api_help_1": "API ID and API Hash are required for the script to work.",
         "api_help_site": "Go to: https://my.telegram.org",
         "api_help_steps": "Enter phone -> API development tools -> Create app -> Copy API ID and API Hash.",
         "api_save_success": "API settings successfully saved to config.local.json!",
-        
         # Other from exporter/pm
         "msg_processed": "Processed: {count}/{total}...",
         "pm_export_start": "Starting private chat export for {uid}...",
-
         # Help
         "help_title": "Help & Information",
         "help_topic_1": "Export (Normal vs DEEP)",
@@ -529,7 +496,7 @@ STRINGS = {
         "help_desc_4": "Private chat text archive with prepared media folders.",
         "help_desc_5": "Clear local database and files for a specific user ID.",
         "help_desc_6": "Scheduler: Configure launchd/cron.\nSetup: Install tg/tge/tgu aliases.",
-    }
+    },
 }
 
 # Alias for standard localization pattern

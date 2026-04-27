@@ -13,7 +13,9 @@ class SQLiteSchemaMixin:
         self._ensure_sync_target_columns(conn)
         self._run_migrations(conn)
         conn.commit()
-        logger.info(f"SQLite Storage initialized at {self.db_path} with target attribution support.")
+        logger.info(
+            f"SQLite Storage initialized at {self.db_path} with target attribution support."
+        )
 
     def _create_tables(self, conn: sqlite3.Connection):
         conn.execute("""
@@ -100,12 +102,24 @@ class SQLiteSchemaMixin:
         """)
 
     def _create_indexes(self, conn: sqlite3.Connection):
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_user_chat_time ON messages (user_id, chat_id, timestamp)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_standalone_id ON messages (message_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_chat_reply ON messages (chat_id, reply_to_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_mt_link_target ON message_target_links (target_user_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_mt_link_chat_target_msg ON message_target_links (chat_id, target_user_id, message_id)")
-        conn.execute("CREATE INDEX IF NOT EXISTS idx_msg_context_group ON messages (context_group_id)")
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_msg_user_chat_time ON messages (user_id, chat_id, timestamp)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_msg_standalone_id ON messages (message_id)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_msg_chat_reply ON messages (chat_id, reply_to_id)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_mt_link_target ON message_target_links (target_user_id)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_mt_link_chat_target_msg ON message_target_links (chat_id, target_user_id, message_id)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_msg_context_group ON messages (context_group_id)"
+        )
 
     def _ensure_sync_target_columns(self, conn: sqlite3.Connection):
         for col, col_type in [
@@ -130,23 +144,33 @@ class SQLiteSchemaMixin:
             logger.info("Database migration to Version 2 successful.")
 
         if current_version < 3:
-            logger.info("Running Database Migration: Version 3 (Composite PK for sync_targets)...")
+            logger.info(
+                "Running Database Migration: Version 3 (Composite PK for sync_targets)..."
+            )
             self._migrate_sync_targets_to_composite_pk()
             conn.execute("PRAGMA user_version = 3")
             logger.info("Database migration to Version 3 successful.")
 
         if current_version < 4:
-            logger.info("Running Database Migration: Version 4 (Persistent Sync Settings)...")
+            logger.info(
+                "Running Database Migration: Version 4 (Persistent Sync Settings)..."
+            )
             try:
-                conn.execute("ALTER TABLE sync_targets ADD COLUMN deep_mode INTEGER DEFAULT 0")
-                conn.execute("ALTER TABLE sync_targets ADD COLUMN recursive_depth INTEGER DEFAULT 0")
+                conn.execute(
+                    "ALTER TABLE sync_targets ADD COLUMN deep_mode INTEGER DEFAULT 0"
+                )
+                conn.execute(
+                    "ALTER TABLE sync_targets ADD COLUMN recursive_depth INTEGER DEFAULT 0"
+                )
                 conn.execute("ALTER TABLE sync_targets ADD COLUMN last_sync_at INTEGER")
             except Exception as e:
                 logger.debug(f"Columns might already exist: {e}")
             conn.execute("PRAGMA user_version = 4")
             logger.info("Database migration to Version 4 successful.")
         else:
-            logger.debug(f"Database migration skipped (already at version {current_version}).")
+            logger.debug(
+                f"Database migration skipped (already at version {current_version})."
+            )
 
     def _migrate_sync_targets_to_composite_pk(self):
         """Migration helper to move sync_targets to composite PRIMARY KEY."""
@@ -159,16 +183,28 @@ class SQLiteSchemaMixin:
             for c in cols:
                 if c in ("user_id", "chat_id"):
                     col_defs.append(f"{c} INTEGER")
-                elif c in ("last_msg_id", "tail_msg_id", "is_complete", "deep_mode", "recursive_depth", "added_at", "last_sync_at"):
+                elif c in (
+                    "last_msg_id",
+                    "tail_msg_id",
+                    "is_complete",
+                    "deep_mode",
+                    "recursive_depth",
+                    "added_at",
+                    "last_sync_at",
+                ):
                     col_defs.append(f"{c} INTEGER DEFAULT 0")
                 else:
                     col_defs.append(f"{c} TEXT")
 
             col_list = ", ".join(col_defs)
-            conn.execute(f"CREATE TABLE sync_targets_new ({col_list}, PRIMARY KEY (user_id, chat_id))")
+            conn.execute(
+                f"CREATE TABLE sync_targets_new ({col_list}, PRIMARY KEY (user_id, chat_id))"
+            )
 
             col_names = ", ".join(cols)
-            conn.execute(f"INSERT INTO sync_targets_new ({col_names}) SELECT {col_names} FROM sync_targets")
+            conn.execute(
+                f"INSERT INTO sync_targets_new ({col_names}) SELECT {col_names} FROM sync_targets"
+            )
 
             conn.execute("DROP TABLE sync_targets")
             conn.execute("ALTER TABLE sync_targets_new RENAME TO sync_targets")

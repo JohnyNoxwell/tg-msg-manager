@@ -6,11 +6,13 @@ from .context import get_chat_id, get_trace_id
 
 STANDARD_LOG_RECORD_FIELDS = set(logging.makeLogRecord({}).__dict__.keys())
 
+
 class JSONFormatter(logging.Formatter):
     """
     Formatter that outputs JSON strings for easier ingestion by log processors.
     Automatically includes context fields from contextvars.
     """
+
     def format(self, record: logging.LogRecord) -> str:
         log_data = {
             "timestamp": datetime.fromtimestamp(record.created).isoformat(),
@@ -20,11 +22,11 @@ class JSONFormatter(logging.Formatter):
             "chat_id": get_chat_id(),
             "trace_id": get_trace_id(),
         }
-        
+
         # Include exception info if present
         if record.exc_info:
             log_data["exception"] = self.formatException(record.exc_info)
-            
+
         extra_fields = {
             key: value
             for key, value in record.__dict__.items()
@@ -32,25 +34,25 @@ class JSONFormatter(logging.Formatter):
         }
         if extra_fields:
             log_data.update(extra_fields)
-            
+
         return json.dumps(log_data, ensure_ascii=False, default=str)
+
 
 class HumanFormatter(logging.Formatter):
     """
     Clean text formatter for terminal output.
     """
+
     def format(self, record: logging.LogRecord) -> str:
         dt = datetime.fromtimestamp(record.created).strftime("%H:%M:%S")
-        level_icons = {
-            "INFO": "ℹ️",
-            "WARNING": "⚠️",
-            "ERROR": "❌",
-            "DEBUG": "🔍"
-        }
+        level_icons = {"INFO": "ℹ️", "WARNING": "⚠️", "ERROR": "❌", "DEBUG": "🔍"}
         icon = level_icons.get(record.levelname, record.levelname)
         return f"[{dt}] {icon} {record.getMessage()}"
 
-def setup_logging(level: str = "INFO", console_level: str = "WARNING", log_to_file: bool = True):
+
+def setup_logging(
+    level: str = "INFO", console_level: str = "WARNING", log_to_file: bool = True
+):
     """
     Configures logging:
     - StreamHandler: Human readable (Console) - Default to WARNING for cleaner UI
@@ -60,25 +62,25 @@ def setup_logging(level: str = "INFO", console_level: str = "WARNING", log_to_fi
     # Remove existing handlers
     for h in root_logger.handlers[:]:
         root_logger.removeHandler(h)
-    
+
     # 1. Console Handler (Human)
     console_handler = logging.StreamHandler()
     console_handler.setFormatter(HumanFormatter())
     console_handler.setLevel(console_level)
     root_logger.addHandler(console_handler)
-    
+
     # 2. File Handler (JSON)
     if log_to_file:
         log_dir = "LOGS"
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, f"app_{datetime.now().strftime('%Y%m%d')}.log")
-        file_handler = logging.FileHandler(log_file, encoding='utf-8')
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
         file_handler.setFormatter(JSONFormatter())
         file_handler.setLevel(level)
         root_logger.addHandler(file_handler)
-        
-    root_logger.setLevel(logging.DEBUG) # Allow handlers to filter
-    
+
+    root_logger.setLevel(logging.DEBUG)  # Allow handlers to filter
+
     # Suppress verbose loggers
     logging.getLogger("telethon").setLevel(logging.ERROR)
     logging.getLogger("asyncio").setLevel(logging.WARNING)

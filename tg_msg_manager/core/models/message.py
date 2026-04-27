@@ -6,6 +6,7 @@ import json
 
 SCHEMA_VERSION = 1
 
+
 @dataclass(frozen=True)
 class MessageData:
     message_id: int
@@ -50,12 +51,11 @@ class MessageData:
             "fwd_from_id": self.fwd_from_id,
             "context_group_id": self.context_group_id,
             "raw_payload": self.raw_payload,
-            "is_service": self.is_service
+            "is_service": self.is_service,
         }
 
-
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'MessageData':
+    def from_dict(cls, data: Dict[str, Any]) -> "MessageData":
         return cls(
             message_id=data["message_id"],
             chat_id=data["chat_id"],
@@ -68,16 +68,15 @@ class MessageData:
             fwd_from_id=data.get("fwd_from_id"),
             context_group_id=data.get("context_group_id"),
             raw_payload=data.get("raw_payload", {}),
-            is_service=data.get("is_service", False)
+            is_service=data.get("is_service", False),
         )
-
 
     def get_payload_hash(self) -> str:
         """Deterministic SHA256 of core fields and raw_payload."""
         hash_data = {
             "text": self.text,
             "media_type": self.media_type,
-            "raw_payload": self.raw_payload
+            "raw_payload": self.raw_payload,
         }
 
         def json_serial(obj):
@@ -87,8 +86,11 @@ class MessageData:
                 return obj.hex()
             return f"<<Unserializable: {type(obj)}>>"
 
-        data_str = json.dumps(hash_data, sort_keys=True, ensure_ascii=False, default=json_serial)
+        data_str = json.dumps(
+            hash_data, sort_keys=True, ensure_ascii=False, default=json_serial
+        )
         return hashlib.sha256(data_str.encode("utf-8")).hexdigest()
+
 
 def get_message_key(msg: MessageData) -> str:
     """Unique key format: chat_id:message_id"""

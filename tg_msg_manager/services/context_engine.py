@@ -157,10 +157,14 @@ class DeepModeEngine:
                 on_progress=on_progress,
             )
         telemetry.track_counter("deep.extract_batch.saved_messages", saved_count)
-        telemetry.track_duration("deep.extract_batch.total", perf_counter() - started_at)
+        telemetry.track_duration(
+            "deep.extract_batch.total", perf_counter() - started_at
+        )
         return saved_count
 
-    def _initialize_clusters(self, target_messages: List[MessageData]) -> List[_ClusterState]:
+    def _initialize_clusters(
+        self, target_messages: List[MessageData]
+    ) -> List[_ClusterState]:
         clusters: List[_ClusterState] = []
         for msg in target_messages:
             key = self._message_key(msg.chat_id, msg.message_id)
@@ -188,7 +192,9 @@ class DeepModeEngine:
         round_number: int,
         on_progress: Optional[Any],
     ) -> int:
-        anchors_by_cluster = self._build_anchors_by_cluster(clusters, round_number, max_cluster)
+        anchors_by_cluster = self._build_anchors_by_cluster(
+            clusters, round_number, max_cluster
+        )
         if not anchors_by_cluster:
             return 0
 
@@ -213,9 +219,15 @@ class DeepModeEngine:
             max_cluster=max_cluster,
             on_progress=on_progress,
         )
-        telemetry.track_counter(f"deep.round_{round_number}.clusters", len(anchors_by_cluster))
-        telemetry.track_counter(f"deep.round_{round_number}.saved_messages", saved_count)
-        telemetry.track_duration(f"deep.round_{round_number}.total", perf_counter() - round_started)
+        telemetry.track_counter(
+            f"deep.round_{round_number}.clusters", len(anchors_by_cluster)
+        )
+        telemetry.track_counter(
+            f"deep.round_{round_number}.saved_messages", saved_count
+        )
+        telemetry.track_duration(
+            f"deep.round_{round_number}.total", perf_counter() - round_started
+        )
         return saved_count
 
     async def _save_round_parent_messages(
@@ -235,7 +247,9 @@ class DeepModeEngine:
             parents,
             max_cluster=max_cluster,
         )
-        return await self._flush_new_messages(parent_additions, target_id=target_id, on_progress=on_progress)
+        return await self._flush_new_messages(
+            parent_additions, target_id=target_id, on_progress=on_progress
+        )
 
     async def _save_round_candidate_messages(
         self,
@@ -266,7 +280,9 @@ class DeepModeEngine:
             round_number=round_number,
             max_cluster=max_cluster,
         )
-        return await self._flush_new_messages(candidate_additions, target_id=target_id, on_progress=on_progress)
+        return await self._flush_new_messages(
+            candidate_additions, target_id=target_id, on_progress=on_progress
+        )
 
     def _build_anchors_by_cluster(
         self,
@@ -285,9 +301,13 @@ class DeepModeEngine:
                 anchors_by_cluster[cluster.cluster_id] = anchors
             else:
                 skipped_empty += 1
-        telemetry.track_counter(f"deep.round_{round_number}.anchor_clusters", len(anchors_by_cluster))
+        telemetry.track_counter(
+            f"deep.round_{round_number}.anchor_clusters", len(anchors_by_cluster)
+        )
         if skipped_empty:
-            telemetry.track_counter(f"deep.round_{round_number}.skipped_empty_clusters", skipped_empty)
+            telemetry.track_counter(
+                f"deep.round_{round_number}.skipped_empty_clusters", skipped_empty
+            )
         return anchors_by_cluster
 
     def _round_anchors(
@@ -317,19 +337,27 @@ class DeepModeEngine:
             return {}
 
         started_at = perf_counter()
-        normalized, storage_hits, missing_ids = await self._load_parent_messages_from_storage(
+        (
+            normalized,
+            storage_hits,
+            missing_ids,
+        ) = await self._load_parent_messages_from_storage(
             chat_id,
             needed_parent_ids,
         )
 
         if missing_ids:
-            normalized.update(await self._fetch_live_parent_messages(entity, missing_ids))
+            normalized.update(
+                await self._fetch_live_parent_messages(entity, missing_ids)
+            )
 
         telemetry.track_counter("deep.parent_lookup.calls", 1)
         telemetry.track_counter("deep.parent_lookup.requested", len(needed_parent_ids))
         telemetry.track_counter("deep.parent_lookup.storage_hits", storage_hits)
         telemetry.track_counter("deep.parent_lookup.live_fetch_ids", len(missing_ids))
-        telemetry.track_duration("deep.parent_lookup.total", perf_counter() - started_at)
+        telemetry.track_duration(
+            "deep.parent_lookup.total", perf_counter() - started_at
+        )
         return normalized
 
     def _collect_needed_parent_ids(
@@ -358,7 +386,9 @@ class DeepModeEngine:
             storage_hits = 0
             missing_ids: List[int] = []
             for parent_id in parent_ids:
-                stored = await asyncio.to_thread(self.storage.get_message, chat_id, parent_id)
+                stored = await asyncio.to_thread(
+                    self.storage.get_message, chat_id, parent_id
+                )
                 if stored:
                     normalized[parent_id] = self._normalize_message(stored)
                     storage_hits += 1
@@ -368,7 +398,9 @@ class DeepModeEngine:
 
         for stored in stored_messages.values():
             normalized[stored.message_id] = self._normalize_message(stored)
-        missing_ids = [parent_id for parent_id in parent_ids if parent_id not in normalized]
+        missing_ids = [
+            parent_id for parent_id in parent_ids if parent_id not in normalized
+        ]
         return normalized, len(stored_messages), missing_ids
 
     async def _fetch_live_parent_messages(
@@ -378,7 +410,9 @@ class DeepModeEngine:
     ) -> Dict[int, _NormalizedContextMessage]:
         try:
             async with self.semaphore:
-                fetched = await self.client.get_messages(entity, message_ids=missing_ids)
+                fetched = await self.client.get_messages(
+                    entity, message_ids=missing_ids
+                )
         except TypeError:
             async with self.semaphore:
                 fetched = await self.client.get_messages(entity, missing_ids)
@@ -408,8 +442,16 @@ class DeepModeEngine:
                 parent = parents.get(anchor.reply_to_id)
                 if not parent:
                     continue
-                if self._add_to_cluster(cluster_state, parent, "parent_reply", max_cluster=max_cluster, structural=True):
-                    additions.append(self._with_cluster(parent.message, cluster_state.cluster_id))
+                if self._add_to_cluster(
+                    cluster_state,
+                    parent,
+                    "parent_reply",
+                    max_cluster=max_cluster,
+                    structural=True,
+                ):
+                    additions.append(
+                        self._with_cluster(parent.message, cluster_state.cluster_id)
+                    )
         return additions
 
     async def _fetch_candidate_pool(
@@ -424,7 +466,9 @@ class DeepModeEngine:
             return []
 
         started_at = perf_counter()
-        ranges = self._calculate_ranges(anchor_ids, before_ids=scan_before, after_ids=scan_after)
+        ranges = self._calculate_ranges(
+            anchor_ids, before_ids=scan_before, after_ids=scan_after
+        )
         seen: Set[MessageKey] = set()
         collected: List[_NormalizedContextMessage] = []
         stored_replies = self._load_stored_replies(chat_id, anchor_ids)
@@ -443,13 +487,19 @@ class DeepModeEngine:
             )
 
         for message in stored_replies:
-            self._append_normalized_candidate(collected, seen, self._normalize_message(message))
+            self._append_normalized_candidate(
+                collected, seen, self._normalize_message(message)
+            )
 
-        collected.sort(key=lambda norm: (norm.message.timestamp, norm.message.message_id))
+        collected.sort(
+            key=lambda norm: (norm.message.timestamp, norm.message.message_id)
+        )
         telemetry.track_counter("deep.candidate_pool.calls", 1)
         telemetry.track_counter("deep.candidate_pool.ranges", len(ranges))
         telemetry.track_counter("deep.candidate_pool.messages", len(collected))
-        telemetry.track_duration("deep.candidate_pool.total", perf_counter() - started_at)
+        telemetry.track_duration(
+            "deep.candidate_pool.total", perf_counter() - started_at
+        )
         return collected
 
     async def _collect_range_candidates(
@@ -510,16 +560,23 @@ class DeepModeEngine:
             stored_reply_count=stored_reply_count,
         ):
             telemetry.track_counter("deep.fetch_range.selective_fill.calls", 1)
-            telemetry.track_counter("deep.fetch_range.selective_fill.ids", len(missing_ids))
+            telemetry.track_counter(
+                "deep.fetch_range.selective_fill.ids", len(missing_ids)
+            )
             return await self._fetch_missing_ids(entity, missing_ids)
 
         if self._should_compact_live_fill(range_width, stored_count, missing_ids):
             compact_ranges = self._build_missing_subranges(missing_ids)
             telemetry.track_counter("deep.fetch_range.compact_fill.calls", 1)
-            telemetry.track_counter("deep.fetch_range.compact_fill.ranges", len(compact_ranges))
+            telemetry.track_counter(
+                "deep.fetch_range.compact_fill.ranges", len(compact_ranges)
+            )
             telemetry.track_counter(
                 "deep.fetch_range.compact_fill.width",
-                sum((compact_end - compact_start + 1) for compact_start, compact_end in compact_ranges),
+                sum(
+                    (compact_end - compact_start + 1)
+                    for compact_start, compact_end in compact_ranges
+                ),
             )
             return await self._fetch_ranges(entity, compact_ranges)
 
@@ -534,7 +591,9 @@ class DeepModeEngine:
         messages: Iterable[MessageData],
     ) -> None:
         for message in messages:
-            self._append_normalized_candidate(collected, seen, self._normalize_message(message))
+            self._append_normalized_candidate(
+                collected, seen, self._normalize_message(message)
+            )
 
     @staticmethod
     def _merge_normalized_candidates(
@@ -585,7 +644,9 @@ class DeepModeEngine:
             return False
 
         compact_ranges = DeepModeEngine._build_missing_subranges(missing_ids)
-        compact_width = sum((end_id - start_id + 1) for start_id, end_id in compact_ranges)
+        compact_width = sum(
+            (end_id - start_id + 1) for start_id, end_id in compact_ranges
+        )
         coverage = stored_count / range_width
 
         if len(compact_ranges) > 10:
@@ -606,7 +667,9 @@ class DeepModeEngine:
         if not missing_ids:
             return []
 
-        sorted_ids = sorted(set(message_id for message_id in missing_ids if message_id > 0))
+        sorted_ids = sorted(
+            set(message_id for message_id in missing_ids if message_id > 0)
+        )
         if not sorted_ids:
             return []
 
@@ -627,7 +690,9 @@ class DeepModeEngine:
         return ranges
 
     @staticmethod
-    def _track_range_coverage(range_width: int, stored_count: int, missing_count: int) -> None:
+    def _track_range_coverage(
+        range_width: int, stored_count: int, missing_count: int
+    ) -> None:
         telemetry.track_counter("deep.fetch_range.range_width", range_width)
         telemetry.track_counter("deep.fetch_range.stored_hits", stored_count)
         telemetry.track_counter("deep.fetch_range.missing_ids", missing_count)
@@ -676,12 +741,22 @@ class DeepModeEngine:
                 if candidate.key in cluster.messages:
                     continue
 
-                reason, structural = self._detect_relation(cluster, candidate, round_number)
+                reason, structural = self._detect_relation(
+                    cluster, candidate, round_number
+                )
                 if not reason:
                     continue
 
-                if self._add_to_cluster(cluster, candidate, reason, max_cluster=max_cluster, structural=structural):
-                    additions.append(self._with_cluster(candidate.message, cluster.cluster_id))
+                if self._add_to_cluster(
+                    cluster,
+                    candidate,
+                    reason,
+                    max_cluster=max_cluster,
+                    structural=structural,
+                ):
+                    additions.append(
+                        self._with_cluster(candidate.message, cluster.cluster_id)
+                    )
                     break
         return additions
 
@@ -703,7 +778,9 @@ class DeepModeEngine:
             if cluster.remaining_slots(max_cluster) <= 0:
                 continue
 
-            target_index.setdefault(cluster.target.message.message_id, []).append(cluster)
+            target_index.setdefault(cluster.target.message.message_id, []).append(
+                cluster
+            )
             if round_number < 2:
                 continue
 
@@ -754,8 +831,7 @@ class DeepModeEngine:
             return None, False
 
         structural_ids = {
-            norm.message.message_id
-            for norm in cluster.structural_messages()
+            norm.message.message_id for norm in cluster.structural_messages()
         }
         target_id = cluster.target.message.message_id
 
@@ -765,7 +841,11 @@ class DeepModeEngine:
         if round_number >= 2 and candidate.reply_to_id in structural_ids:
             return "reply_chain", True
 
-        if round_number >= 2 and cluster.topic_id and candidate.topic_id == cluster.topic_id:
+        if (
+            round_number >= 2
+            and cluster.topic_id
+            and candidate.topic_id == cluster.topic_id
+        ):
             return "same_topic", False
 
         return None, False
@@ -801,14 +881,31 @@ class DeepModeEngine:
                 scan_before=max(4, window_size * 2),
                 scan_after=max(6, window_size * 3),
             )
-            for norm in self._select_time_fallback(cluster, local_candidates, window_size=window_size, max_cluster=max_cluster):
-                if self._add_to_cluster(cluster, norm, "time_fallback", max_cluster=max_cluster, structural=False):
-                    additions.append(self._with_cluster(norm.message, cluster.cluster_id))
+            for norm in self._select_time_fallback(
+                cluster,
+                local_candidates,
+                window_size=window_size,
+                max_cluster=max_cluster,
+            ):
+                if self._add_to_cluster(
+                    cluster,
+                    norm,
+                    "time_fallback",
+                    max_cluster=max_cluster,
+                    structural=False,
+                ):
+                    additions.append(
+                        self._with_cluster(norm.message, cluster.cluster_id)
+                    )
 
-        saved_count = await self._flush_new_messages(additions, target_id=target_id, on_progress=on_progress)
+        saved_count = await self._flush_new_messages(
+            additions, target_id=target_id, on_progress=on_progress
+        )
         telemetry.track_counter("deep.time_fallback.clusters", len(fallback_clusters))
         telemetry.track_counter("deep.time_fallback.saved_messages", saved_count)
-        telemetry.track_duration("deep.time_fallback.total", perf_counter() - started_at)
+        telemetry.track_duration(
+            "deep.time_fallback.total", perf_counter() - started_at
+        )
         return saved_count
 
     def _select_time_fallback(
@@ -818,7 +915,10 @@ class DeepModeEngine:
         window_size: int,
         max_cluster: int,
     ) -> List[_NormalizedContextMessage]:
-        ordered = sorted(candidates, key=lambda norm: (norm.message.timestamp, norm.message.message_id))
+        ordered = sorted(
+            candidates,
+            key=lambda norm: (norm.message.timestamp, norm.message.message_id),
+        )
         target_index = None
         for idx, norm in enumerate(ordered):
             if norm.key == cluster.target.key:
@@ -839,17 +939,27 @@ class DeepModeEngine:
             added = 0
             skipped = 0
             idx = target_index + direction
-            while 0 <= idx < len(ordered) and added < limit_count and cluster.remaining_slots(max_cluster) > len(selected):
+            while (
+                0 <= idx < len(ordered)
+                and added < limit_count
+                and cluster.remaining_slots(max_cluster) > len(selected)
+            ):
                 norm = ordered[idx]
                 idx += direction
-                if norm.key in cluster.messages or norm.key in self._processed_ids or norm.message.is_service:
+                if (
+                    norm.key in cluster.messages
+                    or norm.key in self._processed_ids
+                    or norm.message.is_service
+                ):
                     skipped += 1
                     if skipped >= 2:
                         break
                     continue
 
                 current_gap = abs(norm.message.timestamp - last.message.timestamp)
-                total_delta = abs(norm.message.timestamp - cluster.target.message.timestamp)
+                total_delta = abs(
+                    norm.message.timestamp - cluster.target.message.timestamp
+                )
                 if current_gap > max_gap or total_delta > max_total_delta:
                     break
 
@@ -860,7 +970,9 @@ class DeepModeEngine:
 
         walk(-1, max_before, max_total_before)
         walk(1, max_after, max_total_after)
-        selected.sort(key=lambda norm: (norm.message.timestamp, norm.message.message_id))
+        selected.sort(
+            key=lambda norm: (norm.message.timestamp, norm.message.message_id)
+        )
         return selected
 
     async def _flush_new_messages(
@@ -908,7 +1020,9 @@ class DeepModeEngine:
         )
         return True
 
-    def _is_topic_mismatch(self, cluster: _ClusterState, norm: _NormalizedContextMessage) -> bool:
+    def _is_topic_mismatch(
+        self, cluster: _ClusterState, norm: _NormalizedContextMessage
+    ) -> bool:
         if cluster.topic_id is None or norm.topic_id is None:
             return False
         return cluster.topic_id != norm.topic_id
@@ -930,7 +1044,9 @@ class DeepModeEngine:
             forum_topic=forum_topic,
         )
 
-    async def _fetch_range(self, entity: Any, start_id: int, end_id: int) -> List[MessageData]:
+    async def _fetch_range(
+        self, entity: Any, start_id: int, end_id: int
+    ) -> List[MessageData]:
         started_at = perf_counter()
         results: List[MessageData] = []
         async with self.semaphore:
@@ -947,13 +1063,17 @@ class DeepModeEngine:
         telemetry.track_duration("deep.fetch_range.total", perf_counter() - started_at)
         return results
 
-    async def _fetch_ranges(self, entity: Any, ranges: List[Tuple[int, int]]) -> List[MessageData]:
+    async def _fetch_ranges(
+        self, entity: Any, ranges: List[Tuple[int, int]]
+    ) -> List[MessageData]:
         results: List[MessageData] = []
         for start_id, end_id in ranges:
             results.extend(await self._fetch_range(entity, start_id, end_id))
         return results
 
-    async def _fetch_missing_ids(self, entity: Any, message_ids: List[int]) -> List[MessageData]:
+    async def _fetch_missing_ids(
+        self, entity: Any, message_ids: List[int]
+    ) -> List[MessageData]:
         if not message_ids:
             return []
 
@@ -963,10 +1083,16 @@ class DeepModeEngine:
                 return await self.client.get_messages(entity, message_ids=message_ids)
         finally:
             telemetry.track_counter("deep.fetch_missing_ids.calls", 1)
-            telemetry.track_counter("deep.fetch_missing_ids.requested", len(message_ids))
-            telemetry.track_duration("deep.fetch_missing_ids.total", perf_counter() - started_at)
+            telemetry.track_counter(
+                "deep.fetch_missing_ids.requested", len(message_ids)
+            )
+            telemetry.track_duration(
+                "deep.fetch_missing_ids.total", perf_counter() - started_at
+            )
 
-    def _load_stored_range(self, chat_id: int, start_id: int, end_id: int) -> List[MessageData]:
+    def _load_stored_range(
+        self, chat_id: int, start_id: int, end_id: int
+    ) -> List[MessageData]:
         getter = getattr(self.storage, "get_messages_in_id_range", None)
         if not callable(getter):
             return []
@@ -978,10 +1104,14 @@ class DeepModeEngine:
         rows = result if isinstance(result, list) else []
         telemetry.track_counter("deep.load_stored_range.calls", 1)
         telemetry.track_counter("deep.load_stored_range.messages", len(rows))
-        telemetry.track_duration("deep.load_stored_range.total", perf_counter() - started_at)
+        telemetry.track_duration(
+            "deep.load_stored_range.total", perf_counter() - started_at
+        )
         return rows
 
-    def _load_stored_messages_by_ids(self, chat_id: int, message_ids: List[int]) -> Optional[Dict[int, MessageData]]:
+    def _load_stored_messages_by_ids(
+        self, chat_id: int, message_ids: List[int]
+    ) -> Optional[Dict[int, MessageData]]:
         getter = getattr(self.storage, "get_messages_by_ids", None)
         if not callable(getter):
             return None
@@ -993,7 +1123,9 @@ class DeepModeEngine:
             return None
         return {message.message_id: message for message in result}
 
-    def _load_stored_replies(self, chat_id: int, reply_to_ids: Iterable[int]) -> List[MessageData]:
+    def _load_stored_replies(
+        self, chat_id: int, reply_to_ids: Iterable[int]
+    ) -> List[MessageData]:
         getter = getattr(self.storage, "get_messages_replying_to", None)
         if not callable(getter):
             return []
@@ -1005,10 +1137,14 @@ class DeepModeEngine:
         rows = result if isinstance(result, list) else []
         telemetry.track_counter("deep.load_stored_replies.calls", 1)
         telemetry.track_counter("deep.load_stored_replies.messages", len(rows))
-        telemetry.track_duration("deep.load_stored_replies.total", perf_counter() - started_at)
+        telemetry.track_duration(
+            "deep.load_stored_replies.total", perf_counter() - started_at
+        )
         return rows
 
-    def _calculate_ranges(self, ids: List[int], before_ids: int, after_ids: int) -> List[Tuple[int, int]]:
+    def _calculate_ranges(
+        self, ids: List[int], before_ids: int, after_ids: int
+    ) -> List[Tuple[int, int]]:
         if not ids:
             return []
 
@@ -1032,7 +1168,9 @@ class DeepModeEngine:
             return max(8, window_size * 3)
         return max(12, window_size * 4)
 
-    def _scan_after_ids(self, round_number: int, window_size: int, max_cluster: int) -> int:
+    def _scan_after_ids(
+        self, round_number: int, window_size: int, max_cluster: int
+    ) -> int:
         if round_number == 1:
             return max(60, window_size * 15, max_cluster * 6)
         return max(90, window_size * 20, max_cluster * 8)

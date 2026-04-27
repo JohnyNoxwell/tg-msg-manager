@@ -71,7 +71,8 @@
 
 ## Phase 8: CI And Quality Gates
 
-- [ ] Add lint/format/test validation commands.
+- [x] Add lint/format/test validation commands.
+  Current delta: the repo now ships a `Makefile` with `lint`, `format`, `format-check`, `test`, and `verify`; `pyproject.toml` defines a `dev` extra with `ruff`, local docs point contributors to the shared commands, and CI runs the same `make verify` quality gate used locally.
 - [x] Add a minimal CI workflow.
 - [x] Exclude cache and transient artifacts from source control hygiene.
 - [x] Add a repeatable local verification checklist.

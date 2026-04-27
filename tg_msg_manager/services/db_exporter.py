@@ -32,10 +32,12 @@ class _DBExportPlan:
     ext: str
     fingerprint: Dict[str, Any]
 
+
 class DBExportService:
     """
     Service responsible for exporting cached messages from the database into files.
     """
+
     def __init__(self, storage: DBExportStorage):
         self.storage = storage
 
@@ -68,7 +70,9 @@ class DBExportService:
             "json_profile": json_profile,
         }
 
-    def _load_export_manifest(self, output_dir: str, user_id: int) -> Optional[Dict[str, Any]]:
+    def _load_export_manifest(
+        self, output_dir: str, user_id: int
+    ) -> Optional[Dict[str, Any]]:
         path = self._manifest_path(output_dir, user_id)
         if not os.path.exists(path):
             return None
@@ -125,7 +129,9 @@ class DBExportService:
             return output_path
         return None
 
-    def _resolve_export_author_name(self, user_id: int, messages: List[MessageData]) -> str:
+    def _resolve_export_author_name(
+        self, user_id: int, messages: List[MessageData]
+    ) -> str:
         db_user = self.storage.get_user(user_id)
         if db_user:
             formatted = UI.format_name(db_user)
@@ -138,7 +144,9 @@ class DBExportService:
 
         return f"User_{user_id}"
 
-    def _resolve_export_author_name_from_rows(self, user_id: int, rows: List[Dict[str, Any]]) -> str:
+    def _resolve_export_author_name_from_rows(
+        self, user_id: int, rows: List[Dict[str, Any]]
+    ) -> str:
         db_user = self.storage.get_user(user_id)
         if db_user:
             formatted = UI.format_name(db_user)
@@ -151,7 +159,9 @@ class DBExportService:
 
         return f"User_{user_id}"
 
-    def _resolve_export_author_name_from_summary(self, user_id: int, summary: Dict[str, Any]) -> str:
+    def _resolve_export_author_name_from_summary(
+        self, user_id: int, summary: Dict[str, Any]
+    ) -> str:
         db_user = self.storage.get_user(user_id)
         if db_user:
             formatted = UI.format_name(db_user)
@@ -164,25 +174,29 @@ class DBExportService:
 
         return f"User_{user_id}"
 
-    def format_message(self, m: MessageData, as_json: bool = False, json_profile: str = "ai") -> str:
+    def format_message(
+        self, m: MessageData, as_json: bool = False, json_profile: str = "ai"
+    ) -> str:
         """Formats a MessageData object into a string for file output."""
         if as_json:
             payload = self._serialize_json_message(m, profile=json_profile)
             return json.dumps(payload, ensure_ascii=False, separators=(",", ":"))
-        
+
         # Human-readable text format
         dt_str = m.timestamp.strftime("%Y-%m-%d][%H:%M:%S")
         reply_str = f" (в ответ на {m.reply_to_id})" if m.reply_to_id else ""
         fwd_str = f" [FWD from {m.fwd_from_id}]" if m.fwd_from_id else ""
         media_str = f" [{m.media_type}]" if m.media_type else ""
-        
+
         # We use a placeholder for user_name if we have it in MessageData (I added it recently)
         author = m.author_name or f"User_{m.user_id}"
         header = f"[{dt_str}] <{author} ({m.user_id})>{reply_str}{fwd_str}{media_str}:"
-        
+
         return f"{header}\n{m.text or '(пусто)'}"
 
-    def _serialize_json_message(self, m: MessageData, profile: str = "ai") -> Dict[str, Any]:
+    def _serialize_json_message(
+        self, m: MessageData, profile: str = "ai"
+    ) -> Dict[str, Any]:
         if profile == "full":
             return m.to_dict()
         if profile != "ai":
@@ -274,7 +288,9 @@ class DBExportService:
         }
         return {k: v for k, v in payload.items() if v not in (None, "", [])}
 
-    def _extract_reaction_summary(self, raw: Dict[str, Any]) -> Optional[List[Dict[str, Any]]]:
+    def _extract_reaction_summary(
+        self, raw: Dict[str, Any]
+    ) -> Optional[List[Dict[str, Any]]]:
         reactions = raw.get("reactions")
         if not isinstance(reactions, dict):
             return None
@@ -337,7 +353,9 @@ class DBExportService:
             if callable(getter):
                 export_rows = getter(user_id)
 
-        messages = None if export_rows is not None else self.storage.get_user_messages(user_id)
+        messages = (
+            None if export_rows is not None else self.storage.get_user_messages(user_id)
+        )
         source_count = 0
         if export_summary:
             source_count = int(export_summary["message_count"])
@@ -369,7 +387,9 @@ class DBExportService:
     ) -> _DBExportPlan:
         if source.export_summary is not None:
             summary = source.export_summary
-            target_author = self._resolve_export_author_name_from_summary(user_id, summary)
+            target_author = self._resolve_export_author_name_from_summary(
+                user_id, summary
+            )
             fingerprint = {
                 "user_id": user_id,
                 "message_count": int(summary["message_count"]),
@@ -382,7 +402,9 @@ class DBExportService:
                 "json_profile": json_profile,
             }
         elif source.export_rows is not None:
-            target_author = self._resolve_export_author_name_from_rows(user_id, source.export_rows)
+            target_author = self._resolve_export_author_name_from_rows(
+                user_id, source.export_rows
+            )
             fingerprint = {
                 "user_id": user_id,
                 "message_count": len(source.export_rows),
@@ -408,7 +430,9 @@ class DBExportService:
 
         safe_name = re.sub(r"[^\w\s-]", "", target_author).strip()
         safe_name = re.sub(r"[-\s]+", "_", safe_name)
-        date_suffix = f"_date({datetime.now().strftime('%m-%d')})" if include_date else ""
+        date_suffix = (
+            f"_date({datetime.now().strftime('%m-%d')})" if include_date else ""
+        )
         ext = ".jsonl" if as_json else ".txt"
         filename = f"{safe_name}_{user_id}{date_suffix}{ext}"
 
@@ -463,7 +487,9 @@ class DBExportService:
                     continue
                 try:
                     os.remove(old_file)
-                    logger.debug(f"Removed old export file to prevent duplication: {old_file}")
+                    logger.debug(
+                        f"Removed old export file to prevent duplication: {old_file}"
+                    )
                 except Exception as e:
                     logger.warning(f"Could not remove old export file {old_file}: {e}")
 
@@ -490,7 +516,7 @@ class DBExportService:
             clean_text = (target.text or "").replace("\n", " ").strip()
             snippet = (clean_text[:40] + "...") if len(clean_text) > 40 else clean_text
             if snippet:
-                reply_context = f"        re: \"{snippet}\"\n"
+                reply_context = f'        re: "{snippet}"\n'
 
         author = message.author_name or f"User_{message.user_id}"
         time_str = message.timestamp.strftime("%H:%M:%S")
@@ -503,7 +529,9 @@ class DBExportService:
             formatted_block += "\n"
 
         header = f"[{time_str}] <{author} ({message.user_id})>:"
-        formatted_block += f"{header}\n{reply_context}        {message.text or '(пусто)'}\n\n"
+        formatted_block += (
+            f"{header}\n{reply_context}        {message.text or '(пусто)'}\n\n"
+        )
         return formatted_block, last_date, message.user_id
 
     async def _write_export_payloads(
@@ -521,11 +549,14 @@ class DBExportService:
             overwrite=True,
             persist_every_writes=25 if as_json else 5,
         )
-        write_batch_size = self._write_batch_size(as_json=as_json, json_profile=json_profile)
-        msg_lookup = {
-            message.message_id: message
-            for message in (source.messages or [])
-        } if not as_json else {}
+        write_batch_size = self._write_batch_size(
+            as_json=as_json, json_profile=json_profile
+        )
+        msg_lookup = (
+            {message.message_id: message for message in (source.messages or [])}
+            if not as_json
+            else {}
+        )
 
         last_date = None
         last_author_id = None
@@ -550,10 +581,15 @@ class DBExportService:
         )
         for item in iterable:
             if as_json:
-                if source.export_row_iter_factory is not None or source.export_rows is not None:
+                if (
+                    source.export_row_iter_factory is not None
+                    or source.export_rows is not None
+                ):
                     block = self._serialize_ai_row(item)
                 else:
-                    block = self.format_message(item, as_json=True, json_profile=json_profile)
+                    block = self.format_message(
+                        item, as_json=True, json_profile=json_profile
+                    )
             else:
                 block, last_date, last_author_id = self._format_txt_export_block(
                     message=item,

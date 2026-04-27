@@ -28,9 +28,11 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         mock_db_exporter_cls.return_value = MagicMock()
         mock_cleaner_cls.return_value = MagicMock()
 
-        with patch("tg_msg_manager.cli.ProcessManager.acquire_lock", return_value=True), \
-             patch("tg_msg_manager.cli.ProcessManager.setup_async_signals"), \
-             patch("tg_msg_manager.cli.ProcessManager.release_lock"):
+        with (
+            patch("tg_msg_manager.cli.ProcessManager.acquire_lock", return_value=True),
+            patch("tg_msg_manager.cli.ProcessManager.setup_async_signals"),
+            patch("tg_msg_manager.cli.ProcessManager.release_lock"),
+        ):
             ctx = CLIContext(needs_client=False)
             await ctx.initialize()
 
@@ -72,15 +74,19 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         mock_client.disconnect = AsyncMock()
         mock_client_cls.return_value = mock_client
 
-        with patch("tg_msg_manager.cli.ProcessManager.acquire_lock", return_value=True), \
-             patch("tg_msg_manager.cli.ProcessManager.setup_async_signals"), \
-             patch("tg_msg_manager.cli.ProcessManager.release_lock"):
+        with (
+            patch("tg_msg_manager.cli.ProcessManager.acquire_lock", return_value=True),
+            patch("tg_msg_manager.cli.ProcessManager.setup_async_signals"),
+            patch("tg_msg_manager.cli.ProcessManager.release_lock"),
+        ):
             ctx = CLIContext(needs_client=True)
             await ctx.initialize()
 
             self.assertTrue(callable(mock_exporter_cls.call_args.kwargs["event_sink"]))
             self.assertTrue(callable(mock_cleaner_cls.call_args.kwargs["event_sink"]))
-            self.assertTrue(callable(mock_private_archive_cls.call_args.kwargs["event_sink"]))
+            self.assertTrue(
+                callable(mock_private_archive_cls.call_args.kwargs["event_sink"])
+            )
 
             await ctx.shutdown()
             mock_client.disconnect.assert_awaited_once()
@@ -110,23 +116,37 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         mock_ctx.exporter = MagicMock()
         mock_ctx.exporter.sync_chat = AsyncMock(return_value=0)
         mock_ctx.db_exporter = MagicMock()
-        mock_ctx.db_exporter.export_user_messages = AsyncMock(return_value="DB_EXPORTS/test.jsonl")
+        mock_ctx.db_exporter.export_user_messages = AsyncMock(
+            return_value="DB_EXPORTS/test.jsonl"
+        )
         mock_ctx.storage = MagicMock()
-        mock_ctx.storage.get_user.return_value = {"first_name": "Kirill", "last_name": "Cilantro"}
+        mock_ctx.storage.get_user.return_value = {
+            "first_name": "Kirill",
+            "last_name": "Cilantro",
+        }
         mock_ctx_cls.return_value = mock_ctx
 
-        user_ent = MagicMock(id=404307871, first_name="Kirill", last_name="Cilantro", username="kirill")
+        user_ent = MagicMock(
+            id=404307871, first_name="Kirill", last_name="Cilantro", username="kirill"
+        )
         chat_ent = MagicMock(id=1274306614)
         mock_get_safe_user_and_chat.return_value = (user_ent, chat_ent)
 
-        with patch.object(sys, "argv", [
-            "prog",
-            "export",
-            "--user-id", "404307871",
-            "--chat-id", "1274306614",
-            "--depth", "2",
-            "--json",
-        ]):
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "prog",
+                "export",
+                "--user-id",
+                "404307871",
+                "--chat-id",
+                "1274306614",
+                "--depth",
+                "2",
+                "--json",
+            ],
+        ):
             await run_cli()
 
         mock_log_summary.assert_called_once_with("Export telemetry summary")
@@ -154,16 +174,23 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
 
         mock_get_safe_user_and_chat.return_value = (None, None)
 
-        with patch.object(sys, "argv", [
-            "prog",
-            "export",
-            "--user-id", "2061894541",
-            "--json",
-        ]):
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "prog",
+                "export",
+                "--user-id",
+                "2061894541",
+                "--json",
+            ],
+        ):
             await run_cli()
 
         mock_ctx.exporter.sync_all_dialogs_for_user.assert_awaited_once()
-        self.assertEqual(mock_ctx.exporter.sync_all_dialogs_for_user.await_args.args[0], 2061894541)
+        self.assertEqual(
+            mock_ctx.exporter.sync_all_dialogs_for_user.await_args.args[0], 2061894541
+        )
         mock_log_summary.assert_called_once_with("Export telemetry summary")
 
 

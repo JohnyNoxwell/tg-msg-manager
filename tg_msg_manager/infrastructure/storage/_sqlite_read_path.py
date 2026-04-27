@@ -15,7 +15,7 @@ class SQLiteReadPathMixin:
     @staticmethod
     def _chunked(values: Iterable[int], size: int = 900) -> List[List[int]]:
         items = list(values)
-        return [items[i:i + size] for i in range(0, len(items), size)]
+        return [items[i : i + size] for i in range(0, len(items), size)]
 
     def _row_to_message(self, row: sqlite3.Row) -> MessageData:
         data = dict(row)
@@ -38,7 +38,7 @@ class SQLiteReadPathMixin:
         with self._read_connection() as conn:
             row = conn.execute(
                 "SELECT * FROM messages WHERE chat_id = ? AND message_id = ?",
-                (chat_id, message_id)
+                (chat_id, message_id),
             ).fetchone()
             return self._row_to_message(row) if row else None
 
@@ -46,25 +46,27 @@ class SQLiteReadPathMixin:
         with self._read_connection() as conn:
             row = conn.execute(
                 "SELECT 1 FROM messages WHERE chat_id = ? AND message_id = ?",
-                (chat_id, message_id)
+                (chat_id, message_id),
             ).fetchone()
             return row is not None
 
     def get_last_msg_id(self, chat_id: int) -> int:
         with self._read_connection() as conn:
             row = conn.execute(
-                "SELECT last_msg_id FROM sync_state WHERE chat_id = ?",
-                (chat_id,)
+                "SELECT last_msg_id FROM sync_state WHERE chat_id = ?", (chat_id,)
             ).fetchone()
             return row["last_msg_id"] if row else 0
 
     def get_sync_status(self, chat_id: int, user_id: int) -> dict:
         with self._read_connection() as conn:
-            row = conn.execute("""
+            row = conn.execute(
+                """
                 SELECT last_msg_id, tail_msg_id, is_complete, deep_mode, recursive_depth, author_name
                 FROM sync_targets
                 WHERE user_id = ? AND chat_id = ?
-            """, (user_id, chat_id)).fetchone()
+            """,
+                (user_id, chat_id),
+            ).fetchone()
             if row:
                 return dict(row)
         return {
@@ -79,78 +81,99 @@ class SQLiteReadPathMixin:
     def filter_existing_ids(self, chat_id: int, message_ids: List[int]) -> List[int]:
         if not message_ids:
             return []
-        placeholders = ', '.join(['?'] * len(message_ids))
+        placeholders = ", ".join(["?"] * len(message_ids))
         with self._read_connection() as conn:
             rows = conn.execute(
                 f"SELECT message_id FROM messages WHERE chat_id = ? AND message_id IN ({placeholders})",
-                (chat_id, *message_ids)
+                (chat_id, *message_ids),
             ).fetchall()
-        existing = {row['message_id'] for row in rows}
+        existing = {row["message_id"] for row in rows}
         return [mid for mid in message_ids if mid not in existing]
 
     def get_outdated_chats(self, threshold_seconds: int) -> List[tuple]:
         cutoff = int(datetime.now().timestamp()) - threshold_seconds
         with self._read_connection() as conn:
-            rows = conn.execute("""
+            rows = conn.execute(
+                """
                 SELECT chat_id, user_id FROM sync_targets
                 WHERE is_complete = 0 OR COALESCE(last_sync_at, 0) < ?
-            """, (cutoff,)).fetchall()
-            chat_rows = conn.execute("""
+            """,
+                (cutoff,),
+            ).fetchall()
+            chat_rows = conn.execute(
+                """
                 SELECT chat_id FROM sync_state
                 WHERE COALESCE(last_sync_timestamp, 0) < ?
-            """, (cutoff,)).fetchall()
+            """,
+                (cutoff,),
+            ).fetchall()
 
-        results = {(r['chat_id'], r['user_id']) for r in rows}
+        results = {(r["chat_id"], r["user_id"]) for r in rows}
         for r in chat_rows:
-            results.add((r['chat_id'], r['chat_id']))
+            results.add((r["chat_id"], r["chat_id"]))
         return list(results)
 
     def get_message_count(self, chat_id: int, target_id: Optional[int] = None) -> int:
         with self._read_connection() as conn:
             if target_id:
-                row = conn.execute("""
+                row = conn.execute(
+                    """
                     SELECT COUNT(*) as count
                     FROM message_target_links
                     WHERE chat_id = ? AND target_user_id = ?
-                """, (chat_id, target_id)).fetchone()
+                """,
+                    (chat_id, target_id),
+                ).fetchone()
             else:
                 row = conn.execute(
                     "SELECT COUNT(*) as count FROM messages WHERE chat_id = ?",
-                    (chat_id,)
+                    (chat_id,),
                 ).fetchone()
-            return row['count'] if row else 0
+            return row["count"] if row else 0
 
     def get_all_message_ids_for_chat(self, chat_id: int) -> List[int]:
         with self._read_connection() as conn:
             rows = conn.execute(
                 "SELECT message_id FROM messages WHERE chat_id = ? ORDER BY message_id DESC",
-                (chat_id,)
+                (chat_id,),
             ).fetchall()
-            return [row['message_id'] for row in rows]
+            return [row["message_id"] for row in rows]
 
-    def get_messages_in_id_range(self, chat_id: int, start_id: int, end_id: int) -> List[MessageData]:
+    def get_messages_in_id_range(
+        self, chat_id: int, start_id: int, end_id: int
+    ) -> List[MessageData]:
         with self._read_connection() as conn:
-            rows = conn.execute("""
+            rows = conn.execute(
+                """
                 SELECT * FROM messages
                 WHERE chat_id = ? AND message_id BETWEEN ? AND ?
                 ORDER BY timestamp ASC, message_id ASC
-            """, (chat_id, start_id, end_id)).fetchall()
+            """,
+                (chat_id, start_id, end_id),
+            ).fetchall()
             return [self._row_to_message(row) for row in rows]
 
-    def get_messages_replying_to(self, chat_id: int, reply_to_ids: List[int]) -> List[MessageData]:
+    def get_messages_replying_to(
+        self, chat_id: int, reply_to_ids: List[int]
+    ) -> List[MessageData]:
         if not reply_to_ids:
             return []
 
         placeholders = ", ".join(["?"] * len(reply_to_ids))
         with self._read_connection() as conn:
-            rows = conn.execute(f"""
+            rows = conn.execute(
+                f"""
                 SELECT * FROM messages
                 WHERE chat_id = ? AND reply_to_id IN ({placeholders})
                 ORDER BY timestamp ASC, message_id ASC
-            """, (chat_id, *reply_to_ids)).fetchall()
+            """,
+                (chat_id, *reply_to_ids),
+            ).fetchall()
             return [self._row_to_message(row) for row in rows]
 
-    def get_messages_by_ids(self, chat_id: int, message_ids: List[int]) -> List[MessageData]:
+    def get_messages_by_ids(
+        self, chat_id: int, message_ids: List[int]
+    ) -> List[MessageData]:
         if not message_ids:
             return []
 
@@ -159,18 +182,29 @@ class SQLiteReadPathMixin:
         with self._read_connection() as conn:
             for chunk in self._chunked(message_ids):
                 placeholders = ", ".join(["?"] * len(chunk))
-                rows.extend(conn.execute(f"""
+                rows.extend(
+                    conn.execute(
+                        f"""
                     SELECT * FROM messages
                     WHERE chat_id = ? AND message_id IN ({placeholders})
                     ORDER BY timestamp ASC, message_id ASC
-                """, (chat_id, *chunk)).fetchall())
+                """,
+                        (chat_id, *chunk),
+                    ).fetchall()
+                )
         telemetry.track_counter("storage.get_messages_by_ids.calls", 1)
-        telemetry.track_counter("storage.get_messages_by_ids.requested_ids", len(message_ids))
+        telemetry.track_counter(
+            "storage.get_messages_by_ids.requested_ids", len(message_ids)
+        )
         telemetry.track_counter("storage.get_messages_by_ids.rows", len(rows))
-        telemetry.track_duration("storage.get_messages_by_ids.total", perf_counter() - started_at)
+        telemetry.track_duration(
+            "storage.get_messages_by_ids.total", perf_counter() - started_at
+        )
         return [self._row_to_message(row) for row in rows]
 
-    def filter_missing_target_links(self, chat_id: int, target_id: int, message_ids: List[int]) -> List[int]:
+    def filter_missing_target_links(
+        self, chat_id: int, target_id: int, message_ids: List[int]
+    ) -> List[int]:
         if not message_ids:
             return []
 
@@ -179,17 +213,26 @@ class SQLiteReadPathMixin:
         with self._read_connection() as conn:
             for chunk in self._chunked(message_ids):
                 placeholders = ", ".join(["?"] * len(chunk))
-                rows = conn.execute(f"""
+                rows = conn.execute(
+                    f"""
                     SELECT message_id FROM message_target_links
                     WHERE chat_id = ? AND target_user_id = ? AND message_id IN ({placeholders})
-                """, (chat_id, target_id, *chunk)).fetchall()
+                """,
+                    (chat_id, target_id, *chunk),
+                ).fetchall()
                 existing_ids.update(row["message_id"] for row in rows)
 
-        missing_ids = [message_id for message_id in message_ids if message_id not in existing_ids]
+        missing_ids = [
+            message_id for message_id in message_ids if message_id not in existing_ids
+        ]
         telemetry.track_counter("storage.target_link_filter.calls", 1)
-        telemetry.track_counter("storage.target_link_filter.candidates", len(message_ids))
+        telemetry.track_counter(
+            "storage.target_link_filter.candidates", len(message_ids)
+        )
         telemetry.track_counter("storage.target_link_filter.missing", len(missing_ids))
-        telemetry.track_duration("storage.target_link_filter.total", perf_counter() - started_at)
+        telemetry.track_duration(
+            "storage.target_link_filter.total", perf_counter() - started_at
+        )
         return missing_ids
 
     def get_unique_sync_users(self) -> List[dict]:
@@ -200,13 +243,15 @@ class SQLiteReadPathMixin:
                 GROUP BY user_id
                 ORDER BY author_name ASC
             """).fetchall()
-            return [{"user_id": row["user_id"], "author_name": row["author_name"]} for row in rows]
+            return [
+                {"user_id": row["user_id"], "author_name": row["author_name"]}
+                for row in rows
+            ]
 
     def get_user(self, user_id: int) -> Optional[dict]:
         with self._read_connection() as conn:
             row = conn.execute(
-                "SELECT * FROM users WHERE user_id = ?",
-                (user_id,)
+                "SELECT * FROM users WHERE user_id = ?", (user_id,)
             ).fetchone()
             return dict(row) if row else None
 
@@ -237,53 +282,69 @@ class SQLiteReadPathMixin:
 
     def has_target_link(self, chat_id: int, message_id: int, target_id: int) -> bool:
         with self._read_connection() as conn:
-            res = conn.execute("""
+            res = conn.execute(
+                """
                 SELECT 1 FROM message_target_links
                 WHERE chat_id = ? AND message_id = ? AND target_user_id = ?
                 LIMIT 1
-            """, (chat_id, message_id, target_id)).fetchone()
+            """,
+                (chat_id, message_id, target_id),
+            ).fetchone()
             return res is not None
 
     def get_user_messages(self, user_id: int) -> List[MessageData]:
         with self._read_connection() as conn:
-            rows = conn.execute("""
+            rows = conn.execute(
+                """
                 SELECT m.* FROM messages m
                 JOIN message_target_links l ON m.chat_id = l.chat_id AND m.message_id = l.message_id
                 WHERE l.target_user_id = ?
                 ORDER BY m.timestamp ASC, m.message_id ASC
-            """, (user_id,)).fetchall()
+            """,
+                (user_id,),
+            ).fetchall()
             return [self._row_to_message(row) for row in rows]
 
     def get_user_export_summary(self, user_id: int) -> Optional[dict]:
         with self._read_connection() as conn:
-            count_row = conn.execute("""
+            count_row = conn.execute(
+                """
                 SELECT COUNT(*) AS message_count
                 FROM messages m
                 JOIN message_target_links l ON m.chat_id = l.chat_id AND m.message_id = l.message_id
                 WHERE l.target_user_id = ?
-            """, (user_id,)).fetchone()
+            """,
+                (user_id,),
+            ).fetchone()
 
             message_count = count_row["message_count"] if count_row else 0
             if not message_count:
                 return None
 
-            first_row = conn.execute("""
+            first_row = conn.execute(
+                """
                 SELECT m.message_id, m.timestamp
                 FROM messages m
                 JOIN message_target_links l ON m.chat_id = l.chat_id AND m.message_id = l.message_id
                 WHERE l.target_user_id = ?
                 ORDER BY m.timestamp ASC, m.message_id ASC
                 LIMIT 1
-            """, (user_id,)).fetchone()
-            last_row = conn.execute("""
+            """,
+                (user_id,),
+            ).fetchone()
+            last_row = conn.execute(
+                """
                 SELECT m.message_id, m.timestamp
                 FROM messages m
                 JOIN message_target_links l ON m.chat_id = l.chat_id AND m.message_id = l.message_id
                 WHERE l.target_user_id = ?
                 ORDER BY m.timestamp DESC, m.message_id DESC
                 LIMIT 1
-            """, (user_id,)).fetchone()
-            author_row = conn.execute("""
+            """,
+                (user_id,),
+            ).fetchone()
+            author_row = conn.execute(
+                """
                 SELECT m.author_name
                 FROM messages m
                 JOIN message_target_links l ON m.chat_id = l.chat_id AND m.message_id = l.message_id
@@ -292,7 +353,9 @@ class SQLiteReadPathMixin:
                   AND COALESCE(TRIM(m.author_name), '') != ''
                 ORDER BY m.timestamp ASC, m.message_id ASC
                 LIMIT 1
-            """, (user_id, user_id)).fetchone()
+            """,
+                (user_id, user_id),
+            ).fetchone()
 
             return {
                 "message_count": int(message_count),
@@ -307,7 +370,8 @@ class SQLiteReadPathMixin:
         started_at = perf_counter()
         yielded = 0
         with self._read_connection() as conn:
-            cursor = conn.execute("""
+            cursor = conn.execute(
+                """
                 SELECT
                     m.message_id,
                     m.chat_id,
@@ -325,7 +389,9 @@ class SQLiteReadPathMixin:
                 JOIN message_target_links l ON m.chat_id = l.chat_id AND m.message_id = l.message_id
                 WHERE l.target_user_id = ?
                 ORDER BY m.timestamp ASC, m.message_id ASC
-            """, (user_id,))
+            """,
+                (user_id,),
+            )
             try:
                 while True:
                     rows = cursor.fetchmany(chunk_size)
@@ -337,11 +403,14 @@ class SQLiteReadPathMixin:
             finally:
                 telemetry.track_counter("storage.iter_user_export_rows.calls", 1)
                 telemetry.track_counter("storage.iter_user_export_rows.rows", yielded)
-                telemetry.track_duration("storage.iter_user_export_rows.total", perf_counter() - started_at)
+                telemetry.track_duration(
+                    "storage.iter_user_export_rows.total", perf_counter() - started_at
+                )
 
     def get_user_export_rows(self, user_id: int) -> List[dict]:
         with self._read_connection() as conn:
-            rows = conn.execute("""
+            rows = conn.execute(
+                """
                 SELECT
                     m.message_id,
                     m.chat_id,
@@ -359,21 +428,30 @@ class SQLiteReadPathMixin:
                 JOIN message_target_links l ON m.chat_id = l.chat_id AND m.message_id = l.message_id
                 WHERE l.target_user_id = ?
                 ORDER BY m.timestamp ASC, m.message_id ASC
-            """, (user_id,)).fetchall()
+            """,
+                (user_id,),
+            ).fetchall()
             return [dict(row) for row in rows]
 
     def get_target_message_breakdown(self, chat_id: int, target_id: int) -> dict:
         with self._read_connection() as conn:
-            row = conn.execute("""
+            row = conn.execute(
+                """
                 SELECT
                     COUNT(*) AS total_linked,
                     SUM(CASE WHEN m.user_id = ? THEN 1 ELSE 0 END) AS own_messages
                 FROM message_target_links l
                 JOIN messages m ON l.chat_id = m.chat_id AND l.message_id = m.message_id
                 WHERE l.chat_id = ? AND l.target_user_id = ?
-            """, (target_id, chat_id, target_id)).fetchone()
-            total_linked = row["total_linked"] if row and row["total_linked"] is not None else 0
-            own_messages = row["own_messages"] if row and row["own_messages"] is not None else 0
+            """,
+                (target_id, chat_id, target_id),
+            ).fetchone()
+            total_linked = (
+                row["total_linked"] if row and row["total_linked"] is not None else 0
+            )
+            own_messages = (
+                row["own_messages"] if row and row["own_messages"] is not None else 0
+            )
             return {
                 "own_messages": own_messages,
                 "with_context": total_linked,
@@ -383,7 +461,6 @@ class SQLiteReadPathMixin:
         now = int(datetime.now().timestamp())
         with self._read_connection() as conn:
             rows = conn.execute(
-                "SELECT * FROM retry_queue WHERE next_retry_timestamp <= ?",
-                (now,)
+                "SELECT * FROM retry_queue WHERE next_retry_timestamp <= ?", (now,)
             ).fetchall()
             return [dict(row) for row in rows]

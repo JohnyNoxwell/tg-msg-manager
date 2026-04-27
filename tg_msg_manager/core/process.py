@@ -6,6 +6,7 @@ from typing import Optional, Callable
 
 logger = logging.getLogger(__name__)
 
+
 class ProcessManager:
     """
     Manages process-level concerns: file locking and signal handling.
@@ -31,19 +32,19 @@ class ProcessManager:
         except FileExistsError:
             # Check if PID is still alive (basic check)
             try:
-                with open(self.lock_path, 'r') as f:
+                with open(self.lock_path, "r") as f:
                     content = f.read().strip()
                 if not content:
                     raise ValueError("Empty lock file")
                 old_pid = int(content)
-                os.kill(old_pid, 0) # Check if process exists
+                os.kill(old_pid, 0)  # Check if process exists
                 return False
             except (OSError, ValueError):
                 # Process is dead but lock file exists
-                logger.warning(f"Stale lock file found. Overwriting.")
+                logger.warning("Stale lock file found. Overwriting.")
                 try:
                     os.remove(self.lock_path)
-                except:
+                except OSError:
                     pass
                 return self.acquire_lock()
 
@@ -54,13 +55,13 @@ class ProcessManager:
         if self.lock_fd is not None:
             try:
                 os.close(self.lock_fd)
-            except:
+            except OSError:
                 pass
             self.lock_fd = None
         if os.path.exists(self.lock_path):
             try:
                 os.remove(self.lock_path)
-            except:
+            except OSError:
                 pass
             logger.debug("Process lock released.")
 
@@ -74,7 +75,7 @@ class ProcessManager:
 
     @staticmethod
     def _signal_name(sig: int) -> str:
-        if hasattr(signal, 'SIGHUP') and sig == signal.SIGHUP:
+        if hasattr(signal, "SIGHUP") and sig == signal.SIGHUP:
             return "SIGHUP"
         if sig == signal.SIGTERM:
             return "SIGTERM"
@@ -97,7 +98,9 @@ class ProcessManager:
             force_exit(1)
             return
 
-        logger.warning(f"Signal {sig_name} ({sig}) received. Requesting graceful shutdown...")
+        logger.warning(
+            f"Signal {sig_name} ({sig}) received. Requesting graceful shutdown..."
+        )
         self.shutdown_requested = True
 
         if loop_stop_callback:
@@ -108,46 +111,50 @@ class ProcessManager:
             raise KeyboardInterrupt
 
         # For HUP or TERM, we usually want to exit immediately but nicely
-        hup = getattr(signal, 'SIGHUP', None)
+        hup = getattr(signal, "SIGHUP", None)
         if sig in tuple(s for s in (hup, signal.SIGTERM) if s is not None):
             raise SystemExit(0)
 
     def setup_signals(self, loop_stop_callback: Optional[Callable] = None):
         """
         Registers handlers for SIGINT, SIGTERM, and SIGHUP.
-        Implements a multi-stage shutdown: 
+        Implements a multi-stage shutdown:
         1st Ctrl+C = Graceful KeyboardInterrupt
         2nd Ctrl+C = Hard SystemExit
         """
         self._sig_count = 0
-        
+
         def handler(sig, frame):
             self._handle_sync_signal(sig, loop_stop_callback=loop_stop_callback)
 
-        if hasattr(signal, 'SIGHUP'):
+        if hasattr(signal, "SIGHUP"):
             signal.signal(signal.SIGHUP, handler)
         signal.signal(signal.SIGINT, handler)
         signal.signal(signal.SIGTERM, handler)
 
-    def setup_async_signals(self, loop: asyncio.AbstractEventLoop, on_interrupt_callback: Optional[Callable] = None):
+    def setup_async_signals(
+        self,
+        loop: asyncio.AbstractEventLoop,
+        on_interrupt_callback: Optional[Callable] = None,
+    ):
         """
         Registers async-aware handlers for SIGINT using the event loop.
         This is more reliable for async apps than signal.signal.
         """
         self._sig_count = 0
-        
+
         def handle_async_sig():
             self._sig_count += 1
             # Ensure we start on a new line
             print("\n", end="", flush=True)
 
             if self._sig_count > 1:
-                print(f"🧨 Forceful exit triggered...")
+                print("🧨 Forceful exit triggered...")
                 os._exit(1)
 
-            logger.warning(f"SIGINT received. Requesting graceful shutdown...")
+            logger.warning("SIGINT received. Requesting graceful shutdown...")
             self.shutdown_requested = True
-            
+
             # Schedule the async callback into the loop
             if on_interrupt_callback:
                 if asyncio.iscoroutinefunction(on_interrupt_callback):
@@ -160,7 +167,9 @@ class ProcessManager:
             logger.debug("Async SIGINT handler registered.")
         except NotImplementedError:
             # Fallback for platforms that don't support add_signal_handler (like Windows)
-            logger.debug("add_signal_handler not supported on this platform, falling back to setup_signals.")
+            logger.debug(
+                "add_signal_handler not supported on this platform, falling back to setup_signals."
+            )
             self.setup_signals()
 
     def should_stop(self) -> bool:

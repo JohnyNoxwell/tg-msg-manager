@@ -13,6 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tg_msg_manager.core.telegram.throttler import RateThrottler
 from tg_msg_manager.core.telegram.client import TelethonClientWrapper
 
+
 class TestTelegramCore(unittest.IsolatedAsyncioTestCase):
     class AsyncIterator:
         def __init__(self, items):
@@ -42,13 +43,13 @@ class TestTelegramCore(unittest.IsolatedAsyncioTestCase):
     async def test_throttler_limits(self):
         # Allow 10 requests per second (0.1 interval)
         throttler = RateThrottler(max_requests_per_second=10.0, burst=1)
-        
+
         start_time = time.perf_counter()
         # Perform 5 requests
         for _ in range(5):
             await throttler.throttle()
         end_time = time.perf_counter()
-        
+
         elapsed = end_time - start_time
         # 5 requests should take at least 0.4 seconds (0.1 delay between them)
         # Sequence: Request 1 (no wait), R2 (+0.1), R3 (+0.1), R4 (+0.1), R5 (+0.1)
@@ -58,11 +59,11 @@ class TestTelegramCore(unittest.IsolatedAsyncioTestCase):
         # Mock Telethon client
         wrapper = TelethonClientWrapper("dummy", 1, "hash", max_rps=100)
         wrapper.client = AsyncMock()
-        
+
         # Test get_me
         await wrapper.get_me()
         wrapper.client.get_me.assert_awaited_once()
-        
+
         # Test delete_messages
         await wrapper.delete_messages("entity", [1, 2, 3])
         wrapper.client.delete_messages.assert_awaited_once_with("entity", [1, 2, 3])
@@ -96,18 +97,30 @@ class TestTelegramCore(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(len(result), 1)
         self.assertEqual(wrapper.client.get_messages.await_count, 2)
-        self.assertEqual(wrapper.client.get_messages.await_args_list[0].kwargs["limit"], 1)
-        self.assertEqual(wrapper.client.get_messages.await_args_list[1].kwargs["limit"], 1)
+        self.assertEqual(
+            wrapper.client.get_messages.await_args_list[0].kwargs["limit"], 1
+        )
+        self.assertEqual(
+            wrapper.client.get_messages.await_args_list[1].kwargs["limit"], 1
+        )
 
-    async def test_iter_messages_falls_back_to_local_sender_filter_for_unresolved_numeric_user(self):
+    async def test_iter_messages_falls_back_to_local_sender_filter_for_unresolved_numeric_user(
+        self,
+    ):
         wrapper = TelethonClientWrapper("dummy", 1, "hash", max_rps=100)
         wrapper.client = MagicMock()
-        wrapper.client.get_input_entity = AsyncMock(side_effect=ValueError("not cached"))
-        wrapper.client.iter_messages = MagicMock(return_value=self.AsyncIterator([
-            self._telethon_message(message_id=3, sender_id=11, text="noise"),
-            self._telethon_message(message_id=2, sender_id=42, text="target"),
-            self._telethon_message(message_id=1, sender_id=12, text="noise"),
-        ]))
+        wrapper.client.get_input_entity = AsyncMock(
+            side_effect=ValueError("not cached")
+        )
+        wrapper.client.iter_messages = MagicMock(
+            return_value=self.AsyncIterator(
+                [
+                    self._telethon_message(message_id=3, sender_id=11, text="noise"),
+                    self._telethon_message(message_id=2, sender_id=42, text="target"),
+                    self._telethon_message(message_id=1, sender_id=12, text="noise"),
+                ]
+            )
+        )
 
         messages = []
         async for item in wrapper.iter_messages("chat", from_user=42):
@@ -115,6 +128,7 @@ class TestTelegramCore(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual([item.message_id for item in messages], [2])
         self.assertIsNone(wrapper.client.iter_messages.call_args.kwargs["from_user"])
+
 
 if __name__ == "__main__":
     unittest.main()

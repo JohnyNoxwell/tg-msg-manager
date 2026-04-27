@@ -1,7 +1,7 @@
 import os
 import asyncio
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, Dict, Any
 
 from .file_writer import FileRotateWriter
 from ..infrastructure.storage.interface import PrivateArchiveStorage
@@ -14,10 +14,12 @@ from ..i18n import _
 
 logger = logging.getLogger(__name__)
 
+
 class PrivateArchiveService:
     """
     Service for exporting private chats (PMs) with full media downloading capability.
     """
+
     def __init__(
         self,
         client: TelegramClientInterface,
@@ -36,9 +38,22 @@ class PrivateArchiveService:
     def _emit_event(self, name: str, **payload: Any) -> None:
         emit_service_event(self.event_sink, name, **payload)
 
-    def _get_user_folder_name(self, user_id: int, first_name: str, last_name: str, username: str) -> str:
-        name = UI.format_name({'first_name': first_name, 'last_name': last_name, 'username': username, 'user_id': user_id})
-        safe_name = "".join(c for c in name if c.isalnum() or c in (' ', '_')).strip().replace(' ', '_')
+    def _get_user_folder_name(
+        self, user_id: int, first_name: str, last_name: str, username: str
+    ) -> str:
+        name = UI.format_name(
+            {
+                "first_name": first_name,
+                "last_name": last_name,
+                "username": username,
+                "user_id": user_id,
+            }
+        )
+        safe_name = (
+            "".join(c for c in name if c.isalnum() or c in (" ", "_"))
+            .strip()
+            .replace(" ", "_")
+        )
         return f"{safe_name}_{user_id}"
 
     def _media_category(self, media_type: Optional[str]) -> str:
@@ -53,7 +68,9 @@ class PrivateArchiveService:
             return "voices"
         return "documents"
 
-    async def _download_media(self, msg_data: MessageData, media_dir: str) -> Optional[str]:
+    async def _download_media(
+        self, msg_data: MessageData, media_dir: str
+    ) -> Optional[str]:
         media_ref = getattr(msg_data, "media_ref", None)
         if media_ref is None:
             return None
@@ -67,13 +84,15 @@ class PrivateArchiveService:
         return await self.client.download_media(media_ref, file=target_path)
 
     def _prepare_archive_context(self, user_entity: Any) -> Dict[str, Any]:
-        user_id = getattr(user_entity, 'id', 0)
-        first_name = getattr(user_entity, 'first_name', '') or ''
-        last_name = getattr(user_entity, 'last_name', '') or ''
-        username = getattr(user_entity, 'username', '') or ''
+        user_id = getattr(user_entity, "id", 0)
+        first_name = getattr(user_entity, "first_name", "") or ""
+        last_name = getattr(user_entity, "last_name", "") or ""
+        username = getattr(user_entity, "username", "") or ""
 
         target_name = UI.format_name(user_entity)
-        folder_name = self._get_user_folder_name(user_id, first_name, last_name, username)
+        folder_name = self._get_user_folder_name(
+            user_id, first_name, last_name, username
+        )
         user_dir = os.path.join(self.base_dir, folder_name)
         media_dir = os.path.join(user_dir, "media")
         chat_log_path = os.path.join(user_dir, "chat_log.txt")
@@ -103,7 +122,9 @@ class PrivateArchiveService:
     def _archive_progress_summary(self, archive_stats: Dict[str, int]) -> str:
         return f"{_('label_downloaded')}={archive_stats['downloaded']} {_('label_skipped')}={archive_stats['skipped']}"
 
-    def _emit_archive_start(self, *, target_name: str, user_id: int, user_dir: str, last_id: int) -> None:
+    def _emit_archive_start(
+        self, *, target_name: str, user_id: int, user_dir: str, last_id: int
+    ) -> None:
         self._emit_event(
             "private_archive.started",
             target_name=target_name,
@@ -113,7 +134,9 @@ class PrivateArchiveService:
         )
         logger.info(f"PM Archive start for {user_id}. Last ID: {last_id}")
 
-    def _emit_archive_progress(self, *, count: int, stats: Dict[str, int], archive_stats: Dict[str, int]) -> None:
+    def _emit_archive_progress(
+        self, *, count: int, stats: Dict[str, int], archive_stats: Dict[str, int]
+    ) -> None:
         self._emit_event(
             "private_archive.progress",
             count=count,
@@ -137,7 +160,9 @@ class PrivateArchiveService:
             archive_stats=dict(archive_stats),
         )
 
-    def _track_media_stats(self, stats: Dict[str, int], media_type: Optional[str]) -> None:
+    def _track_media_stats(
+        self, stats: Dict[str, int], media_type: Optional[str]
+    ) -> None:
         if not media_type:
             return
         if media_type in stats:
@@ -202,7 +227,9 @@ class PrivateArchiveService:
         stats = self._initial_media_stats()
         archive_stats = self._initial_archive_stats()
 
-        async for msg_data in self.client.iter_messages(user_entity, limit=None, offset_id=0):
+        async for msg_data in self.client.iter_messages(
+            user_entity, limit=None, offset_id=0
+        ):
             if msg_data.message_id <= last_id:
                 break
 
@@ -217,7 +244,9 @@ class PrivateArchiveService:
             count += 1
 
             if count % 5 == 0:
-                self._emit_archive_progress(count=count, stats=stats, archive_stats=archive_stats)
+                self._emit_archive_progress(
+                    count=count, stats=stats, archive_stats=archive_stats
+                )
 
         return count, stats, archive_stats
 
@@ -228,10 +257,14 @@ class PrivateArchiveService:
         archive_ctx = self._prepare_archive_context(user_entity)
         self._ensure_archive_dirs(archive_ctx["media_dir"])
 
-        writer = FileRotateWriter(archive_ctx["chat_log_path"], as_json=False, max_msgs=5000)
+        writer = FileRotateWriter(
+            archive_ctx["chat_log_path"], as_json=False, max_msgs=5000
+        )
         last_id = self.storage.get_last_msg_id(archive_ctx["user_id"])
 
-        self.storage.register_target(archive_ctx["user_id"], archive_ctx["target_name"], archive_ctx["user_id"])
+        self.storage.register_target(
+            archive_ctx["user_id"], archive_ctx["target_name"], archive_ctx["user_id"]
+        )
         self._emit_archive_start(
             target_name=archive_ctx["target_name"],
             user_id=archive_ctx["user_id"],
@@ -252,7 +285,9 @@ class PrivateArchiveService:
             archive_stats=archive_stats,
         )
         if hasattr(self.storage, "update_last_sync_at"):
-            self.storage.update_last_sync_at(archive_ctx["user_id"], archive_ctx["user_id"])
+            self.storage.update_last_sync_at(
+                archive_ctx["user_id"], archive_ctx["user_id"]
+            )
         logger.info(
             f"PM Archive complete for {archive_ctx['user_id']}. {count} messages, {sum(stats.values())} media, "
             f"downloaded={archive_stats['downloaded']}, skipped={archive_stats['skipped']}."

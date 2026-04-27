@@ -1,11 +1,24 @@
-import os
 import asyncio
 import logging
 import sys
 import argparse
-import platform
-from datetime import datetime
 from typing import Optional, Any
+
+from .core.config import settings
+from .core.logging import setup_logging
+from .core.process import ProcessManager
+from .core.service_events import ServiceEvent
+from .core.telemetry import telemetry
+from .core.telegram.client import TelethonClientWrapper
+from .i18n import _, set_lang, get_lang
+from .infrastructure.storage.sqlite import SQLiteStorage
+from .services.alias_manager import AliasManager
+from .services.cleaner import CleanerService
+from .services.db_exporter import DBExportService
+from .services.exporter import ExportService
+from .services.private_archive import PrivateArchiveService
+from .services.scheduler import setup_scheduler
+from .utils.ui import UI
 
 try:
     import tty
@@ -14,8 +27,10 @@ except ImportError:
     tty = None
     termios = None
 
+
 class TerminalInput:
     """Helper to read raw input including Escape key on Unix systems."""
+
     @staticmethod
     def get_char():
         if not tty or not termios:
@@ -38,38 +53,23 @@ class TerminalInput:
         input_str = ""
         while True:
             char = TerminalInput.get_char()
-            if char == '\x1b': # ESC
+            if char == "\x1b":  # ESC
                 sys.stdout.write("\n")
                 return None
-            if char == '\r' or char == '\n': # Enter
+            if char == "\r" or char == "\n":  # Enter
                 sys.stdout.write("\n")
                 return input_str
-            if char == '\x7f' or char == '\x08': # Backspace
+            if char == "\x7f" or char == "\x08":  # Backspace
                 if len(input_str) > 0:
                     input_str = input_str[:-1]
-                    sys.stdout.write('\b \b')
+                    sys.stdout.write("\b \b")
                     sys.stdout.flush()
                 continue
-            if char.isprintable(): # Regular printable chars
+            if char.isprintable():  # Regular printable chars
                 input_str += char
                 sys.stdout.write(char)
                 sys.stdout.flush()
 
-from .core.config import settings
-from .core.logging import setup_logging
-from .core.process import ProcessManager
-from .core.service_events import ServiceEvent
-from .core.telemetry import telemetry
-from .core.telegram.client import TelethonClientWrapper
-from .infrastructure.storage.sqlite import SQLiteStorage
-from .services.exporter import ExportService
-from .services.cleaner import CleanerService
-from .services.db_exporter import DBExportService
-from .services.private_archive import PrivateArchiveService
-from .services.alias_manager import AliasManager
-from .services.scheduler import setup_scheduler, remove_scheduler
-from .i18n import _, set_lang, get_lang
-from .utils.ui import UI
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,9 @@ def _render_service_event(event: ServiceEvent) -> None:
         if UI.is_tty():
             colored_title = UI.paint(payload["chat_title"], UI.CLR_CHAT, bold=True)
             mode_badge = UI.paint(payload["mode_str"], UI.CLR_STATS, bold=True)
-            status_badge = UI.muted(payload["status_str"]) if payload["status_str"] else ""
+            status_badge = (
+                UI.muted(payload["status_str"]) if payload["status_str"] else ""
+            )
             header = f"{UI.section(_('section_sync'), icon='◆')}  {colored_title}"
             if payload["user_label"]:
                 header = f"{header}  {UI.muted(_('label_user'))} {UI.paint(payload['user_label'], UI.CLR_USER, bold=True)}"
@@ -115,65 +117,92 @@ def _render_service_event(event: ServiceEvent) -> None:
 
     if event.name == "export.sync_summary":
         if UI.is_tty():
-            UI.print_final_summary("sync_summary_title", [{
-                "title": payload["title"],
-                "lines": [
-                    ("user_messages", payload["own_messages"]),
-                    ("with_context", payload["with_context"]),
+            UI.print_final_summary(
+                "sync_summary_title",
+                [
+                    {
+                        "title": payload["title"],
+                        "lines": [
+                            ("user_messages", payload["own_messages"]),
+                            ("with_context", payload["with_context"]),
+                        ],
+                    }
                 ],
-            }])
+            )
         return
 
     if event.name == "export.history_fully_synced":
         if sys.stdout.isatty():
-            print(f"\n{UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_history_fully_synced'), UI.CLR_SUCCESS)}")
+            print(
+                f"\n{UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_history_fully_synced'), UI.CLR_SUCCESS)}"
+            )
         return
 
     if event.name == "export.targeted_dialog_search_started":
         if sys.stdout.isatty():
-            print(f"\n{UI.section(_('section_targeted_search'), icon='◆')}  {UI.key_value(_('label_user'), payload['from_user_id'], icon='◌')}  {UI.key_value(_('label_dialogs'), payload['dialog_count'], icon='◌')}")
+            print(
+                f"\n{UI.section(_('section_targeted_search'), icon='◆')}  {UI.key_value(_('label_user'), payload['from_user_id'], icon='◌')}  {UI.key_value(_('label_dialogs'), payload['dialog_count'], icon='◌')}"
+            )
         return
 
     if event.name == "export.dialog_search_started":
         if sys.stdout.isatty():
-            print(f"\n{UI.section(_('section_dialog_search'), icon='◆')}  {UI.key_value(_('label_user'), payload['from_user_id'], icon='◌')}")
+            print(
+                f"\n{UI.section(_('section_dialog_search'), icon='◆')}  {UI.key_value(_('label_user'), payload['from_user_id'], icon='◌')}"
+            )
         return
 
     if event.name == "export.dialog_search_scanning":
         if sys.stdout.isatty():
-            print(f"   {UI.muted(_('label_scanning'))} {UI.paint(payload['dialog_count'], UI.CLR_STATS, bold=True)} {UI.muted(_('label_dialogs'))}")
+            print(
+                f"   {UI.muted(_('label_scanning'))} {UI.paint(payload['dialog_count'], UI.CLR_STATS, bold=True)} {UI.muted(_('label_dialogs'))}"
+            )
         return
 
     if event.name == "export.dialog_scan_started":
         if UI.is_tty():
             progress_label = f"{payload['index']}/{payload['total']}"
-            print(f"\n   {UI.paint(progress_label, UI.CLR_MUTED)}  {UI.paint(payload['dialog_title'], UI.CLR_CHAT, bold=True)}")
+            print(
+                f"\n   {UI.paint(progress_label, UI.CLR_MUTED)}  {UI.paint(payload['dialog_title'], UI.CLR_CHAT, bold=True)}"
+            )
         return
 
     if event.name == "export.global_export_finished":
         if UI.is_tty():
-            print(f"\n{UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_global_export_finished'), UI.CLR_SUCCESS)}  {UI.key_value(_('label_processed'), payload['total_processed'], icon='✉')}")
+            print(
+                f"\n{UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_global_export_finished'), UI.CLR_SUCCESS)}  {UI.key_value(_('label_processed'), payload['total_processed'], icon='✉')}"
+            )
         return
 
     if event.name == "export.tracked_update_started":
         if UI.is_tty():
-            print(f"\n{UI.section(_('section_update'), icon='◆')}  {UI.key_value(_('label_targets'), payload['target_count'], icon='◌')}")
+            print(
+                f"\n{UI.section(_('section_update'), icon='◆')}  {UI.key_value(_('label_targets'), payload['target_count'], icon='◌')}"
+            )
         return
 
     if event.name == "cleaner.dialog_scan_started":
-        UI.print_status("Cleaning", f"[{payload['index']}/{payload['total']}] {payload['name']}")
+        UI.print_status(
+            "Cleaning", f"[{payload['index']}/{payload['total']}] {payload['name']}"
+        )
         return
 
     if event.name == "cleaner.dialog_messages_found":
-        UI.print_status("Found", payload["count"], extra=f"messages in {payload['name']}")
+        UI.print_status(
+            "Found", payload["count"], extra=f"messages in {payload['name']}"
+        )
         sys.stdout.write("\n")
         sys.stdout.flush()
         return
 
     if event.name == "private_archive.started":
         if UI.is_tty():
-            print(f"\n{UI.section(_('section_pm_archive'), icon='◆')}  {UI.paint(payload['target_name'], UI.CLR_USER, bold=True)}  {UI.muted(_('label_id'))} {UI.paint(payload['user_id'], UI.CLR_ID)}")
-            print(f"   {UI.muted(_('label_path'))} {UI.paint(payload['user_dir'], UI.CLR_CHAT)}")
+            print(
+                f"\n{UI.section(_('section_pm_archive'), icon='◆')}  {UI.paint(payload['target_name'], UI.CLR_USER, bold=True)}  {UI.muted(_('label_id'))} {UI.paint(payload['user_id'], UI.CLR_ID)}"
+            )
+            print(
+                f"   {UI.muted(_('label_path'))} {UI.paint(payload['user_dir'], UI.CLR_CHAT)}"
+            )
         return
 
     if event.name == "private_archive.progress":
@@ -186,7 +215,9 @@ def _render_service_event(event: ServiceEvent) -> None:
 
     if event.name == "private_archive.media_saved":
         if UI.is_tty():
-            print(f"   {UI.paint('↳', UI.CLR_MUTED)} {UI.muted(_('label_saved_media'))} {UI.paint(payload['filename'], UI.CLR_STATS)}")
+            print(
+                f"   {UI.paint('↳', UI.CLR_MUTED)} {UI.muted(_('label_saved_media'))} {UI.paint(payload['filename'], UI.CLR_STATS)}"
+            )
         return
 
     if event.name == "private_archive.completed":
@@ -197,58 +228,77 @@ def _render_service_event(event: ServiceEvent) -> None:
             payload["count"],
             extra=f"{_('label_messages')} | {_archive_progress_summary(payload['archive_stats'])} | {_('label_media')}: {_archive_media_summary(payload['stats'])}",
         )
-        UI.print_final_summary("sync_summary_title", [{
-            "title": payload["target_name"],
-            "lines": [
-                ("messages", payload["count"]),
-                ("downloaded", payload["archive_stats"]["downloaded"]),
-                ("skipped", payload["archive_stats"]["skipped"]),
-                ("media", sum(payload["stats"].values())),
+        UI.print_final_summary(
+            "sync_summary_title",
+            [
+                {
+                    "title": payload["target_name"],
+                    "lines": [
+                        ("messages", payload["count"]),
+                        ("downloaded", payload["archive_stats"]["downloaded"]),
+                        ("skipped", payload["archive_stats"]["skipped"]),
+                        ("media", sum(payload["stats"].values())),
+                    ],
+                }
             ],
-        }])
+        )
         sys.stdout.write("\n")
         sys.stdout.flush()
         return
 
+
 def resolve_id(id_str: str) -> Any:
     """Helper to convert string IDs to int if they look like numbers."""
-    try: return int(id_str)
-    except (ValueError, TypeError): return id_str
+    try:
+        return int(id_str)
+    except (ValueError, TypeError):
+        return id_str
 
-async def get_safe_user_and_chat(client: TelethonClientWrapper, user_id_str: str, chat_id_str: Optional[str] = None):
+
+async def get_safe_user_and_chat(
+    client: TelethonClientWrapper,
+    user_id_str: str,
+    chat_id_str: Optional[str] = None,
+):
     """Safely resolves user and chat entities."""
     user_id = resolve_id(user_id_str)
     chat_id = resolve_id(chat_id_str) if chat_id_str else None
-    
+
     chat_entity = None
     if chat_id:
-        try: chat_entity = await client.get_entity(chat_id)
-        except Exception as e: logger.warning(f"Could not resolve chat {chat_id}: {e}")
-    
+        try:
+            chat_entity = await client.get_entity(chat_id)
+        except Exception as e:
+            logger.warning(f"Could not resolve chat {chat_id}: {e}")
+
     user_entity = None
-    try: user_entity = await client.get_entity(user_id)
-    except Exception as e: logger.warning(f"Could not resolve user {user_id} directly: {e}")
-    
+    try:
+        user_entity = await client.get_entity(user_id)
+    except Exception as e:
+        logger.warning(f"Could not resolve user {user_id} directly: {e}")
+
     return user_entity, chat_entity
+
 
 class CLIContext:
     """
     Centralized context for CLI resource management.
     Ensures single initialization of services and graceful shutdown.
     """
+
     def __init__(self, needs_client: bool = True):
         self.pm = ProcessManager()
         self.storage: Optional[SQLiteStorage] = None
         self.client: Optional[TelethonClientWrapper] = None
         self.needs_client = needs_client
-        
+
         # Services
         self.exporter: Optional[ExportService] = None
         self.cleaner: Optional[CleanerService] = None
         self.db_exporter: Optional[DBExportService] = None
         self.private_archive: Optional[PrivateArchiveService] = None
         self.alias_manager = AliasManager()
-        
+
         self.active_uid = None
 
     async def initialize(self):
@@ -257,20 +307,26 @@ class CLIContext:
         if not self.pm.acquire_lock():
             print(_("error_locked"))
             sys.exit(1)
-        
+
         # Setup async signals early
         self.pm.setup_async_signals(asyncio.get_running_loop(), self.emergency_callback)
-        
+
         self.storage = SQLiteStorage(settings.db_path, process_manager=self.pm)
         await self.storage.start()
-        
+
         self.db_exporter = DBExportService(self.storage)
-        
+
         if self.needs_client:
-            self.client = TelethonClientWrapper(settings.session_name, settings.api_id, settings.api_hash)
+            self.client = TelethonClientWrapper(
+                settings.session_name, settings.api_id, settings.api_hash
+            )
             await self.client.connect()
-            self.exporter = ExportService(self.client, self.storage, event_sink=_render_service_event)
-            self.private_archive = PrivateArchiveService(self.client, self.storage, event_sink=_render_service_event)
+            self.exporter = ExportService(
+                self.client, self.storage, event_sink=_render_service_event
+            )
+            self.private_archive = PrivateArchiveService(
+                self.client, self.storage, event_sink=_render_service_event
+            )
 
         self.cleaner = CleanerService(
             self.client,
@@ -281,32 +337,52 @@ class CLIContext:
         )
 
     async def shutdown(self):
-        if self.client: await self.client.disconnect()
-        if self.storage: await self.storage.close()
-        if self.pm: self.pm.release_lock()
+        if self.client:
+            await self.client.disconnect()
+        if self.storage:
+            await self.storage.close()
+        if self.pm:
+            self.pm.release_lock()
 
     async def emergency_callback(self):
         """Async callback for signal handling."""
         if self.active_uid and self.db_exporter:
-            sys.stdout.write(f"\n⚠️ Performing emergency JSON export for User ID: {self.active_uid}...\n")
-            path = await self.db_exporter.export_user_messages(self.active_uid, as_json=True, include_date=False)
-            if path: sys.stdout.write(f"✅ Emergency dump saved to: {path}\n")
+            sys.stdout.write(
+                f"\n⚠️ Performing emergency JSON export for User ID: {self.active_uid}...\n"
+            )
+            path = await self.db_exporter.export_user_messages(
+                self.active_uid,
+                as_json=True,
+                include_date=False,
+            )
+            if path:
+                sys.stdout.write(f"✅ Emergency dump saved to: {path}\n")
             sys.stdout.flush()
+
 
 def print_target_list(targets: list):
     """Prints a formatted, color-coded list of primary targets."""
     for i, u in enumerate(targets):
         display_name = UI.paint(u["author_name"], UI.CLR_USER, bold=True)
         user_id_str = UI.paint(u["user_id"], UI.CLR_ID)
-        chat_info = f"  {UI.paint('•', UI.CLR_BORDER)}  {UI.paint(u['chat_title'], UI.CLR_CHAT)}" if u.get("chat_title") else ""
+        chat_info = (
+            f"  {UI.paint('•', UI.CLR_BORDER)}  {UI.paint(u['chat_title'], UI.CLR_CHAT)}"
+            if u.get("chat_title")
+            else ""
+        )
         own_count = UI.key_value(_("label_msg_short"), u["user_msg_count"], icon="✉")
-        context_count = UI.key_value(_("label_ctx_short"), u["context_msg_count"], icon="◌")
+        context_count = UI.key_value(
+            _("label_ctx_short"), u["context_msg_count"], icon="◌"
+        )
         is_complete = bool(u.get("is_complete", 0))
         status_color = UI.CLR_SUCCESS if is_complete else UI.CLR_WARN
         status_label = _("status_complete") if is_complete else _("status_incomplete")
         status = UI.paint(status_label, status_color, bold=True)
-        idx_str = UI.paint(f"{i+1:02}.", UI.CLR_MUTED)
-        print(f" {idx_str}  {display_name}  {UI.muted(_('label_id'))} {user_id_str}  {own_count}  {context_count}  {status}{chat_info}")
+        idx_str = UI.paint(f"{i + 1:02}.", UI.CLR_MUTED)
+        print(
+            f" {idx_str}  {display_name}  {UI.muted(_('label_id'))} {user_id_str}  {own_count}  {context_count}  {status}{chat_info}"
+        )
+
 
 def get_dirty_target_ids(stats: dict) -> list:
     """Returns only targets that actually received new messages during update."""
@@ -317,6 +393,7 @@ def get_dirty_target_ids(stats: dict) -> list:
         if item.get("dirty") or item.get("count", 0) > 0:
             dirty_ids.append(uid)
     return dirty_ids
+
 
 def build_cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="TG.MSG.CLEANER CLI", add_help=False)
@@ -353,8 +430,10 @@ def build_cli_parser() -> argparse.ArgumentParser:
     db_parser.add_argument("--json", action="store_true", default=True)
     return parser
 
+
 def _command_needs_client(command: str) -> bool:
     return command not in ("setup", "schedule", "db-export")
+
 
 def _store_resolved_user(ctx: CLIContext, user_ent: Any) -> None:
     if not user_ent:
@@ -366,6 +445,7 @@ def _store_resolved_user(ctx: CLIContext, user_ent: Any) -> None:
         last_name=getattr(user_ent, "last_name", None),
         username=getattr(user_ent, "username", None),
     )
+
 
 async def _run_export_sync(
     ctx: CLIContext,
@@ -402,8 +482,11 @@ async def _run_export_sync(
             recursive_depth=recursive_depth,
             limit=limit,
         )
-    print(f"{UI.paint('✖', UI.CLR_ERROR, bold=True)} {UI.paint(_('text_could_not_resolve_target', target=final_uid), UI.CLR_ERROR)}")
+    print(
+        f"{UI.paint('✖', UI.CLR_ERROR, bold=True)} {UI.paint(_('text_could_not_resolve_target', target=final_uid), UI.CLR_ERROR)}"
+    )
     return 0
+
 
 async def _emit_export_summary(
     ctx: CLIContext,
@@ -416,35 +499,58 @@ async def _emit_export_summary(
     if show_finalize_section:
         print(f"\n{UI.section(_('section_finalizing_export'), icon='⬢')}")
 
-    path = await ctx.db_exporter.export_user_messages(final_uid, as_json=True, include_date=False)
+    path = await ctx.db_exporter.export_user_messages(
+        final_uid, as_json=True, include_date=False
+    )
     if show_saved_path and path:
-        print(f"{UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_export_saved'), UI.CLR_SUCCESS)}  {UI.muted(path)}")
+        print(
+            f"{UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_export_saved'), UI.CLR_SUCCESS)}  {UI.muted(path)}"
+        )
 
     telemetry.log_summary("Export telemetry summary")
     user_info = ctx.storage.get_user(final_uid)
     target_name = UI.format_name(user_info) if user_info else f"ID:{final_uid}"
-    UI.print_final_summary("sync_summary_title", [{
-        "title": f"{_('label_export')}: {target_name}",
-        "lines": [("processed", processed)],
-    }])
+    UI.print_final_summary(
+        "sync_summary_title",
+        [
+            {
+                "title": f"{_('label_export')}: {target_name}",
+                "lines": [("processed", processed)],
+            }
+        ],
+    )
 
-async def _sync_and_export_dirty_targets(ctx: CLIContext, *, emit_telemetry_summary: bool) -> dict:
+
+async def _sync_and_export_dirty_targets(
+    ctx: CLIContext, *, emit_telemetry_summary: bool
+) -> dict:
     stats = await ctx.exporter.sync_all_tracked()
     for uid in get_dirty_target_ids(stats):
-        await ctx.db_exporter.export_user_messages(uid, as_json=True, include_date=False)
+        await ctx.db_exporter.export_user_messages(
+            uid, as_json=True, include_date=False
+        )
     if emit_telemetry_summary:
         telemetry.log_summary("Update telemetry summary")
     return stats
 
+
 def _print_update_summary(stats: dict, *, title: str) -> None:
-    total_processed = sum(item["count"] for item in stats.values() if isinstance(item, dict))
-    UI.print_final_summary("sync_summary_title", [{
-        "title": title,
-        "lines": [
-            ("processed", total_processed),
-            ("targets", len(stats)),
+    total_processed = sum(
+        item["count"] for item in stats.values() if isinstance(item, dict)
+    )
+    UI.print_final_summary(
+        "sync_summary_title",
+        [
+            {
+                "title": title,
+                "lines": [
+                    ("processed", total_processed),
+                    ("targets", len(stats)),
+                ],
+            }
         ],
-    }])
+    )
+
 
 def _print_alias_install_result(ctx: CLIContext, *, paint_errors: bool) -> None:
     res = ctx.alias_manager.install()
@@ -457,46 +563,65 @@ def _print_alias_install_result(ctx: CLIContext, *, paint_errors: bool) -> None:
             print(line)
         return
 
-    error_message = res.get("error", "Error during setup." if paint_errors else "Error during setup")
+    error_message = res.get(
+        "error", "Error during setup." if paint_errors else "Error during setup"
+    )
     if paint_errors:
         print(UI.paint(error_message, UI.CLR_ERROR))
     else:
         print(error_message)
+
 
 def _pause_for_enter() -> None:
     sys.stdout.write("\n" + _("press_enter"))
     sys.stdout.flush()
     TerminalInput.get_char()
 
+
 def _render_main_menu(me_id: Any) -> None:
     UI.clear_screen()
     UI.print_gradient_banner()
     print(UI.rule(105))
-    print(f" {UI.section(_('section_control_center'), icon='◆')}  {UI.key_value(_('label_account'), me_id, icon='◌')}")
+    print(
+        f" {UI.section(_('section_control_center'), icon='◆')}  {UI.key_value(_('label_account'), me_id, icon='◌')}"
+    )
     print(f" {UI.muted('ESC — back/cancel   ·   0 — exit')}")
     print(UI.rule(105))
     for i in range(1, 10):
-        print(f" {UI.paint(f'[{i}]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_' + str(i)), UI.CLR_TEXT)}  {UI.muted(_('menu_' + str(i) + '_desc'))}")
-    print(f" {UI.paint('[L]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_lang'), UI.CLR_TEXT)}")
-    print(f" {UI.paint('[0]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_exit'), UI.CLR_TEXT)}")
+        print(
+            f" {UI.paint(f'[{i}]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_' + str(i)), UI.CLR_TEXT)}  {UI.muted(_('menu_' + str(i) + '_desc'))}"
+        )
+    print(
+        f" {UI.paint('[L]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_lang'), UI.CLR_TEXT)}"
+    )
+    print(
+        f" {UI.paint('[0]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_exit'), UI.CLR_TEXT)}"
+    )
+
 
 async def _handle_setup_command(ctx: CLIContext, args: argparse.Namespace) -> None:
     _print_alias_install_result(ctx, paint_errors=False)
 
+
 async def _handle_schedule_command(ctx: CLIContext, args: argparse.Namespace) -> None:
     await setup_scheduler()
+
 
 async def _handle_delete_command(ctx: CLIContext, args: argparse.Namespace) -> None:
     uid = resolve_id(args.user_id)
     await ctx.cleaner.purge_user_data(uid)
 
+
 async def _handle_db_export_command(ctx: CLIContext, args: argparse.Namespace) -> None:
     uid = resolve_id(args.user_id)
     await ctx.db_exporter.export_user_messages(uid, as_json=args.json)
 
+
 async def _handle_export_command(ctx: CLIContext, args: argparse.Namespace) -> None:
     ctx.active_uid = resolve_id(args.user_id)
-    user_ent, chat_ent = await get_safe_user_and_chat(ctx.client, args.user_id, args.chat_id)
+    user_ent, chat_ent = await get_safe_user_and_chat(
+        ctx.client, args.user_id, args.chat_id
+    )
     _store_resolved_user(ctx, user_ent)
 
     processed = 0
@@ -524,9 +649,11 @@ async def _handle_export_command(ctx: CLIContext, args: argparse.Namespace) -> N
         if not ctx.pm.should_stop():
             logger.error(f"Error during export: {e}")
 
+
 async def _handle_update_command(ctx: CLIContext, args: argparse.Namespace) -> None:
     stats = await _sync_and_export_dirty_targets(ctx, emit_telemetry_summary=True)
     _print_update_summary(stats, title=_("label_update"))
+
 
 async def _handle_clean_command(ctx: CLIContext, args: argparse.Namespace) -> None:
     is_dry = True
@@ -535,14 +662,18 @@ async def _handle_clean_command(ctx: CLIContext, args: argparse.Namespace) -> No
     if args.dry_run is True:
         is_dry = True
     deleted = await ctx.cleaner.global_self_cleanup(dry_run=is_dry)
-    print(f"\n{UI.section(_('summary_header'), icon='◆')}\n{_('total_deleted_msgs', count=deleted)}")
+    print(
+        f"\n{UI.section(_('summary_header'), icon='◆')}\n{_('total_deleted_msgs', count=deleted)}"
+    )
     if is_dry:
-        print(UI.paint(_('dry_run_info'), UI.CLR_WARN))
+        print(UI.paint(_("dry_run_info"), UI.CLR_WARN))
+
 
 async def _handle_export_pm_command(ctx: CLIContext, args: argparse.Namespace) -> None:
     user_ent, unused = await get_safe_user_and_chat(ctx.client, args.user_id)
     if user_ent:
         await ctx.private_archive.archive_pm(user_ent)
+
 
 async def _handle_menu_export(ctx: CLIContext) -> None:
     UI.print_header(_("menu_1"), _("menu_1_desc"))
@@ -554,7 +685,9 @@ async def _handle_menu_export(ctx: CLIContext) -> None:
     if chat_str is None:
         return
 
-    deep_choice = TerminalInput.prompt_with_esc(_("prompt_deep").replace("[y/N]", "[y]").replace("[Y/n]", "[y]") + ": ")
+    deep_choice = TerminalInput.prompt_with_esc(
+        _("prompt_deep").replace("[y/N]", "[y]").replace("[Y/n]", "[y]") + ": "
+    )
     if deep_choice is None:
         return
     active_deep = deep_choice.lower() != "n"
@@ -586,7 +719,9 @@ async def _handle_menu_export(ctx: CLIContext) -> None:
         )
     finally:
         if ctx.pm.should_stop():
-            print(f"\n{UI.paint('▲', UI.CLR_WARN, bold=True)} {UI.paint(_('text_interrupted_exporting_partial'), UI.CLR_WARN)}")
+            print(
+                f"\n{UI.paint('▲', UI.CLR_WARN, bold=True)} {UI.paint(_('text_interrupted_exporting_partial'), UI.CLR_WARN)}"
+            )
         if final_uid:
             await _emit_export_summary(
                 ctx,
@@ -597,12 +732,16 @@ async def _handle_menu_export(ctx: CLIContext) -> None:
             )
     _pause_for_enter()
 
+
 async def _handle_menu_update(ctx: CLIContext) -> None:
     UI.print_header(_("menu_2"), _("menu_2_desc"))
-    updated_stats = await _sync_and_export_dirty_targets(ctx, emit_telemetry_summary=False)
+    updated_stats = await _sync_and_export_dirty_targets(
+        ctx, emit_telemetry_summary=False
+    )
     if updated_stats:
         _print_update_summary(updated_stats, title="Update")
     _pause_for_enter()
+
 
 async def _handle_menu_clean(ctx: CLIContext) -> None:
     UI.print_header(_("menu_3"), _("sub_clean_info"))
@@ -611,9 +750,14 @@ async def _handle_menu_clean(ctx: CLIContext) -> None:
         return
     confirm = TerminalInput.prompt_with_esc(_("clean_confirm") + " (y/n): ")
     if confirm and confirm.lower() == "y":
-        deleted = await ctx.cleaner.global_self_cleanup(dry_run=False, include_pms=(pm_choice.lower() == "y"))
-        print(f"\n{UI.section(_('summary_header'), icon='◆')}\n{_('total_deleted_msgs', count=deleted)}")
+        deleted = await ctx.cleaner.global_self_cleanup(
+            dry_run=False, include_pms=(pm_choice.lower() == "y")
+        )
+        print(
+            f"\n{UI.section(_('summary_header'), icon='◆')}\n{_('total_deleted_msgs', count=deleted)}"
+        )
     _pause_for_enter()
+
 
 async def _handle_menu_export_pm(ctx: CLIContext) -> None:
     UI.print_header(_("menu_4"), _("menu_4_desc"))
@@ -623,6 +767,7 @@ async def _handle_menu_export_pm(ctx: CLIContext) -> None:
         if user_ent:
             await ctx.private_archive.archive_pm(user_ent)
     _pause_for_enter()
+
 
 async def _handle_menu_delete_data(ctx: CLIContext) -> None:
     UI.print_header(_("menu_5"), _("menu_5_desc"))
@@ -638,19 +783,23 @@ async def _handle_menu_delete_data(ctx: CLIContext) -> None:
         print(UI.paint(_("no_targets"), UI.CLR_WARN))
     _pause_for_enter()
 
+
 async def _handle_menu_schedule(ctx: CLIContext) -> None:
     UI.print_header(_("menu_6"), _("help_desc_6"))
     await setup_scheduler()
     _pause_for_enter()
+
 
 async def _handle_menu_setup(ctx: CLIContext) -> None:
     UI.print_header(_("menu_7"), _("sub_setup_info"))
     _print_alias_install_result(ctx, paint_errors=True)
     _pause_for_enter()
 
+
 async def _handle_menu_about(ctx: CLIContext) -> None:
     UI.print_header(_("menu_8"), _("about_text"))
     _pause_for_enter()
+
 
 async def _handle_menu_db_export(ctx: CLIContext) -> None:
     UI.print_header(_("menu_9"), _("sub_db_export_info"))
@@ -662,12 +811,17 @@ async def _handle_menu_db_export(ctx: CLIContext) -> None:
             target = users[int(idx_str) - 1]
             fmt = TerminalInput.prompt_with_esc(_("label_format_prompt"))
             if fmt == "1":
-                await ctx.db_exporter.export_user_messages(target["user_id"], as_json=True)
+                await ctx.db_exporter.export_user_messages(
+                    target["user_id"], as_json=True
+                )
             elif fmt == "2":
-                await ctx.db_exporter.export_user_messages(target["user_id"], as_json=False)
+                await ctx.db_exporter.export_user_messages(
+                    target["user_id"], as_json=False
+                )
     else:
         print(UI.paint(_("no_targets"), UI.CLR_WARN))
     _pause_for_enter()
+
 
 async def _dispatch_main_menu_choice(ctx: CLIContext, choice: str) -> bool:
     if choice == "L":
@@ -692,6 +846,7 @@ async def _dispatch_main_menu_choice(ctx: CLIContext, choice: str) -> bool:
         await handler(ctx)
     return True
 
+
 async def run_cli():
     """Main CLI entry point with subcommand support."""
     parser = build_cli_parser()
@@ -702,7 +857,7 @@ async def run_cli():
         return
 
     ctx = CLIContext(needs_client=_command_needs_client(args.command))
-    
+
     try:
         await ctx.initialize()
         handlers = {
@@ -722,6 +877,7 @@ async def run_cli():
     finally:
         await ctx.shutdown()
 
+
 async def main_menu():
     """Main interactive menu logic."""
     ctx = CLIContext(needs_client=True)
@@ -729,13 +885,13 @@ async def main_menu():
         await ctx.initialize()
         me = await ctx.client.get_me()
         me_id = me.id if me else "Unknown"
-        
+
         while True:
             _render_main_menu(me_id)
             sys.stdout.write(_("choice_prompt") + ": ")
             sys.stdout.flush()
             char = TerminalInput.get_char()
-            if char == '\x1b':
+            if char == "\x1b":
                 continue
             choice = char.upper()
             print(choice)
@@ -744,9 +900,13 @@ async def main_menu():
     finally:
         await ctx.shutdown()
 
+
 def main():
-    try: asyncio.run(run_cli())
-    except KeyboardInterrupt: sys.exit(0)
+    try:
+        asyncio.run(run_cli())
+    except KeyboardInterrupt:
+        sys.exit(0)
+
 
 if __name__ == "__main__":
     main()

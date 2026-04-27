@@ -12,7 +12,9 @@ logger = logging.getLogger(__name__)
 
 
 class SQLiteWritePathMixin:
-    async def save_message(self, msg: MessageData, target_id: Optional[int] = None, flush: bool = True) -> bool:
+    async def save_message(
+        self, msg: MessageData, target_id: Optional[int] = None, flush: bool = True
+    ) -> bool:
         """Queues a single message for background saving."""
         await self._ensure_worker_started()
         self._write_queue.put_nowait((msg, target_id))
@@ -22,7 +24,12 @@ class SQLiteWritePathMixin:
             await self.flush()
         return True
 
-    async def save_messages(self, msgs: List[MessageData], target_id: Optional[int] = None, flush: bool = True) -> int:
+    async def save_messages(
+        self,
+        msgs: List[MessageData],
+        target_id: Optional[int] = None,
+        flush: bool = True,
+    ) -> int:
         """Queues a batch of messages for background saving."""
         if not msgs:
             return 0
@@ -35,7 +42,9 @@ class SQLiteWritePathMixin:
             await self.flush()
         return len(msgs)
 
-    def _save_message_sync(self, msg: MessageData, target_id: Optional[int] = None) -> bool:
+    def _save_message_sync(
+        self, msg: MessageData, target_id: Optional[int] = None
+    ) -> bool:
         try:
             with self._write_transaction() as conn:
                 self._save_msg_internal(conn, msg, target_id)
@@ -52,7 +61,9 @@ class SQLiteWritePathMixin:
             try:
                 timeout = 0.5 if not self._shutdown_event.is_set() else 0.05
                 try:
-                    item = await asyncio.wait_for(self._write_queue.get(), timeout=timeout)
+                    item = await asyncio.wait_for(
+                        self._write_queue.get(), timeout=timeout
+                    )
                     items.append(item)
                     while len(items) < 500 and not self._write_queue.empty():
                         items.append(self._write_queue.get_nowait())
@@ -62,9 +73,14 @@ class SQLiteWritePathMixin:
                 if items:
                     started_at = time.perf_counter()
                     await asyncio.to_thread(self._save_batches_by_target, items)
-                    telemetry.track_duration("storage.background_commit.total", time.perf_counter() - started_at)
+                    telemetry.track_duration(
+                        "storage.background_commit.total",
+                        time.perf_counter() - started_at,
+                    )
                     telemetry.track_counter("storage.background_commit.batches", 1)
-                    telemetry.track_counter("storage.background_commit.messages", len(items))
+                    telemetry.track_counter(
+                        "storage.background_commit.messages", len(items)
+                    )
                     for _ in range(len(items)):
                         self._write_queue.task_done()
                     logger.debug(f"Background Writer committed {len(items)} items.")
@@ -77,7 +93,9 @@ class SQLiteWritePathMixin:
                 await asyncio.sleep(1)
         logger.debug("SQLite Background Writer stopped.")
 
-    def _save_batches_by_target(self, items: List[tuple[MessageData, Optional[int]]]) -> int:
+    def _save_batches_by_target(
+        self, items: List[tuple[MessageData, Optional[int]]]
+    ) -> int:
         """Saves queued items efficiently in one transaction."""
         try:
             saved_count = 0
@@ -90,16 +108,20 @@ class SQLiteWritePathMixin:
             logger.error(f"Error saving batch of messages with attribution: {e}")
             return 0
 
-    def _save_msg_internal(self, conn, msg: MessageData, target_id: Optional[int] = None):
+    def _save_msg_internal(
+        self, conn, msg: MessageData, target_id: Optional[int] = None
+    ):
         """Executes normalized UPSERTs for a message and sync state."""
         payload_hash = msg.get_payload_hash()
         existing_hash_row = conn.execute(
             "SELECT payload_hash FROM messages WHERE chat_id = ? AND message_id = ?",
-            (msg.chat_id, msg.message_id)
+            (msg.chat_id, msg.message_id),
         ).fetchone()
 
         if target_id is not None:
-            self._ensure_target_link_in_conn(conn, msg.chat_id, msg.message_id, target_id)
+            self._ensure_target_link_in_conn(
+                conn, msg.chat_id, msg.message_id, target_id
+            )
 
         if existing_hash_row and existing_hash_row["payload_hash"] == payload_hash:
             return
@@ -111,9 +133,13 @@ class SQLiteWritePathMixin:
             self._upsert_user_from_payload_in_conn(conn, data["user_id"], raw)
 
         self._upsert_chat_from_payload_in_conn(conn, data["chat_id"], raw)
-        self._upsert_context_link_in_conn(conn, data["message_id"], data.get("reply_to_id"))
+        self._upsert_context_link_in_conn(
+            conn, data["message_id"], data.get("reply_to_id")
+        )
         self._upsert_message_row_in_conn(conn, data, payload_hash)
-        self._update_sync_state_for_message_in_conn(conn, data["chat_id"], data["message_id"], target_id)
+        self._update_sync_state_for_message_in_conn(
+            conn, data["chat_id"], data["message_id"], target_id
+        )
 
     def _normalize_raw_payload(self, raw):
         if isinstance(raw, str):
@@ -130,11 +156,16 @@ class SQLiteWritePathMixin:
             return obj.hex()
         return f"<<Unserializable: {type(obj)}>>"
 
-    def _ensure_target_link_in_conn(self, conn, chat_id: int, message_id: int, target_id: int):
-        conn.execute("""
+    def _ensure_target_link_in_conn(
+        self, conn, chat_id: int, message_id: int, target_id: int
+    ):
+        conn.execute(
+            """
             INSERT OR IGNORE INTO message_target_links (chat_id, message_id, target_user_id)
             VALUES (?, ?, ?)
-        """, (chat_id, message_id, target_id))
+        """,
+            (chat_id, message_id, target_id),
+        )
 
     def _upsert_user_from_payload_in_conn(self, conn, user_id: int, raw: dict):
         first_name = raw.get("first_name") or ""
@@ -156,43 +187,67 @@ class SQLiteWritePathMixin:
         chat_type = raw.get("chat_type") or raw.get("_") or "Channel/Group"
         self._upsert_chat_in_conn(conn, chat_id, chat_title, chat_type)
 
-    def _upsert_context_link_in_conn(self, conn, message_id: int, reply_to_id: Optional[int]):
+    def _upsert_context_link_in_conn(
+        self, conn, message_id: int, reply_to_id: Optional[int]
+    ):
         if reply_to_id:
-            conn.execute("""
+            conn.execute(
+                """
                 INSERT OR REPLACE INTO message_context_links (message_id, context_message_id, link_type)
                 VALUES (?, ?, ?)
-            """, (message_id, reply_to_id, "reply"))
+            """,
+                (message_id, reply_to_id, "reply"),
+            )
 
     def _upsert_message_row_in_conn(self, conn, data: dict, payload_hash: str):
-        conn.execute("""
+        conn.execute(
+            """
             INSERT OR REPLACE INTO messages (
                 chat_id, message_id, user_id, author_name, timestamp, text,
                 media_type, reply_to_id, fwd_from_id,
                 context_group_id, raw_payload, payload_hash, schema_version
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            data["chat_id"], data["message_id"], data["user_id"], data["author_name"],
-            data["timestamp"], data["text"],
-            data["media_type"], data["reply_to_id"], data["fwd_from_id"],
-            data["context_group_id"],
-            json.dumps(data["raw_payload"], ensure_ascii=False, default=self._json_serial),
-            payload_hash,
-            SCHEMA_VERSION,
-        ))
+        """,
+            (
+                data["chat_id"],
+                data["message_id"],
+                data["user_id"],
+                data["author_name"],
+                data["timestamp"],
+                data["text"],
+                data["media_type"],
+                data["reply_to_id"],
+                data["fwd_from_id"],
+                data["context_group_id"],
+                json.dumps(
+                    data["raw_payload"], ensure_ascii=False, default=self._json_serial
+                ),
+                payload_hash,
+                SCHEMA_VERSION,
+            ),
+        )
 
-    def _update_sync_state_for_message_in_conn(self, conn, chat_id: int, message_id: int, target_id: Optional[int]):
+    def _update_sync_state_for_message_in_conn(
+        self, conn, chat_id: int, message_id: int, target_id: Optional[int]
+    ):
         now = int(time.time())
-        conn.execute("""
+        conn.execute(
+            """
             INSERT INTO sync_state (chat_id, last_msg_id, last_sync_timestamp)
             VALUES (?, ?, ?)
             ON CONFLICT(chat_id) DO UPDATE SET
                 last_msg_id = MAX(last_msg_id, excluded.last_msg_id),
                 last_sync_timestamp = excluded.last_sync_timestamp
-        """, (chat_id, message_id, now))
+        """,
+            (chat_id, message_id, now),
+        )
 
         if target_id is not None:
-            conn.execute("""
+            conn.execute(
+                """
                 UPDATE sync_targets
                 SET last_msg_id = MAX(last_msg_id, ?)
                 WHERE user_id = ? AND chat_id = ?
-            """, (message_id, target_id, chat_id))
+            """,
+                (message_id, target_id, chat_id),
+            )

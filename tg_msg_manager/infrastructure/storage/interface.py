@@ -76,7 +76,9 @@ class UserReadStorage(Protocol):
     def get_user_export_summary(self, user_id: int) -> Optional[dict]:
         """Returns deterministic summary metadata for exports when available."""
 
-    def iter_user_export_rows(self, user_id: int, chunk_size: int = 1000) -> Iterable[dict]:
+    def iter_user_export_rows(
+        self, user_id: int, chunk_size: int = 1000
+    ) -> Iterable[dict]:
         """Streams export rows in deterministic order."""
 
     def get_user_export_rows(self, user_id: int) -> List[dict]:
@@ -120,7 +122,9 @@ class TargetRegistryStorage(Protocol):
     ) -> None:
         """Upserts user metadata."""
 
-    def upsert_chat(self, chat_id: int, title: str, chat_type: Optional[str] = None) -> None:
+    def upsert_chat(
+        self, chat_id: int, title: str, chat_type: Optional[str] = None
+    ) -> None:
         """Upserts chat metadata."""
 
 
@@ -132,7 +136,9 @@ class SyncStateStorage(Protocol):
     def get_outdated_chats(self, threshold_seconds: int) -> List[tuple[int, int]]:
         """Returns chat/target pairs that should be refreshed."""
 
-    def update_sync_tail(self, chat_id: int, user_id: int, tail_id: int, is_complete: bool = False) -> None:
+    def update_sync_tail(
+        self, chat_id: int, user_id: int, tail_id: int, is_complete: bool = False
+    ) -> None:
         """Persists tail-progress state for partial history scans."""
 
     def update_last_msg_id(self, chat_id: int, user_id: int, last_msg_id: int) -> None:
@@ -168,7 +174,9 @@ class DBExportStorage(UserReadStorage, Protocol):
 
 
 @runtime_checkable
-class PrivateArchiveStorage(MessageWriteStorage, MessageReadStorage, TargetRegistryStorage, Protocol):
+class PrivateArchiveStorage(
+    MessageWriteStorage, MessageReadStorage, TargetRegistryStorage, Protocol
+):
     def update_last_sync_at(self, chat_id: int, user_id: int) -> None:
         """Marks the PM archive target as freshly synced."""
 
@@ -263,7 +271,9 @@ class BaseStorage(ABC):
         pass
 
     @abstractmethod
-    def iter_user_export_rows(self, user_id: int, chunk_size: int = 1000) -> Iterable[dict]:
+    def iter_user_export_rows(
+        self, user_id: int, chunk_size: int = 1000
+    ) -> Iterable[dict]:
         pass
 
     @abstractmethod
@@ -312,7 +322,9 @@ class BaseStorage(ABC):
         pass
 
     @abstractmethod
-    def update_sync_tail(self, chat_id: int, user_id: int, tail_id: int, is_complete: bool = False) -> None:
+    def update_sync_tail(
+        self, chat_id: int, user_id: int, tail_id: int, is_complete: bool = False
+    ) -> None:
         pass
 
     @abstractmethod
@@ -324,7 +336,9 @@ class BaseStorage(ABC):
         pass
 
     @abstractmethod
-    def upsert_chat(self, chat_id: int, title: str, chat_type: Optional[str] = None) -> None:
+    def upsert_chat(
+        self, chat_id: int, title: str, chat_type: Optional[str] = None
+    ) -> None:
         pass
 
     @abstractmethod

@@ -1,14 +1,16 @@
 import sys
 import os
 import platform
-from typing import Any, Optional, Union
+from typing import Any, Optional
 from datetime import datetime
 from ..i18n import _
+
 
 class UI:
     """
     Central utility for Terminal UI interactions, colors, and formatting.
     """
+
     # Unified 256-color palette for a cleaner CLI.
     CLR_TEXT = "\033[38;5;252m"
     CLR_MUTED = "\033[38;5;244m"
@@ -103,29 +105,35 @@ class UI:
         Standardizes how Telegram entities (Users/Chats) are displayed.
         """
         name = "Unknown"
-        if hasattr(entity, 'first_name'):
-            first = getattr(entity, 'first_name', '') or ''
-            last = getattr(entity, 'last_name', '') or ''
+        if hasattr(entity, "first_name"):
+            first = getattr(entity, "first_name", "") or ""
+            last = getattr(entity, "last_name", "") or ""
             name = f"{first} {last}".strip()
             if not name:
-                name = getattr(entity, 'username', '') or f"ID:{entity.id}"
-        elif hasattr(entity, 'title'):
-            name = getattr(entity, 'title', f"ID:{entity.id}")
+                name = getattr(entity, "username", "") or f"ID:{entity.id}"
+        elif hasattr(entity, "title"):
+            name = getattr(entity, "title", f"ID:{entity.id}")
         elif isinstance(entity, dict):
             # Handle dictionary representation from DB
-            first = entity.get('first_name') or ''
-            last = entity.get('last_name') or ''
-            name = f"{first} {last}".strip() or entity.get('username') or f"ID:{entity.get('user_id', 'Unknown')}"
+            first = entity.get("first_name") or ""
+            last = entity.get("last_name") or ""
+            name = (
+                f"{first} {last}".strip()
+                or entity.get("username")
+                or f"ID:{entity.get('user_id', 'Unknown')}"
+            )
         elif isinstance(entity, (int, str)):
             name = f"ID:{entity}"
 
         if use_color:
-            color = cls.CLR_USER if hasattr(entity, 'first_name') else cls.CLR_CHAT
+            color = cls.CLR_USER if hasattr(entity, "first_name") else cls.CLR_CHAT
             return cls.paint(name, color, bold=True)
         return name
 
     @classmethod
-    def print_status(cls, label: str, value: Any, color: Optional[str] = None, extra: str = ""):
+    def print_status(
+        cls, label: str, value: Any, color: Optional[str] = None, extra: str = ""
+    ):
         """
         Prints a standardized status line: [Label] Value Extra
         Automatically handles TTY checks and line clearing.
@@ -136,9 +144,15 @@ class UI:
         icon = cls.STATUS_ICONS.get(label, "•")
         label_text = cls.paint(cls.status_text(label), cls.CLR_TEXT, bold=True)
         icon_text = cls.paint(icon, color or cls.CLR_ACCENT, bold=True)
-        value_text = cls.paint(value, color or cls.CLR_STATS, bold=True) if value not in ("", None) else ""
+        value_text = (
+            cls.paint(value, color or cls.CLR_STATS, bold=True)
+            if value not in ("", None)
+            else ""
+        )
         extra_text = extra if extra else ""
-        pieces = [piece for piece in (icon_text, label_text, value_text, extra_text) if piece]
+        pieces = [
+            piece for piece in (icon_text, label_text, value_text, extra_text) if piece
+        ]
         sys.stdout.write(f"\r   {'  '.join(pieces)}\033[K")
         sys.stdout.flush()
 
@@ -164,7 +178,7 @@ class UI:
     @classmethod
     def print_gradient_banner(cls):
         """Prints the ASCII banner with a vertical color gradient."""
-        print() # Top margin
+        print()  # Top margin
         banner = [
             "████████╗ ██████╗      ███╗   ███╗███████╗ ██████╗      ███╗   ███╗███╗   ██╗ ██████╗ ██████╗",
             "╚══██╔══╝██╔════╝      ████╗ ████║██╔════╝██╔════╝      ████╗ ████║████╗  ██║██╔════╝██╔══██╗",
@@ -173,7 +187,7 @@ class UI:
             "   ██║   ╚██████╔╝     ██║ ╚═╝ ██║███████║╚██████╔╝     ██║ ╚═╝ ██║██║ ╚████║╚██████╔╝██║  ██║",
             "   ╚═╝    ╚═════╝      ╚═╝     ╚═╝╚══════╝ ╚═════╝      ╚═╝     ╚═╝╚═╝  ╚═══╝ ╚═════╝ ╚═╝  ╚═╝",
         ]
-        
+
         steps = len(banner)
         for i, line in enumerate(banner):
             r = int(0 + (255 - 0) * (i / (steps - 1)))
@@ -182,8 +196,10 @@ class UI:
             # ANSI 24-bit color: \033[38;2;R;G;Bm
             # We add \r to ensure column 0
             sys.stdout.write(f"\r\033[38;2;{r};{g};{b}m{line}\033[0m\n")
-        
-        sys.stdout.write(f"\r\n{cls.paint('                     TG_MSG_MNGR by R.P.', cls.CLR_CYAN, bold=True)}\n")
+
+        sys.stdout.write(
+            f"\r\n{cls.paint('                     TG_MSG_MNGR by R.P.', cls.CLR_CYAN, bold=True)}\n"
+        )
         sys.stdout.flush()
 
     @classmethod
@@ -196,10 +212,12 @@ class UI:
             return
         summaries = []
         for uid, info in stats.items():
-            summaries.append({
-                "title": info.get("name", f"ID:{uid}"),
-                "lines": [("processed", info.get("count", 0))],
-            })
+            summaries.append(
+                {
+                    "title": info.get("name", f"ID:{uid}"),
+                    "lines": [("processed", info.get("count", 0))],
+                }
+            )
         cls.print_final_summary("sync_summary_title", summaries)
 
     @classmethod
@@ -214,7 +232,9 @@ class UI:
         print(cls.rule(72))
 
         for item in summaries:
-            print(f" {cls.paint(item.get('title', 'Summary'), cls.CLR_TEXT, bold=True)}")
+            print(
+                f" {cls.paint(item.get('title', 'Summary'), cls.CLR_TEXT, bold=True)}"
+            )
             for label, value in item.get("lines", []):
                 label_text = cls.paint(cls.summary_label(label), cls.CLR_MUTED)
                 value_text = cls.paint(value, cls.CLR_STATS, bold=True)
