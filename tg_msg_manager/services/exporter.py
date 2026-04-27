@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from time import perf_counter
 from typing import Optional, Any, Set, List, Dict, Awaitable, Callable, AsyncIterator
 from ..core.telegram.interface import TelegramClientInterface
+from ..core.service_events import ServiceEventSink, emit_service_event
 from ..infrastructure.storage.interface import BaseStorage
 from ..core.context import set_chat_id
 from ..core.telemetry import telemetry
@@ -46,10 +47,19 @@ class ExportService:
     Links the API abstraction layer with the Storage layer.
     """
 
-    def __init__(self, client: TelegramClientInterface, storage: BaseStorage):
+    def __init__(
+        self,
+        client: TelegramClientInterface,
+        storage: BaseStorage,
+        event_sink: ServiceEventSink = None,
+    ):
         self.client = client
         self.storage = storage
         self.context_engine = DeepModeEngine(client, storage)
+        self.event_sink = event_sink
+
+    def _emit_event(self, event_name: str, **payload: Any) -> None:
+        emit_service_event(self.event_sink, event_name, **payload)
 
     # UI.format_name handles entity formatting
 
@@ -146,24 +156,20 @@ class ExportService:
 
         return checkpoint
 
-    def _build_sync_header(
+    def _build_sync_header_payload(
         self,
         *,
         chat_title: str,
         user_label: str,
         mode_str: str,
         status_str: str,
-    ) -> str:
-        colored_title = UI.paint(chat_title, UI.CLR_CHAT, bold=True)
-        mode_badge = UI.paint(mode_str, UI.CLR_STATS, bold=True)
-        status_badge = UI.muted(status_str) if status_str else ""
-        header = f"{UI.section(_('section_sync'), icon='◆')}  {colored_title}"
-        if user_label:
-            header = f"{header}  {UI.muted(_('label_user'))} {UI.paint(user_label, UI.CLR_USER, bold=True)}"
-        header = f"{header}  {UI.muted(_('label_mode'))} {mode_badge}"
-        if status_badge:
-            header = f"{header}  {status_badge}"
-        return header
+    ) -> Dict[str, str]:
+        return {
+            "chat_title": chat_title,
+            "user_label": user_label,
+            "mode_str": mode_str,
+            "status_str": status_str,
+        }
 
     async def _prepare_sync_target(
         self,
@@ -250,7 +256,7 @@ class ExportService:
             "tail_id": tail_id,
             "is_complete": is_complete,
             "mode_str": mode_str,
-            "header": self._build_sync_header(
+            "header_payload": self._build_sync_header_payload(
                 chat_title=chat_title,
                 user_label=user_label,
                 mode_str=mode_str,
@@ -286,8 +292,7 @@ class ExportService:
         if tail_range_count > 1:
             if len(completed_tails) == tail_range_count:
                 self.storage.update_sync_tail(chat_id, uid, 0, is_complete=True)
-                if sys.stdout.isatty():
-                    print(f"\n{UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_history_fully_synced'), UI.CLR_SUCCESS)}")
+                self._emit_event("export.history_fully_synced")
             return
 
         tails = [r["tail"] for r in tail_results if r["tail"] is not None]
@@ -298,8 +303,7 @@ class ExportService:
             min_tail = min(tails)
         if min_tail is not None and min_tail <= 10:
             self.storage.update_sync_tail(chat_id, uid, 0, is_complete=True)
-            if sys.stdout.isatty():
-                print(f"\n{UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_history_fully_synced'), UI.CLR_SUCCESS)}")
+            self._emit_event("export.history_fully_synced")
 
     def _resolve_new_target_link_ids(
         self,
@@ -911,8 +915,7 @@ class ExportService:
         head_id = sync_ctx["head_id"]
         tail_id = sync_ctx["tail_id"]
         is_complete = sync_ctx["is_complete"]
-        if UI.is_tty():
-            print(f"\n{sync_ctx['header']}")
+        self._emit_event("export.sync_chat_started", **sync_ctx["header_payload"])
         
         # 5. Determine Scan Boundaries
         # Get the latest message to determine current max
@@ -952,10 +955,11 @@ class ExportService:
 
         async def draw_status(extra=""):
             db_total = initial_db_total + progress_stats["linked"]
-            suffix = f"💬 {db_total}"
-            if extra:
-                suffix = f"{suffix} {extra}"
-            UI.print_status("Syncing", "", extra=suffix)
+            self._emit_event(
+                "export.sync_progress",
+                db_total=db_total,
+                extra=extra,
+            )
 
         progress_stats = {"processed": 0, "skipped": 0, "linked": 0}
 
@@ -1018,10 +1022,7 @@ class ExportService:
         # 4. Final summary
         db_count = self.storage.get_message_count(chat_id, target_id=uid)
         breakdown = self.storage.get_target_message_breakdown(chat_id, uid)
-        if UI.is_tty():
-            UI.print_status("Finished", "", extra=f"💬 {db_count}")
-            sys.stdout.write("\n")
-            sys.stdout.flush()
+        self._emit_event("export.sync_finished", db_count=db_count)
         
         # Only mark a target as freshly synced after a non-interrupted pass.
         if not self.storage.should_stop():
@@ -1048,14 +1049,13 @@ class ExportService:
                 },
             },
         )
-        if UI.is_tty() and emit_summary:
-            UI.print_final_summary("sync_summary_title", [{
-                "title": UI.format_name(entity),
-                "lines": [
-                    ("user_messages", breakdown["own_messages"]),
-                    ("with_context", breakdown["with_context"]),
-                ],
-            }])
+        if emit_summary:
+            self._emit_event(
+                "export.sync_summary",
+                title=UI.format_name(entity),
+                own_messages=breakdown["own_messages"],
+                with_context=breakdown["with_context"],
+            )
         
         return total_processed
 

@@ -45,12 +45,14 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
     @patch("tg_msg_manager.cli.PrivateArchiveService")
     @patch("tg_msg_manager.cli.DBExportService")
     @patch("tg_msg_manager.cli.CleanerService")
+    @patch("tg_msg_manager.cli.ExportService")
     @patch("tg_msg_manager.cli.TelethonClientWrapper")
     @patch("tg_msg_manager.cli.SQLiteStorage")
     async def test_initialize_live_context_wires_service_event_sinks(
         self,
         mock_storage_cls,
         mock_client_cls,
+        mock_exporter_cls,
         mock_cleaner_cls,
         mock_db_exporter_cls,
         mock_private_archive_cls,
@@ -61,6 +63,7 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         mock_storage.close = AsyncMock()
         mock_storage_cls.return_value = mock_storage
         mock_db_exporter_cls.return_value = MagicMock()
+        mock_exporter_cls.return_value = MagicMock()
         mock_cleaner_cls.return_value = MagicMock()
         mock_private_archive_cls.return_value = MagicMock()
 
@@ -75,6 +78,7 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
             ctx = CLIContext(needs_client=True)
             await ctx.initialize()
 
+            self.assertTrue(callable(mock_exporter_cls.call_args.kwargs["event_sink"]))
             self.assertTrue(callable(mock_cleaner_cls.call_args.kwargs["event_sink"]))
             self.assertTrue(callable(mock_private_archive_cls.call_args.kwargs["event_sink"]))
 

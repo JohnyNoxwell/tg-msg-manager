@@ -45,6 +45,10 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
             "deep_mode": 0,
             "recursive_depth": 0,
         }
+        self.mock_storage.get_target_message_breakdown.return_value = {
+            "own_messages": 1,
+            "with_context": 1,
+        }
         self.mock_storage.has_target_link.return_value = False
         self.mock_storage.get_message.return_value = None
         self.mock_client.get_messages = AsyncMock(return_value=[])
@@ -101,6 +105,33 @@ class TestServices(unittest.IsolatedAsyncioTestCase):
         
         self.assertGreaterEqual(count, 0)
         self.mock_storage.flush.assert_awaited()
+
+    async def test_sync_chat_emits_service_events(self):
+        msg1 = MessageData(
+            message_id=15,
+            chat_id=1,
+            user_id=1,
+            author_name="Exporter User",
+            timestamp=datetime.now(),
+            text="New",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        self.mock_client.get_messages.return_value = [msg1]
+        self.mock_client.iter_messages.return_value = AsyncIterator([msg1])
+        events = []
+
+        service = ExportService(self.mock_client, self.mock_storage, event_sink=events.append)
+        await service.sync_chat(MagicMock(id=1, title="Test Chat"), limit=10)
+
+        event_names = [event.name for event in events]
+        self.assertIn("export.sync_chat_started", event_names)
+        self.assertIn("export.sync_progress", event_names)
+        self.assertIn("export.sync_finished", event_names)
+        self.assertIn("export.sync_summary", event_names)
 
     async def test_export_limit_uses_single_worker_range(self):
         msg1 = MessageData(message_id=15, chat_id=1, user_id=1, author_name="Exporter User",

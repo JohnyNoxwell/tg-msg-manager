@@ -85,6 +85,50 @@ def _archive_progress_summary(archive_stats: dict) -> str:
 def _render_service_event(event: ServiceEvent) -> None:
     payload = event.payload
 
+    if event.name == "export.sync_chat_started":
+        if UI.is_tty():
+            colored_title = UI.paint(payload["chat_title"], UI.CLR_CHAT, bold=True)
+            mode_badge = UI.paint(payload["mode_str"], UI.CLR_STATS, bold=True)
+            status_badge = UI.muted(payload["status_str"]) if payload["status_str"] else ""
+            header = f"{UI.section(_('section_sync'), icon='◆')}  {colored_title}"
+            if payload["user_label"]:
+                header = f"{header}  {UI.muted(_('label_user'))} {UI.paint(payload['user_label'], UI.CLR_USER, bold=True)}"
+            header = f"{header}  {UI.muted(_('label_mode'))} {mode_badge}"
+            if status_badge:
+                header = f"{header}  {status_badge}"
+            print(f"\n{header}")
+        return
+
+    if event.name == "export.sync_progress":
+        suffix = f"💬 {payload['db_total']}"
+        if payload["extra"]:
+            suffix = f"{suffix} {payload['extra']}"
+        UI.print_status("Syncing", "", extra=suffix)
+        return
+
+    if event.name == "export.sync_finished":
+        if UI.is_tty():
+            UI.print_status("Finished", "", extra=f"💬 {payload['db_count']}")
+            sys.stdout.write("\n")
+            sys.stdout.flush()
+        return
+
+    if event.name == "export.sync_summary":
+        if UI.is_tty():
+            UI.print_final_summary("sync_summary_title", [{
+                "title": payload["title"],
+                "lines": [
+                    ("user_messages", payload["own_messages"]),
+                    ("with_context", payload["with_context"]),
+                ],
+            }])
+        return
+
+    if event.name == "export.history_fully_synced":
+        if sys.stdout.isatty():
+            print(f"\n{UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_history_fully_synced'), UI.CLR_SUCCESS)}")
+        return
+
     if event.name == "cleaner.dialog_scan_started":
         UI.print_status("Cleaning", f"[{payload['index']}/{payload['total']}] {payload['name']}")
         return
@@ -194,7 +238,7 @@ class CLIContext:
         if self.needs_client:
             self.client = TelethonClientWrapper(settings.session_name, settings.api_id, settings.api_hash)
             await self.client.connect()
-            self.exporter = ExportService(self.client, self.storage)
+            self.exporter = ExportService(self.client, self.storage, event_sink=_render_service_event)
             self.private_archive = PrivateArchiveService(self.client, self.storage, event_sink=_render_service_event)
 
         self.cleaner = CleanerService(
