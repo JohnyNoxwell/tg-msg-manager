@@ -1,6 +1,7 @@
 import logging
 import json
 import time
+from typing import Optional
 from typing import List, Optional, Union
 
 from .records import DeleteUserDataResult, TerminalRepairCandidate
@@ -10,6 +11,8 @@ logger = logging.getLogger(__name__)
 
 
 class SQLiteSyncStateMixin:
+    _EXPORT_RUN_ACTIVE = "running"
+
     def repair_terminal_incomplete_targets(
         self, tail_threshold: int = 1
     ) -> List[TerminalRepairCandidate]:
@@ -247,6 +250,75 @@ class SQLiteSyncStateMixin:
                     self._normalize_identity_text(last_known_username),
                     now,
                     now,
+                ),
+            )
+
+    def start_export_run(self, *, target_user_id: int) -> int:
+        now = int(time.time())
+        with self._write_transaction() as conn:
+            conn.execute(
+                """
+                INSERT OR IGNORE INTO export_targets (
+                    target_user_id,
+                    export_filename,
+                    export_dir,
+                    last_exported_message_ts,
+                    last_exported_message_id,
+                    last_known_author_name,
+                    last_known_username,
+                    created_at,
+                    updated_at
+                )
+                VALUES (?, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?)
+            """,
+                (target_user_id, now, now),
+            )
+            cursor = conn.execute(
+                """
+                INSERT INTO export_runs (
+                    target_user_id,
+                    started_at,
+                    finished_at,
+                    new_messages_count,
+                    last_new_message_ts,
+                    status,
+                    error
+                )
+                VALUES (?, ?, NULL, 0, NULL, ?, NULL)
+            """,
+                (target_user_id, now, self._EXPORT_RUN_ACTIVE),
+            )
+            return int(cursor.lastrowid)
+
+    def finish_export_run(
+        self,
+        run_id: int,
+        *,
+        status: str,
+        new_messages_count: int = 0,
+        last_new_message_ts: Optional[int] = None,
+        error: Optional[str] = None,
+    ) -> None:
+        finished_at = int(time.time())
+        with self._write_transaction() as conn:
+            conn.execute(
+                """
+                UPDATE export_runs
+                SET
+                    finished_at = ?,
+                    new_messages_count = ?,
+                    last_new_message_ts = ?,
+                    status = ?,
+                    error = ?
+                WHERE id = ?
+            """,
+                (
+                    finished_at,
+                    int(new_messages_count),
+                    last_new_message_ts,
+                    str(status),
+                    str(error) if error else None,
+                    run_id,
                 ),
             )
 

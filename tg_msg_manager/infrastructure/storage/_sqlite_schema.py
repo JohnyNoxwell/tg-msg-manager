@@ -133,6 +133,20 @@ class SQLiteSchemaMixin:
                 updated_at INTEGER NOT NULL
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS export_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                target_user_id INTEGER NOT NULL,
+                started_at INTEGER NOT NULL,
+                finished_at INTEGER,
+                new_messages_count INTEGER NOT NULL DEFAULT 0,
+                last_new_message_ts INTEGER,
+                status TEXT NOT NULL,
+                error TEXT,
+                FOREIGN KEY (target_user_id)
+                    REFERENCES export_targets(target_user_id)
+            )
+        """)
 
     def _create_indexes(self, conn: sqlite3.Connection):
         conn.execute(
@@ -148,6 +162,12 @@ class SQLiteSchemaMixin:
         self._create_target_link_indexes(conn)
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_export_targets_updated_at ON export_targets (updated_at)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_export_runs_target_started_at ON export_runs (target_user_id, started_at DESC)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_export_runs_status ON export_runs (status, started_at DESC)"
         )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_msg_context_group ON messages (context_group_id)"
@@ -300,6 +320,15 @@ class SQLiteSchemaMixin:
             self._backfill_export_targets(conn)
             conn.execute("PRAGMA user_version = 9")
             logger.info("Database migration to Version 9 successful.")
+
+        if current_version < 10:
+            logger.info(
+                "Running Database Migration: Version 10 (Export runs journal)..."
+            )
+            self._create_export_runs_table(conn)
+            self._create_export_runs_indexes(conn)
+            conn.execute("PRAGMA user_version = 10")
+            logger.info("Database migration to Version 10 successful.")
         else:
             logger.debug(
                 f"Database migration skipped (already at version {current_version})."
@@ -661,6 +690,38 @@ class SQLiteSchemaMixin:
             GROUP BY t.user_id
         """,
             (now, now),
+        )
+
+    def _create_export_runs_table(self, conn: sqlite3.Connection):
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS export_runs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                target_user_id INTEGER NOT NULL,
+                started_at INTEGER NOT NULL,
+                finished_at INTEGER,
+                new_messages_count INTEGER NOT NULL DEFAULT 0,
+                last_new_message_ts INTEGER,
+                status TEXT NOT NULL,
+                error TEXT,
+                FOREIGN KEY (target_user_id)
+                    REFERENCES export_targets(target_user_id)
+            )
+        """
+        )
+
+    def _create_export_runs_indexes(self, conn: sqlite3.Connection):
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_export_runs_target_started_at
+            ON export_runs (target_user_id, started_at DESC)
+        """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_export_runs_status
+            ON export_runs (status, started_at DESC)
+        """
         )
 
     def _migrate_sync_targets_to_composite_pk(self):

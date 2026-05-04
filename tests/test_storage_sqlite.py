@@ -18,6 +18,7 @@ from tg_msg_manager.infrastructure.storage.interface import (
 )
 from tg_msg_manager.infrastructure.storage.records import (
     DeleteUserDataResult,
+    ExportRunRecord,
     ExportTargetRecord,
     PrimaryTarget,
     RetryTaskRecord,
@@ -576,6 +577,73 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(record.last_exported_message_id, 77)
         self.assertEqual(record.last_known_author_name, "Stable User")
         self.assertEqual(record.last_known_username, "stable")
+
+    async def test_start_finish_and_list_export_runs(self):
+        self.storage.upsert_export_target(
+            target_user_id=999,
+            last_known_author_name="Stable User",
+        )
+
+        run_id = self.storage.start_export_run(target_user_id=999)
+        self.storage.finish_export_run(
+            run_id,
+            status="success",
+            new_messages_count=12,
+            last_new_message_ts=1700001234,
+        )
+
+        runs = self.storage.list_export_runs(999)
+
+        self.assertEqual(len(runs), 1)
+        self.assertIsInstance(runs[0], ExportRunRecord)
+        self.assertEqual(runs[0].id, run_id)
+        self.assertEqual(runs[0].target_user_id, 999)
+        self.assertEqual(runs[0].status, "success")
+        self.assertEqual(runs[0].new_messages_count, 12)
+        self.assertEqual(runs[0].last_new_message_ts, 1700001234)
+        self.assertIsNotNone(runs[0].finished_at)
+
+    async def test_export_runs_migration_creates_table_for_version_9_databases(self):
+        await self.storage.close()
+        for suffix in ("", "-wal", "-shm"):
+            path = f"{self.db_path}{suffix}"
+            if os.path.exists(path):
+                os.remove(path)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """
+            CREATE TABLE export_targets (
+                target_user_id INTEGER PRIMARY KEY,
+                export_filename TEXT,
+                export_dir TEXT,
+                last_exported_message_ts INTEGER,
+                last_exported_message_id INTEGER,
+                last_known_author_name TEXT,
+                last_known_username TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+        """
+        )
+        conn.execute("PRAGMA user_version = 9")
+        conn.commit()
+        conn.close()
+
+        self.storage = SQLiteStorage(self.db_path)
+
+        with self.storage._read_connection() as conn:
+            table = conn.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'table' AND name = 'export_runs'
+            """
+            ).fetchone()
+            version = conn.execute("PRAGMA user_version").fetchone()[0]
+
+        self.assertIsNotNone(table)
+        self.assertEqual(version, 10)
 
     async def test_export_targets_migration_backfills_tracked_users(self):
         await self.storage.close()

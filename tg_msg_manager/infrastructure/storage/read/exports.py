@@ -3,7 +3,12 @@ from typing import List, Optional
 
 from ....core.models.message import MessageData
 from ....core.telemetry import telemetry
-from ..records import ExportTargetRecord, UserExportRow, UserExportSummary
+from ..records import (
+    ExportRunRecord,
+    ExportTargetRecord,
+    UserExportRow,
+    UserExportSummary,
+)
 from .common import SQLiteReadCommonMixin
 
 
@@ -19,6 +24,24 @@ class SQLiteExportReadMixin(SQLiteReadCommonMixin):
                 (user_id,),
             ).fetchone()
             return ExportTargetRecord.coerce(dict(row)) if row else None
+
+    def list_export_runs(
+        self, user_id: int, limit: Optional[int] = None
+    ) -> List[ExportRunRecord]:
+        query = """
+            SELECT *
+            FROM export_runs
+            WHERE target_user_id = ?
+            ORDER BY started_at DESC, id DESC
+        """
+        params: list[object] = [user_id]
+        if limit is not None:
+            query += " LIMIT ?"
+            params.append(limit)
+
+        with self._read_connection() as conn:
+            rows = conn.execute(query, tuple(params)).fetchall()
+            return [ExportRunRecord.coerce(dict(row)) for row in rows]
 
     def get_user_messages(self, user_id: int) -> List[MessageData]:
         with self._read_connection() as conn:

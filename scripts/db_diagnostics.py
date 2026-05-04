@@ -18,6 +18,7 @@ KEY_TABLES = [
     "message_context_links",
     "message_target_links",
     "export_targets",
+    "export_runs",
     "retry_queue",
     "user_identity_history",
 ]

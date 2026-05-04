@@ -6,7 +6,7 @@ import unittest
 import tempfile
 import shutil
 from datetime import datetime
-from unittest.mock import MagicMock
+from unittest.mock import AsyncMock, MagicMock
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
@@ -21,6 +21,7 @@ class TestDBExporter(unittest.TestCase):
         self.storage.get_user_export_summary.return_value = None
         self.storage.get_user_export_rows.return_value = None
         self.storage.iter_user_export_rows.return_value = iter(())
+        self.storage.start_export_run.return_value = 44
         self.service = DBExportService(self.storage)
         self.tmpdir = tempfile.mkdtemp(prefix="tg_db_export_test_")
 
@@ -288,6 +289,14 @@ class TestDBExporter(unittest.TestCase):
             last_known_author_name="Stable User",
             last_known_username="stable",
         )
+        self.storage.start_export_run.assert_called_once_with(target_user_id=3)
+        self.storage.finish_export_run.assert_called_once_with(
+            44,
+            status="success",
+            new_messages_count=1,
+            last_new_message_ts=1700001234,
+            error=None,
+        )
 
     def test_export_user_messages_skip_path_still_updates_export_target_state(self):
         telemetry.reset()
@@ -330,6 +339,52 @@ class TestDBExporter(unittest.TestCase):
             last_exported_message_id=9,
             last_known_author_name="Stable User",
             last_known_username="stable",
+        )
+        self.storage.finish_export_run.assert_called_with(
+            44,
+            status="success",
+            new_messages_count=0,
+            last_new_message_ts=None,
+            error=None,
+        )
+
+    def test_export_user_messages_records_failed_export_run_without_cursor_update(self):
+        message = MessageData(
+            message_id=9,
+            chat_id=2,
+            user_id=3,
+            author_name="Stable User",
+            timestamp=datetime.fromtimestamp(1700002222),
+            text="hello",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        self.storage.get_user_messages.return_value = [message]
+        self.storage.get_user.return_value = {
+            "user_id": 3,
+            "first_name": "Stable",
+            "last_name": "User",
+            "username": "stable",
+        }
+        self.service._write_export_payloads = AsyncMock(side_effect=RuntimeError("disk full"))
+
+        with self.assertRaisesRegex(RuntimeError, "disk full"):
+            asyncio.run(
+                self.service.export_user_messages(
+                    3, output_dir=self.tmpdir, as_json=True
+                )
+            )
+
+        self.storage.upsert_export_target.assert_not_called()
+        self.storage.finish_export_run.assert_called_once_with(
+            44,
+            status="failed",
+            new_messages_count=0,
+            last_new_message_ts=None,
+            error="disk full",
         )
 
     def test_export_user_messages_streaming_row_fast_path_skips_unchanged_without_len_none_crash(

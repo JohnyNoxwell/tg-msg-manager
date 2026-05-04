@@ -264,6 +264,47 @@ class ExportTargetRecord(StorageRecord):
 
 
 @dataclass(frozen=True)
+class ExportRunRecord(StorageRecord):
+    id: int
+    target_user_id: int
+    started_at: int
+    finished_at: Optional[int] = None
+    new_messages_count: int = 0
+    last_new_message_ts: Optional[int] = None
+    status: str = ""
+    error: Optional[str] = None
+
+    @classmethod
+    def coerce(cls, value: Any) -> Optional["ExportRunRecord"]:
+        if value is None:
+            return None
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, Mapping):
+            return cls(
+                id=_coerce_int(value.get("id")),
+                target_user_id=_coerce_int(
+                    value.get("target_user_id", value.get("user_id"))
+                ),
+                started_at=_coerce_int(value.get("started_at")),
+                finished_at=(
+                    _coerce_int(value.get("finished_at"))
+                    if value.get("finished_at") is not None
+                    else None
+                ),
+                new_messages_count=_coerce_int(value.get("new_messages_count")),
+                last_new_message_ts=(
+                    _coerce_int(value.get("last_new_message_ts"))
+                    if value.get("last_new_message_ts") is not None
+                    else None
+                ),
+                status=str(value.get("status") or ""),
+                error=value.get("error"),
+            )
+        raise TypeError(f"Unsupported export run payload: {type(value)!r}")
+
+
+@dataclass(frozen=True)
 class UserExportRow(StorageRecord):
     message_id: int
     chat_id: int

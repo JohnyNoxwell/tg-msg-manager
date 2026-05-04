@@ -17,10 +17,11 @@ Implemented slices from this TODO:
 - added DB-backed `export_targets` table;
 - added migration/backfill for tracked users into `export_targets`;
 - wired `DBExportService` to persist export target filename/path/cursor/current identity into SQLite.
+- added DB-backed `export_runs` journal;
+- wired `DBExportService` to persist `running` / `success` / `failed` lifecycle per export attempt.
 
 Still pending from the larger TODO:
 
-- `export_runs`;
 - DB-backed incremental export cursor/update flow;
 - broader message-link hardening around `(chat_id, message_id)`.
 

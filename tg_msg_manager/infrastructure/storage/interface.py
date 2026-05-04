@@ -10,6 +10,7 @@ from ...core.models.reporting import (
 )
 from .records import (
     DeleteUserDataResult,
+    ExportRunRecord,
     ExportTargetRecord,
     PrimaryTarget,
     RetryTaskRecord,
@@ -109,6 +110,11 @@ class UserReadStorage(Protocol):
     def get_export_target(self, user_id: int) -> Optional[ExportTargetRecord]:
         """Returns DB-backed export state for a target user."""
 
+    def list_export_runs(
+        self, user_id: int, limit: Optional[int] = None
+    ) -> List[ExportRunRecord]:
+        """Returns recent DB-backed export runs for a target user."""
+
 
 @runtime_checkable
 class TargetLinkReadStorage(Protocol):
@@ -198,6 +204,20 @@ class ContextStorage(MessageWriteStorage, Protocol):
 
 @runtime_checkable
 class DBExportStorage(UserReadStorage, Protocol):
+    def start_export_run(self, *, target_user_id: int) -> int:
+        """Creates a DB-backed export run and returns its id."""
+
+    def finish_export_run(
+        self,
+        run_id: int,
+        *,
+        status: str,
+        new_messages_count: int = 0,
+        last_new_message_ts: Optional[int] = None,
+        error: Optional[str] = None,
+    ) -> None:
+        """Closes a DB-backed export run."""
+
     def upsert_export_target(
         self,
         *,
@@ -394,6 +414,12 @@ class BaseStorage(ABC):
         pass
 
     @abstractmethod
+    def list_export_runs(
+        self, user_id: int, limit: Optional[int] = None
+    ) -> List[ExportRunRecord]:
+        pass
+
+    @abstractmethod
     def get_target_message_breakdown(
         self, chat_id: int, target_id: int
     ) -> TargetMessageBreakdown:
@@ -468,6 +494,22 @@ class BaseStorage(ABC):
         last_exported_message_id: Optional[int] = None,
         last_known_author_name: Optional[str] = None,
         last_known_username: Optional[str] = None,
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def start_export_run(self, *, target_user_id: int) -> int:
+        pass
+
+    @abstractmethod
+    def finish_export_run(
+        self,
+        run_id: int,
+        *,
+        status: str,
+        new_messages_count: int = 0,
+        last_new_message_ts: Optional[int] = None,
+        error: Optional[str] = None,
     ) -> None:
         pass
 
