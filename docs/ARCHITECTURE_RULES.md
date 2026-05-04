@@ -92,6 +92,8 @@ Rules:
 - New read queries go into the correct file under `infrastructure/storage/read/`.
 - New write queries go into the appropriate storage write/sync module.
 - Analysis code should consume storage/read-side APIs instead of opening SQLite directly.
+- Telegram messages are identified by the composite key `(chat_id, message_id)`.
+- Storage links and cross-table references must not rely on bare `message_id` when chat scope is ambiguous.
 - `messages.author_name` is historical message-time data and must not be rewritten retroactively.
 - Current user naming lives outside `messages`, in `users.current_author_name`.
 - Author-name changes are tracked in `user_identity_history`.
