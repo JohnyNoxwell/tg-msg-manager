@@ -7,14 +7,11 @@ from typing import Any, Callable, Dict, List, Optional
 from .file_writer import FileRotateWriter
 from .db_export import (
     DBExportSource as _DBExportSource,
-    build_export_fingerprint,
     expected_export_paths,
     format_txt_export_block,
     load_incremental_export_source,
     load_export_manifest,
     load_export_source,
-    manifest_dir,
-    manifest_path,
     prepare_export_plan,
     serialize_json_message,
     serialize_row_as_ai_jsonl,
@@ -48,29 +45,6 @@ class DBExportService:
     ):
         self.storage = storage
         self.default_output_dir = default_output_dir
-
-    def _manifest_dir(self, output_dir: str) -> str:
-        return manifest_dir(output_dir)
-
-    def _manifest_path(self, output_dir: str, user_id: int) -> str:
-        return manifest_path(output_dir, user_id)
-
-    def _build_export_fingerprint(
-        self,
-        user_id: int,
-        messages: List[MessageData],
-        *,
-        as_json: bool,
-        include_date: bool,
-        json_profile: str,
-    ) -> Dict[str, Any]:
-        return build_export_fingerprint(
-            user_id,
-            messages,
-            as_json=as_json,
-            include_date=include_date,
-            json_profile=json_profile,
-        )
 
     def _load_export_manifest(
         self, output_dir: str, user_id: int

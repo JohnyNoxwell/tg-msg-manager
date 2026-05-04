@@ -792,10 +792,6 @@ Windows-путь:
 - `scripts/export_user_context_from_db.py` -> отдельная ad-hoc выгрузка контекстных сообщений из БД
 - `scripts/cleanup_exports.py` -> утилита для чистки legacy export-артефактов
 
-Нюанс:
-- `scripts/migrate_to_db.py` теперь явно помечен как legacy / historical script
-- для внешнего анализа его следует считать историческим артефактом, а не поддерживаемым operational инструментом
-
 ## 21. Тесты и качество
 
 Покрытые области:

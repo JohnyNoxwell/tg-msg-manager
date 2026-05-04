@@ -40,7 +40,6 @@ No new product feature was added.
 
 ### Scripts and documentation
 
-- historical `scripts/migrate_to_db.py` is now explicitly marked legacy;
 - Stage 0 baseline/smoke/audit/storage docs were added;
 - architecture rules for future contributors were added.
 
