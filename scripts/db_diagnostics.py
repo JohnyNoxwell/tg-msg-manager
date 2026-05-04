@@ -19,6 +19,7 @@ KEY_TABLES = [
     "message_target_links",
     "export_targets",
     "export_runs",
+    "missing_reply_refs",
     "retry_queue",
     "user_identity_history",
 ]
@@ -81,6 +82,14 @@ QUALITY_CHECKS = [
               WHERE parent.chat_id = m.chat_id
                 AND parent.message_id = m.reply_to_id
           )
+        """,
+    ),
+    QueryCheck(
+        "tracked_missing_reply_refs",
+        """
+        SELECT COUNT(*) AS value
+        FROM missing_reply_refs
+        WHERE status = 'missing'
         """,
     ),
     QueryCheck(

@@ -26,6 +26,10 @@ def format_txt_export_block(
         snippet = (clean_text[:40] + "...") if len(clean_text) > 40 else clean_text
         if snippet:
             reply_context = f'        re: "{snippet}"\n'
+    elif message.reply_to_id:
+        reply_context = (
+            f"        [reply_to: {message.reply_to_id} - original message not found in local DB]\n"
+        )
 
     author = message.author_name or f"User_{message.user_id}"
     time_str = message.timestamp.strftime("%H:%M:%S")

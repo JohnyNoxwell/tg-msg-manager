@@ -147,6 +147,16 @@ class SQLiteSchemaMixin:
                     REFERENCES export_targets(target_user_id)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS missing_reply_refs (
+                chat_id INTEGER NOT NULL,
+                message_id INTEGER NOT NULL,
+                missing_reply_to_id INTEGER NOT NULL,
+                detected_at INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'missing',
+                PRIMARY KEY (chat_id, message_id, missing_reply_to_id)
+            )
+        """)
 
     def _create_indexes(self, conn: sqlite3.Connection):
         conn.execute(
@@ -178,6 +188,7 @@ class SQLiteSchemaMixin:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_retry_queue_type ON retry_queue (task_type, status)"
         )
+        self._create_missing_reply_ref_indexes(conn)
         self._create_user_identity_indexes(conn)
 
     def _ensure_sync_target_columns(self, conn: sqlite3.Connection):
@@ -329,6 +340,16 @@ class SQLiteSchemaMixin:
             self._create_export_runs_indexes(conn)
             conn.execute("PRAGMA user_version = 10")
             logger.info("Database migration to Version 10 successful.")
+
+        if current_version < 11:
+            logger.info(
+                "Running Database Migration: Version 11 (Missing reply refs)..."
+            )
+            self._create_missing_reply_refs_table(conn)
+            self._create_missing_reply_ref_indexes(conn)
+            self._backfill_missing_reply_refs(conn)
+            conn.execute("PRAGMA user_version = 11")
+            logger.info("Database migration to Version 11 successful.")
         else:
             logger.debug(
                 f"Database migration skipped (already at version {current_version})."
@@ -369,6 +390,20 @@ class SQLiteSchemaMixin:
             """
             CREATE INDEX IF NOT EXISTS idx_mt_link_chat_target_msg
             ON message_target_links (chat_id, target_user_id, message_id)
+        """
+        )
+
+    def _create_missing_reply_ref_indexes(self, conn: sqlite3.Connection):
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_missing_reply_refs_status
+            ON missing_reply_refs (status, detected_at)
+        """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_missing_reply_refs_parent
+            ON missing_reply_refs (chat_id, missing_reply_to_id, status)
         """
         )
 
@@ -722,6 +757,47 @@ class SQLiteSchemaMixin:
             CREATE INDEX IF NOT EXISTS idx_export_runs_status
             ON export_runs (status, started_at DESC)
         """
+        )
+
+    def _create_missing_reply_refs_table(self, conn: sqlite3.Connection):
+        conn.execute(
+            """
+            CREATE TABLE IF NOT EXISTS missing_reply_refs (
+                chat_id INTEGER NOT NULL,
+                message_id INTEGER NOT NULL,
+                missing_reply_to_id INTEGER NOT NULL,
+                detected_at INTEGER NOT NULL,
+                status TEXT NOT NULL DEFAULT 'missing',
+                PRIMARY KEY (chat_id, message_id, missing_reply_to_id)
+            )
+        """
+        )
+
+    def _backfill_missing_reply_refs(self, conn: sqlite3.Connection):
+        now = int(time.time())
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO missing_reply_refs (
+                chat_id,
+                message_id,
+                missing_reply_to_id,
+                detected_at,
+                status
+            )
+            SELECT
+                m.chat_id,
+                m.message_id,
+                m.reply_to_id,
+                ?,
+                'missing'
+            FROM messages m
+            LEFT JOIN messages parent
+              ON parent.chat_id = m.chat_id
+             AND parent.message_id = m.reply_to_id
+            WHERE m.reply_to_id IS NOT NULL
+              AND parent.message_id IS NULL
+        """,
+            (now,),
         )
 
     def _migrate_sync_targets_to_composite_pk(self):

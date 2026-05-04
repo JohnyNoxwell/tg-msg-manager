@@ -103,6 +103,18 @@ class ExportService:
         """Sets the shutdown event to signal workers to stop."""
         self.storage.request_stop()
 
+    async def try_fetch_missing_reply(
+        self, chat_id: int, missing_reply_to_id: int
+    ) -> None:
+        """
+        Placeholder hook for future targeted backfill of missing reply parents.
+
+        The SQLite hardening stage only records missing reply references; it does
+        not auto-fetch them during normal export/update paths.
+        """
+        del chat_id, missing_reply_to_id
+        return None
+
     def _build_scan_ranges(
         self,
         current_max: int,

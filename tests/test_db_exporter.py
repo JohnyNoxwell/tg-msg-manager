@@ -502,6 +502,39 @@ class TestDBExporter(unittest.TestCase):
             error=None,
         )
 
+    def test_export_user_messages_txt_marks_missing_reply_reference(self):
+        message = MessageData(
+            message_id=7,
+            chat_id=2,
+            user_id=3,
+            author_name="Stable User",
+            timestamp=datetime.fromtimestamp(1700001234),
+            text="hello",
+            media_type=None,
+            reply_to_id=99,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        self.storage.get_user_messages.return_value = [message]
+        self.storage.get_user.return_value = {
+            "user_id": 3,
+            "first_name": "Stable",
+            "last_name": "User",
+            "username": "stable",
+        }
+
+        output_path = asyncio.run(
+            self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=False)
+        )
+
+        with open(output_path, "r", encoding="utf-8") as handle:
+            content = handle.read()
+        self.assertIn(
+            "[reply_to: 99 - original message not found in local DB]",
+            content,
+        )
+
     def test_export_user_messages_streaming_row_fast_path_skips_unchanged_without_len_none_crash(
         self,
     ):

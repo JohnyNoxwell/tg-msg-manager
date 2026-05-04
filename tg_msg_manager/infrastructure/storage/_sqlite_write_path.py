@@ -153,6 +153,15 @@ class SQLiteWritePathMixin:
             conn, data["chat_id"], data["message_id"], data.get("reply_to_id")
         )
         self._upsert_message_row_in_conn(conn, data, payload_hash)
+        self._refresh_missing_reply_state_in_conn(
+            conn,
+            data["chat_id"],
+            data["message_id"],
+            data.get("reply_to_id"),
+        )
+        self._resolve_missing_reply_refs_for_parent_in_conn(
+            conn, data["chat_id"], data["message_id"]
+        )
         self._update_sync_state_for_message_in_conn(
             conn, data["chat_id"], data["message_id"], target_id
         )
@@ -314,6 +323,71 @@ class SQLiteWritePathMixin:
                 payload_hash,
                 SCHEMA_VERSION,
             ),
+        )
+
+    def _refresh_missing_reply_state_in_conn(
+        self,
+        conn,
+        chat_id: int,
+        message_id: int,
+        reply_to_id: Optional[int],
+    ) -> None:
+        if not reply_to_id:
+            return
+        now = int(time.time())
+        parent_exists = conn.execute(
+            """
+            SELECT 1
+            FROM messages
+            WHERE chat_id = ? AND message_id = ?
+        """,
+            (chat_id, reply_to_id),
+        ).fetchone()
+        if parent_exists:
+            conn.execute(
+                """
+                UPDATE missing_reply_refs
+                SET status = 'resolved'
+                WHERE chat_id = ?
+                  AND message_id = ?
+                  AND missing_reply_to_id = ?
+            """,
+                (chat_id, message_id, reply_to_id),
+            )
+            return
+
+        conn.execute(
+            """
+            INSERT INTO missing_reply_refs (
+                chat_id,
+                message_id,
+                missing_reply_to_id,
+                detected_at,
+                status
+            )
+            VALUES (?, ?, ?, ?, 'missing')
+            ON CONFLICT(chat_id, message_id, missing_reply_to_id) DO UPDATE SET
+                detected_at = excluded.detected_at,
+                status = 'missing'
+        """,
+            (chat_id, message_id, reply_to_id, now),
+        )
+
+    def _resolve_missing_reply_refs_for_parent_in_conn(
+        self,
+        conn,
+        chat_id: int,
+        message_id: int,
+    ) -> None:
+        conn.execute(
+            """
+            UPDATE missing_reply_refs
+            SET status = 'resolved'
+            WHERE chat_id = ?
+              AND missing_reply_to_id = ?
+              AND status != 'resolved'
+        """,
+            (chat_id, message_id),
         )
 
     def _update_sync_state_for_message_in_conn(

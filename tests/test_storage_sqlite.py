@@ -645,6 +645,120 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(summary.last_timestamp, 1700002234)
         self.assertEqual([row.message_id for row in rows], [8])
 
+    async def test_missing_reply_refs_track_missing_and_resolved_parent(self):
+        child = MessageData(
+            message_id=2,
+            chat_id=321,
+            user_id=999,
+            author_name="Child",
+            timestamp=datetime.fromtimestamp(1700000010),
+            text="child",
+            media_type=None,
+            reply_to_id=1,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        await self.storage.save_message(child)
+
+        with self.storage._read_connection() as conn:
+            missing_row = conn.execute(
+                """
+                SELECT chat_id, message_id, missing_reply_to_id, status
+                FROM missing_reply_refs
+                WHERE chat_id = ? AND message_id = ? AND missing_reply_to_id = ?
+            """,
+                (321, 2, 1),
+            ).fetchone()
+
+        self.assertIsNotNone(missing_row)
+        self.assertEqual(missing_row["status"], "missing")
+
+        parent = MessageData(
+            message_id=1,
+            chat_id=321,
+            user_id=555,
+            author_name="Parent",
+            timestamp=datetime.fromtimestamp(1700000000),
+            text="parent",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        await self.storage.save_message(parent)
+
+        with self.storage._read_connection() as conn:
+            resolved_row = conn.execute(
+                """
+                SELECT status
+                FROM missing_reply_refs
+                WHERE chat_id = ? AND message_id = ? AND missing_reply_to_id = ?
+            """,
+                (321, 2, 1),
+            ).fetchone()
+
+        self.assertEqual(resolved_row["status"], "resolved")
+
+    async def test_missing_reply_refs_migration_backfills_existing_orphans(self):
+        await self.storage.close()
+        for suffix in ("", "-wal", "-shm"):
+            path = f"{self.db_path}{suffix}"
+            if os.path.exists(path):
+                os.remove(path)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """
+            CREATE TABLE messages (
+                chat_id INTEGER,
+                message_id INTEGER,
+                user_id INTEGER,
+                author_name TEXT,
+                timestamp INTEGER,
+                text TEXT,
+                media_type TEXT,
+                reply_to_id INTEGER,
+                fwd_from_id INTEGER,
+                context_group_id TEXT,
+                raw_payload TEXT,
+                payload_hash TEXT,
+                schema_version INTEGER,
+                PRIMARY KEY (chat_id, message_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            INSERT INTO messages (
+                chat_id, message_id, user_id, author_name, timestamp, text, media_type,
+                reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (321, 2, 999, "Child", 1700000010, "child", None, 1, None, None, "{}", "p2", 1),
+        )
+        conn.execute("PRAGMA user_version = 10")
+        conn.commit()
+        conn.close()
+
+        self.storage = SQLiteStorage(self.db_path)
+
+        with self.storage._read_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT chat_id, message_id, missing_reply_to_id, status
+                FROM missing_reply_refs
+            """
+            ).fetchone()
+            version = conn.execute("PRAGMA user_version").fetchone()[0]
+
+        self.assertEqual(row["chat_id"], 321)
+        self.assertEqual(row["message_id"], 2)
+        self.assertEqual(row["missing_reply_to_id"], 1)
+        self.assertEqual(row["status"], "missing")
+        self.assertEqual(version, 11)
+
     async def test_export_runs_migration_creates_table_for_version_9_databases(self):
         await self.storage.close()
         for suffix in ("", "-wal", "-shm"):
@@ -685,7 +799,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             version = conn.execute("PRAGMA user_version").fetchone()[0]
 
         self.assertIsNotNone(table)
-        self.assertEqual(version, 10)
+        self.assertEqual(version, 11)
 
     async def test_export_targets_migration_backfills_tracked_users(self):
         await self.storage.close()
