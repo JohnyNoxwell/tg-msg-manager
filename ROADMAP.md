@@ -78,7 +78,25 @@ Transform the utility into a high-fidelity terminal application.
 
 # 🚀 NEXT GENERATIONS
 
+## FOUNDATION STATUS
+- [x] Foundation-first backlog completed on `2026-05-04`.
+- [x] Stabilization, export/context refactors, retry layer, read-only reporting, and fixture-backed E2E harness shipped.
+- [x] Future work should start from post-foundation items unless a regression forces another stabilization pass.
+
 ## PHASE 14: SCALABILITY & INTEGRATION
 - [ ] **14.1** Multi-Account rotation system.
 - [ ] **14.2** Web-based Dashboard (Next.js) for message visualization.
 - [ ] **14.3** Advanced Semantic Search across all downloaded history.
+
+## POST-FOUNDATION BACKLOG
+
+Следующие направления сознательно выведены из foundation backlog и не должны смешиваться с этапами стабилизации, core refactor и reliability work:
+
+- [ ] **PF.1** Analytical layer over local SQLite:
+  user stats, chat stats, interaction graph, timeline, keyword/topic extraction, graph export, Markdown/JSON analytical reports.
+- [ ] **PF.2** Advanced context quality reporting as user-facing functionality:
+  quality summaries, confidence visualization, dedicated CLI/report surfaces.
+
+Правило:
+- foundation sequence из `backlog/README.md` уже завершена;
+- аналитические и расширенные quality/reporting направления теперь могут возвращаться в активное исполнение по приоритету продукта.

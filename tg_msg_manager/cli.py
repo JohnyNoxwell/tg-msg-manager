@@ -5,6 +5,7 @@ import argparse
 from typing import Optional, Any
 
 from .core.logging import setup_logging
+from .core.models.retry import RetryRunStats
 from .core.process import ProcessManager
 from .core.runtime import AppRuntime, build_app_runtime
 from .core.telemetry import telemetry
@@ -27,6 +28,12 @@ from .services.cleaner import CleanerService
 from .services.db_exporter import DBExportService
 from .services.exporter import ExportService
 from .services.private_archive import PrivateArchiveService
+from .services.reporting import (
+    ReportCollector,
+    render_report_json,
+    render_report_markdown,
+)
+from .services.retry_worker import RetryWorker, enqueue_archive_pm_retry_task
 from .services.scheduler import setup_scheduler
 from .utils.ui import UI
 
@@ -87,6 +94,7 @@ class CLIContext:
         self.cleaner: Optional[CleanerService] = None
         self.db_exporter: Optional[DBExportService] = None
         self.private_archive: Optional[PrivateArchiveService] = None
+        self.retry_worker: Optional[RetryWorker] = None
         self.alias_manager = AliasManager(
             project_root=self.paths.project_root,
             python_executable=self.runtime.python_executable,
@@ -128,6 +136,12 @@ class CLIContext:
                 self.storage,
                 base_dir=self.paths.private_dialogs_dir,
                 event_sink=render_service_event,
+            )
+            self.retry_worker = RetryWorker(
+                storage=self.storage,
+                client=self.client,
+                exporter=self.exporter,
+                private_archive=self.private_archive,
             )
 
         self.cleaner = CleanerService(
@@ -189,6 +203,12 @@ def build_cli_parser() -> argparse.ArgumentParser:
     export_parser.add_argument("--json", action="store_true")
 
     subparsers.add_parser("update")
+    retry_parser = subparsers.add_parser("retry")
+    retry_parser.add_argument("--limit", type=int, default=10)
+    retry_parser.add_argument("--list", action="store_true")
+    retry_parser.add_argument("--cleanup", action="store_true")
+    report_parser = subparsers.add_parser("report")
+    report_parser.add_argument("--json", action="store_true")
 
     clean_parser = subparsers.add_parser("clean")
     clean_parser.add_argument("--dry-run", action="store_true", default=None)
@@ -207,7 +227,7 @@ def build_cli_parser() -> argparse.ArgumentParser:
 
 
 def _command_needs_client(command: str) -> bool:
-    return command not in ("setup", "schedule", "db-export")
+    return command not in ("setup", "schedule", "db-export", "report")
 
 
 def _store_resolved_user(ctx: CLIContext, user_ent: Any) -> None:
@@ -437,6 +457,52 @@ async def _handle_update_command(ctx: CLIContext, args: argparse.Namespace) -> N
     print_update_summary(stats, title=_("label_update"))
 
 
+def _print_retry_tasks(tasks: list[Any]) -> None:
+    if not tasks:
+        print("Retry queue is empty.")
+        return
+    for task in tasks:
+        print(
+            f"{task.task_id} | {task.task_type} | status={task.status} | "
+            f"chat={task.chat_id} | target={task.target_user_id} | "
+            f"retry_count={task.retry_count} | due={task.next_retry_timestamp}"
+        )
+
+
+def _print_retry_summary(stats: RetryRunStats) -> None:
+    print(
+        "Retry run summary: "
+        f"scanned={stats.scanned}, "
+        f"succeeded={stats.succeeded}, "
+        f"rescheduled={stats.rescheduled}, "
+        f"failed={stats.failed}, "
+        f"cleaned={stats.cleaned}"
+    )
+
+
+async def _handle_retry_command(ctx: CLIContext, args: argparse.Namespace) -> None:
+    if args.list:
+        _print_retry_tasks(ctx.storage.list_retry_tasks(limit=args.limit))
+        return
+    if args.cleanup:
+        cleaned = ctx.storage.cleanup_retry_tasks()
+        _print_retry_summary(RetryRunStats(cleaned=cleaned))
+        return
+
+    stats = await ctx.retry_worker.run_due_tasks(limit=args.limit)
+    _print_retry_summary(stats)
+
+
+async def _handle_report_command(ctx: CLIContext, args: argparse.Namespace) -> None:
+    collector = ReportCollector(
+        storage=ctx.storage,
+        exports_dir=ctx.paths.db_exports_dir,
+    )
+    report = collector.collect()
+    output = render_report_json(report) if args.json else render_report_markdown(report)
+    print(output)
+
+
 async def _handle_clean_command(ctx: CLIContext, args: argparse.Namespace) -> None:
     is_dry = True
     if args.apply or args.yes:
@@ -454,7 +520,15 @@ async def _handle_clean_command(ctx: CLIContext, args: argparse.Namespace) -> No
 async def _handle_export_pm_command(ctx: CLIContext, args: argparse.Namespace) -> None:
     user_ent, unused = await get_safe_user_and_chat(ctx.client, args.user_id)
     if user_ent:
-        await ctx.private_archive.archive_pm(user_ent)
+        try:
+            await ctx.private_archive.archive_pm(user_ent)
+        except Exception as exc:
+            enqueue_archive_pm_retry_task(
+                ctx.storage,
+                user_id=user_ent.id,
+                error=exc,
+            )
+            logger.error(f"Error during PM archive: {exc}")
 
 
 async def _handle_menu_export(ctx: CLIContext) -> None:
@@ -662,6 +736,8 @@ async def run_cli(runtime: Optional[AppRuntime] = None):
                 "db-export": _handle_db_export_command,
                 "export": _handle_export_command,
                 "update": _handle_update_command,
+                "retry": _handle_retry_command,
+                "report": _handle_report_command,
                 "clean": _handle_clean_command,
                 "export-pm": _handle_export_pm_command,
             }

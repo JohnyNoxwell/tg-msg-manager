@@ -1,6 +1,210 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.15] - 2026-05-04
+
+### Changed (EN)
+- **Stage 5 Completion**: Completed the fixture and E2E hardening stage by adding a fully offline Telegram-like test harness that exercises the foundation pipeline without Telethon or network access.
+- **Deterministic Fixture Coverage**: The project now has anonymized JSONL Telegram fixtures for missing-parent recovery, duplicate messages, edited payload refresh, retryable tracked-sync failure, and report/export diagnostics.
+- **Foundation Verification Boundary**: `sync`, `context`, `db-export`, `retry`, and `report` are now verifiable through real service/storage flows backed by fixture runtime helpers instead of isolated mocks only.
+
+### Added (EN)
+- Added `tg_msg_manager/testing/` with fixture loaders, export normalization helpers, a reusable temp runtime, and `FakeTelegramClient`.
+- Added fixture-format documentation in `tests/fixtures/stage5/README.md`.
+- Added fixture-backed E2E coverage in `tests/test_fixture_e2e.py`.
+
+### Изменения (RU)
+- **Завершение Stage 5**: Завершён этап fixture/E2E hardening: добавлена полностью оффлайн test harness, которая прогоняет foundation pipeline без Telethon и без сетевого доступа.
+- **Детерминированное fixture-покрытие**: В проекте теперь есть anonymized JSONL fixtures для missing-parent recovery, duplicate messages, обновления edited payload, retryable tracked-sync failure и report/export diagnostics.
+- **Граница foundation verification**: Пути `sync`, `context`, `db-export`, `retry` и `report` теперь проверяются через реальные service/storage flows поверх fixture runtime helpers, а не только через изолированные mocks.
+
+### Добавлено (RU)
+- Добавлен `tg_msg_manager/testing/` с fixture loaders, export normalization helpers, reusable temp runtime и `FakeTelegramClient`.
+- Добавлена документация формата fixtures в `tests/fixtures/stage5/README.md`.
+- Добавлено fixture-backed E2E покрытие в `tests/test_fixture_e2e.py`.
+
+## [4.2.14] - 2026-05-04
+
+### Changed (EN)
+- **Stage 4 Completion**: Completed the audit/report read-side by adding a read-only reporting collector, typed audit models, deterministic warning rules, and a dedicated `report` CLI surface that works without Telegram access.
+- **Read-Side Observability**: SQLite read-path now exposes compact reporting queries for database summary, tracked target state, and retry queue state, while export artifact state is derived from the local `DB_EXPORTS` filesystem only.
+- **Deterministic Diagnostics**: Formal warning rules now cover incomplete targets, missing target/context coverage, stale sync state, high missing-parent signals, retry backlog, failed retry tasks, and missing export artifacts when linked data exists.
+
+### Added (EN)
+- Added `tg_msg_manager/core/models/reporting.py` for typed audit/reporting models.
+- Added `tg_msg_manager/services/reporting.py` with `ReportCollector` plus Markdown and JSON renderers.
+- Added regression coverage for reporting storage summaries, warning generation, renderer determinism, and the read-only CLI `report` command.
+
+### Изменения (RU)
+- **Завершение Stage 4**: Завершён audit/report read-side: добавлены read-only reporting collector, typed audit models, deterministic warning rules и отдельный CLI surface `report`, работающий без Telegram access.
+- **Read-side observability**: SQLite read-path теперь отдаёт компактные reporting queries для database summary, tracked target state и retry queue state, а export artifact state собирается только из локального `DB_EXPORTS` filesystem.
+- **Детерминированная диагностика**: Формальные warning rules теперь покрывают incomplete targets, missing target/context coverage, stale sync state, high missing-parent signals, retry backlog, failed retry tasks и missing export artifacts при наличии linked data.
+
+### Добавлено (RU)
+- Добавлен `tg_msg_manager/core/models/reporting.py` для typed audit/reporting models.
+- Добавлен `tg_msg_manager/services/reporting.py` с `ReportCollector` и Markdown/JSON renderers.
+- Добавлено regression-покрытие для reporting storage summaries, генерации warnings, детерминированности renderers и read-only CLI-команды `report`.
+
+## [4.2.13] - 2026-05-04
+
+### Changed (EN)
+- **Stage 3 Completion**: Completed the retry reliability layer by upgrading the old `retry_queue` stub into a typed lifecycle with due-task reads, terminal states, deterministic backoff, and cleanup support.
+- **Narrow Operational Integration**: Tracked sync failures during `update` now enqueue retryable `sync_target` tasks instead of aborting the whole tracked run, and failed PM archives now enqueue `archive_pm` retry tasks for later replay.
+- **New CLI Surface**: Added a dedicated `retry` command for listing queued tasks, running due tasks, and cleaning terminal retry rows without affecting normal command behavior.
+
+### Added (EN)
+- Added `tg_msg_manager/core/models/retry.py` for typed retry status/type models and retry run stats.
+- Added `tg_msg_manager/services/retry_worker.py` with deterministic backoff policy, supported retry handlers, and due-task execution.
+- Added storage lifecycle support for retry completion, reschedule, failure, cleanup, and legacy schema migration.
+- Added regression coverage for retry migration, retry worker execution, tracked-sync enqueue behavior, and CLI retry handling.
+
+### Изменения (RU)
+- **Завершение Stage 3**: Завершён retry reliability layer: старая заготовка `retry_queue` превращена в типизированный lifecycle с due-task чтением, terminal states, deterministic backoff и cleanup support.
+- **Узкая operational integration**: Ошибки tracked sync во время `update` теперь ставят retryable `sync_target` tasks вместо обрыва всего tracked run, а провалившиеся PM archives ставят `archive_pm` retry tasks для последующего повтора.
+- **Новый CLI surface**: Добавлена отдельная команда `retry` для просмотра очереди, запуска due tasks и очистки terminal retry rows без изменения обычного поведения остальных команд.
+
+### Добавлено (RU)
+- Добавлен `tg_msg_manager/core/models/retry.py` для typed retry status/type models и retry run stats.
+- Добавлен `tg_msg_manager/services/retry_worker.py` с deterministic backoff policy, поддерживаемыми retry handlers и исполнением due tasks.
+- Добавлена storage lifecycle-поддержка для retry completion, reschedule, failure, cleanup и миграции legacy schema.
+- Добавлено regression-покрытие для retry migration, retry worker execution, tracked-sync enqueue behavior и CLI retry handling.
+
+## [4.2.12] - 2026-05-04
+
+### Changed (EN)
+- **Stage 2 Completion**: Completed the context-pipeline refactor by turning `DeepModeEngine` into an orchestration wrapper over dedicated context resolvers, typed candidate/cluster models, and explicit fallback assembly helpers.
+- **Deep Mode Boundaries**: Parent lookup, storage-range hydration, live range fill, reply/topic relationship detection, cluster assembly, and time-fallback selection are now split across focused `services/context/` modules instead of living inside one mixed engine class.
+- **Deep Mode Reliability**: Live parent/range fetch failures in deep mode now degrade gracefully to storage-only results instead of aborting the whole context extraction path.
+
+### Added (EN)
+- Added `tg_msg_manager/services/context/models.py` for typed context candidates, cluster state, and compact request models.
+- Added `tg_msg_manager/services/context/fetchers.py` for local-storage and live Telegram fetch resolvers.
+- Added `tg_msg_manager/services/context/relationships.py` for child-reply and thread/topic relation helpers.
+- Added `tg_msg_manager/services/context/clustering.py` for cluster initialization, anchor selection, association, and cluster mutation rules.
+- Added `tg_msg_manager/services/context/resolvers.py` for parent lookup and candidate-pool resolution.
+- Added `tg_msg_manager/services/context/fallback.py` for time-fallback selection and application.
+- Added regression coverage for source-metadata preservation and deep-mode live-fetch fail paths.
+
+### Изменения (RU)
+- **Завершение Stage 2**: Завершён refactor context-pipeline: `DeepModeEngine` превращён в orchestration-wrapper поверх выделенных context resolvers, typed candidate/cluster models и отдельных fallback/assembly helpers.
+- **Границы Deep Mode**: Parent lookup, storage-range hydration, live range fill, reply/topic relationship detection, cluster assembly и time-fallback selection теперь разнесены по специализированным модулям `services/context/`, а не живут внутри одного смешанного engine-класса.
+- **Надёжность Deep Mode**: Ошибки live parent/range fetch в deep mode теперь деградируют до storage-only результата и не валят весь context extraction path.
+
+### Добавлено (RU)
+- Добавлен `tg_msg_manager/services/context/models.py` для typed context candidates, cluster state и компактных request-models.
+- Добавлен `tg_msg_manager/services/context/fetchers.py` для local-storage и live Telegram fetch resolvers.
+- Добавлен `tg_msg_manager/services/context/relationships.py` для child-reply и thread/topic relation helpers.
+- Добавлен `tg_msg_manager/services/context/clustering.py` для cluster initialization, anchor selection, association и правил мутации кластеров.
+- Добавлен `tg_msg_manager/services/context/resolvers.py` для parent lookup и candidate-pool resolution.
+- Добавлен `tg_msg_manager/services/context/fallback.py` для time-fallback selection и application.
+- Добавлено regression-покрытие для сохранения source metadata и deep-mode live-fetch fail paths.
+
+## [4.2.11] - 2026-05-04
+
+### Changed (EN)
+- **Stage 1 Completion**: Completed the Stage 1 export-pipeline refactor by moving remaining range-worker execution, tracked-target synchronization orchestration, and dialog-target resolution out of `ExportService` into dedicated `services/sync/` modules.
+- **Exporter Responsibility Narrowing**: `ExportService` now stays focused on orchestration and service-event boundaries while scan-buffer processing, batch flushing, tracked-target loops, and dialog-target resolution are delegated to reusable sync helpers.
+
+### Added (EN)
+- Added `tg_msg_manager/services/sync/range_scanner.py` for scan-buffer processing, worker checkpointing, flat/deep batch flushing, and per-range execution.
+- Added `tg_msg_manager/services/sync/tracked_runner.py` for tracked-target synchronization loops built on top of the existing planner.
+- Added `tg_msg_manager/services/sync/dialog_targets.py` for targeted-dialog resolution and supported-dialog filtering helpers.
+
+### Изменения (RU)
+- **Завершение Stage 1**: Завершён `Stage 1` refactor export-pipeline: оставшиеся range-worker execution, tracked-target synchronization orchestration и dialog-target resolution вынесены из `ExportService` в отдельные модули `services/sync/`.
+- **Сужение ответственности ExportService**: `ExportService` теперь сосредоточен на orchestration и service-event boundaries, а scan-buffer processing, batch flushing, tracked-target loops и dialog-target resolution делегированы переиспользуемым sync helpers.
+
+### Добавлено (RU)
+- Добавлен `tg_msg_manager/services/sync/range_scanner.py` для scan-buffer processing, worker checkpointing, flat/deep batch flushing и исполнения отдельных scan ranges.
+- Добавлен `tg_msg_manager/services/sync/tracked_runner.py` для tracked-target synchronization loops поверх уже существующего planner.
+- Добавлен `tg_msg_manager/services/sync/dialog_targets.py` для targeted-dialog resolution и фильтрации поддерживаемых dialog targets.
+
+## [4.2.10] - 2026-05-04
+
+### Changed (EN)
+- **Sync Chat Orchestration**: Continued Stage 1 by extracting sync execution-plan building and terminal no-range completion checks out of `sync_chat()`, which further narrows the core orchestration path without changing CLI-visible behavior.
+- **Range Execution Boundaries**: `_scan_range()` now delegates message-stream selection, skip guards, and completion-flag decisions to dedicated sync helpers instead of carrying those execution-policy branches inline.
+
+### Added (EN)
+- Added `tg_msg_manager/services/sync/execution_plan.py` for sync execution-plan construction and empty-range terminal-history decisions.
+- Added targeted sync helper coverage indirectly through the existing exporter/service regression suite, which remains green after the extraction batches.
+
+### Изменения (RU)
+- **Оркестрация sync_chat**: Продолжен `Stage 1`: построение sync execution plan и terminal no-range completion checks вынесены из `sync_chat()`, что ещё сильнее сужает основной orchestration path без изменения CLI-visible поведения.
+- **Границы range execution**: `_scan_range()` теперь делегирует выбор message stream, skip guards и completion-flag decisions выделенным sync helpers, вместо того чтобы держать эти execution-policy ветки прямо внутри себя.
+
+### Добавлено (RU)
+- Добавлен `tg_msg_manager/services/sync/execution_plan.py` для построения sync execution plan и решений по terminal-history completion при пустых ranges.
+- Дополнительное покрытие новых sync helpers подтверждается существующим exporter/service regression suite, который остаётся зелёным после extraction batches.
+
+## [4.2.9] - 2026-05-04
+
+### Changed (EN)
+- **Export Service Decomposition**: Continued Stage 1 refactoring by extracting sync-target identity/mode resolution, tracked-target planning, scan message-stream selection, scan skip guards, and scan completion-flag logic out of the hottest `ExportService` paths into dedicated `services/sync/` helpers.
+- **Tracked Sync Coordination**: `sync_all_tracked()` now uses a dedicated tracked-target planner for entity/current-max/status/prefetch preparation instead of keeping that coordination logic embedded directly in the service hot path.
+
+### Added (EN)
+- Added `tg_msg_manager/services/sync/targets.py` for sync-target identity resolution and active mode/status derivation.
+- Added `tg_msg_manager/services/sync/tracked_targets.py` for tracked-target planning and shared head-prefetch coordination.
+- Added `tg_msg_manager/services/sync/scan_execution.py` for scan-stream selection, scan skip rules, and terminal completion-flag helpers.
+
+### Изменения (RU)
+- **Декомпозиция ExportService**: Продолжен `Stage 1` refactor: identity/mode resolution для sync-target, tracked-target planning, выбор scan message stream, skip guards и completion-flag logic вынесены из самых горячих участков `ExportService` в отдельные helper-модули `services/sync/`.
+- **Координация tracked sync**: `sync_all_tracked()` теперь использует отдельный planner для entity/current-max/status/prefetch подготовки, вместо того чтобы держать эту coordination-логику прямо в горячем service path.
+
+### Добавлено (RU)
+- Добавлен `tg_msg_manager/services/sync/targets.py` для identity resolution цели и вычисления активного sync mode/status.
+- Добавлен `tg_msg_manager/services/sync/tracked_targets.py` для tracked-target planning и shared head-prefetch coordination.
+- Добавлен `tg_msg_manager/services/sync/scan_execution.py` для выбора scan-stream, skip-правил и completion-flag helper-логики.
+
+## [4.2.8] - 2026-05-04
+
+### Changed (EN)
+- **Export Pipeline Boundaries**: Continued the Stage 1 backlog work by extracting scan-range planning and scan-checkpoint outcome logic out of `ExportService` into dedicated `services/sync/` helpers while keeping the service-level wrappers and runtime behavior intact.
+- **Backlog Progress Discipline**: Stage 1 now records concrete completed sub-work in the active backlog instead of treating the file as a static future checklist.
+
+### Added (EN)
+- Added `tg_msg_manager/services/sync/scan_ranges.py` for pure scan-range building and tail checkpoint resolution.
+- Added `tg_msg_manager/services/sync/checkpoints.py` for pure scan outcome summarization before storage/event side effects are applied.
+- Added regression coverage that the extracted sync helpers stay contract-compatible with the `ExportService` wrappers.
+
+### Изменения (RU)
+- **Границы export pipeline**: Продолжена работа по `Stage 1` backlog: логика scan-range planning и scan-checkpoint outcome вынесена из `ExportService` в выделенные helper-модули `services/sync/`, при этом service-level wrappers и runtime behavior сохранены.
+- **Дисциплина фиксации прогресса**: В `Stage 1` теперь отражён конкретный выполненный sub-work, а не только статичный чеклист на будущее.
+
+### Добавлено (RU)
+- Добавлен `tg_msg_manager/services/sync/scan_ranges.py` для pure-логики построения диапазонов сканирования и расчёта tail-checkpoint.
+- Добавлен `tg_msg_manager/services/sync/checkpoints.py` для pure-суммаризации scan results до применения storage/event side effects.
+- Добавлено regression-покрытие, подтверждающее совместимость extracted sync helpers с wrapper-методами `ExportService`.
+
+## [4.2.7] - 2026-05-04
+
+### Changed (EN)
+- **Foundation Backlog Rebaseline**: Replaced the old overlapping staged backlog with a shorter foundation-first execution queue (`Stage 0` through `Stage 5`) and moved analytics / advanced context-quality work into a post-foundation roadmap bucket.
+- **Stage 0 Documentation Sync**: Aligned `config.example.json` with the real `Settings` model and added a concise runtime-configuration section to `README.md` so the documented config surface matches the current code.
+- **Backlog Progress Tracking**: Started recording execution progress directly inside active backlog stages instead of leaving stage files as static design notes.
+
+### Fixed (EN)
+- Fixed read-side export row typing so `context_group_id` remains a string-compatible field instead of drifting to `Optional[int]` in `UserExportRow`.
+- Fixed Stage 0 quality-gate noise in legacy/maintenance scripts by classifying their status explicitly and normalizing their formatting for `ruff`.
+
+### Added (EN)
+- Added a regression assertion that streamed export rows preserve string `context_group_id` values.
+- Added explicit status docstrings to the local maintenance scripts so broken legacy helpers no longer look like supported runtime tooling.
+
+### Изменения (RU)
+- **Пересборка foundation backlog**: Старый пересекающийся staged backlog заменён на более короткую foundation-first очередь исполнения (`Stage 0` ... `Stage 5`), а analytics / advanced context-quality вынесены в post-foundation roadmap bucket.
+- **Синхронизация Stage 0 документации**: `config.example.json` приведён в соответствие с реальной моделью `Settings`, а в `README.md` добавлен компактный раздел по runtime-конфигурации, чтобы документированный config surface совпадал с текущим кодом.
+- **Учёт прогресса по backlog**: Прогресс выполнения теперь фиксируется прямо в активных stage-файлах, а не остаётся только в виде статических design notes.
+
+### Исправления (RU)
+- Исправлен type drift в read-side export rows: `context_group_id` снова трактуется как строково-совместимое поле, а не как `Optional[int]` в `UserExportRow`.
+- Убран Stage 0 noise в quality gates от legacy/maintenance scripts: их статус явно классифицирован, а форматирование выровнено под `ruff`.
+
+### Добавлено (RU)
+- Добавлена regression-проверка, что streamed export rows сохраняют строковые значения `context_group_id`.
+- Во все локальные maintenance scripts добавлены явные status-docstrings, чтобы broken legacy helpers больше не выглядели как поддерживаемый runtime tooling.
+
 ## [4.2.6] - 2026-05-03
 
 ### Changed (EN)

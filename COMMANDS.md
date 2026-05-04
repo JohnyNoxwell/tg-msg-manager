@@ -28,6 +28,9 @@
 8.  **О программе**: Техническая информация.
 9.  **Экспорт из БД**: Выгрузка из SQLite в JSON/Text.
 
+Примечание:
+*   `retry` и `report` доступны как прямые CLI-команды и пока не вынесены в интерактивное меню.
+
 ---
 
 ### ⌨️ 2. CLI Команды (Для автоматизации)
@@ -112,6 +115,34 @@ tg-msg-manager schedule
 ```
 Интерактивная настройка фонового `update` через `macOS launchd`.
 
+#### `retry` — Очередь повторов
+```bash
+tg-msg-manager retry [--limit <N>] [--list] [--cleanup]
+```
+*   Без флагов команда исполняет due retry tasks.
+*   `--limit`: Ограничить число задач за один проход.
+*   `--list`: Показать текущую локальную retry queue без исполнения.
+*   `--cleanup`: Удалить terminal retry rows (`completed` / `failed`) из локальной БД.
+
+**Примеры**
+```bash
+tg-msg-manager retry --list
+tg-msg-manager retry --limit 5
+tg-msg-manager retry --cleanup
+```
+
+#### `report` — Диагностический отчёт
+```bash
+tg-msg-manager report [--json]
+```
+Команда строит read-only сводку по SQLite и локальным export artifacts, не подключаясь к Telegram.
+
+**Примеры**
+```bash
+tg-msg-manager report
+tg-msg-manager report --json
+```
+
 #### `setup` — Установка алиасов
 ```bash
 tg-msg-manager setup
@@ -143,6 +174,9 @@ Launch via the `tg` shortcut or run `tg-msg-manager` without arguments from an i
 7.  **Setup**: Install terminal aliases.
 8.  **About**: System information and versions.
 9.  **DB Export Service**: Convert SQLite records to JSON/Text.
+
+Note:
+*   `retry` and `report` currently exist as direct CLI commands and are not exposed in the interactive menu yet.
 
 ---
 
@@ -228,6 +262,34 @@ tg-msg-manager schedule
 ```
 Interactive background `update` setup for `macOS launchd`.
 
+#### `retry` — Retry Queue
+```bash
+tg-msg-manager retry [--limit <N>] [--list] [--cleanup]
+```
+*   Without flags, the command runs due retry tasks.
+*   `--limit`: Cap the number of tasks in one pass.
+*   `--list`: Show the current local retry queue without executing it.
+*   `--cleanup`: Remove terminal retry rows (`completed` / `failed`) from the local DB.
+
+**Examples**
+```bash
+tg-msg-manager retry --list
+tg-msg-manager retry --limit 5
+tg-msg-manager retry --cleanup
+```
+
+#### `report` — Diagnostic Report
+```bash
+tg-msg-manager report [--json]
+```
+Builds a read-only summary from SQLite and local export artifacts without connecting to Telegram.
+
+**Examples**
+```bash
+tg-msg-manager report
+tg-msg-manager report --json
+```
+
 #### `setup` — Alias Installer
 ```bash
 tg-msg-manager setup
@@ -250,4 +312,10 @@ Live smoke-check:
 
 ```bash
 python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --flat --limit 1
+```
+
+Offline fixture-backed regression:
+
+```bash
+python3 -m unittest tests.test_fixture_e2e -q
 ```

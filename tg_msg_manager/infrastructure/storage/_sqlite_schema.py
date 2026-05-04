@@ -1,5 +1,8 @@
 import logging
 import sqlite3
+import time
+
+from ...core.models.retry import RetryTaskStatus
 
 logger = logging.getLogger(__name__)
 
@@ -9,8 +12,9 @@ class SQLiteSchemaMixin:
         """Initializes database schema and applies migrations."""
         conn = self._conn
         self._create_tables(conn)
-        self._create_indexes(conn)
         self._ensure_sync_target_columns(conn)
+        self._ensure_retry_queue_columns(conn)
+        self._create_indexes(conn)
         self._run_migrations(conn)
         conn.commit()
         logger.info(
@@ -79,10 +83,18 @@ class SQLiteSchemaMixin:
             CREATE TABLE IF NOT EXISTS retry_queue (
                 task_id TEXT PRIMARY KEY,
                 chat_id INTEGER,
+                target_user_id INTEGER,
                 task_type TEXT,
+                status TEXT DEFAULT 'pending',
+                payload_json TEXT DEFAULT '{}',
                 retry_count INTEGER DEFAULT 0,
+                max_attempts INTEGER DEFAULT 5,
                 last_error TEXT,
-                next_retry_timestamp INTEGER
+                next_retry_timestamp INTEGER,
+                created_at INTEGER DEFAULT 0,
+                updated_at INTEGER DEFAULT 0,
+                last_attempt_timestamp INTEGER DEFAULT 0,
+                completed_at INTEGER DEFAULT 0
             )
         """)
         conn.execute("""
@@ -120,6 +132,12 @@ class SQLiteSchemaMixin:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_msg_context_group ON messages (context_group_id)"
         )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_retry_queue_due ON retry_queue (status, next_retry_timestamp)"
+        )
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_retry_queue_type ON retry_queue (task_type, status)"
+        )
 
     def _ensure_sync_target_columns(self, conn: sqlite3.Connection):
         for col, col_type in [
@@ -132,6 +150,22 @@ class SQLiteSchemaMixin:
         ]:
             try:
                 conn.execute(f"ALTER TABLE sync_targets ADD COLUMN {col} {col_type}")
+            except sqlite3.OperationalError:
+                pass
+
+    def _ensure_retry_queue_columns(self, conn: sqlite3.Connection):
+        for col, col_type in [
+            ("target_user_id", "INTEGER"),
+            ("status", f"TEXT DEFAULT '{RetryTaskStatus.PENDING.value}'"),
+            ("payload_json", "TEXT DEFAULT '{}'"),
+            ("max_attempts", "INTEGER DEFAULT 5"),
+            ("created_at", "INTEGER DEFAULT 0"),
+            ("updated_at", "INTEGER DEFAULT 0"),
+            ("last_attempt_timestamp", "INTEGER DEFAULT 0"),
+            ("completed_at", "INTEGER DEFAULT 0"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE retry_queue ADD COLUMN {col} {col_type}")
             except sqlite3.OperationalError:
                 pass
 
@@ -167,6 +201,50 @@ class SQLiteSchemaMixin:
                 logger.debug(f"Columns might already exist: {e}")
             conn.execute("PRAGMA user_version = 4")
             logger.info("Database migration to Version 4 successful.")
+
+        if current_version < 5:
+            logger.info("Running Database Migration: Version 5 (Retry lifecycle)...")
+            now = int(time.time())
+            conn.execute(
+                """
+                UPDATE retry_queue
+                SET
+                    target_user_id = CASE
+                        WHEN target_user_id IS NULL OR target_user_id = 0 THEN chat_id
+                        ELSE target_user_id
+                    END,
+                    status = CASE
+                        WHEN status IS NULL OR status = '' THEN ?
+                        WHEN LOWER(status) = 'pending' AND COALESCE(retry_count, 0) > 0
+                            THEN ?
+                        ELSE LOWER(status)
+                    END,
+                    payload_json = COALESCE(NULLIF(payload_json, ''), '{}'),
+                    max_attempts = CASE
+                        WHEN max_attempts IS NULL OR max_attempts <= 0 THEN 5
+                        ELSE max_attempts
+                    END,
+                    next_retry_timestamp = COALESCE(next_retry_timestamp, 0),
+                    created_at = CASE
+                        WHEN created_at IS NULL OR created_at = 0 THEN ?
+                        ELSE created_at
+                    END,
+                    updated_at = CASE
+                        WHEN updated_at IS NULL OR updated_at = 0 THEN ?
+                        ELSE updated_at
+                    END,
+                    last_attempt_timestamp = COALESCE(last_attempt_timestamp, 0),
+                    completed_at = COALESCE(completed_at, 0)
+            """,
+                (
+                    RetryTaskStatus.RETRYING.value,
+                    RetryTaskStatus.RETRYING.value,
+                    now,
+                    now,
+                ),
+            )
+            conn.execute("PRAGMA user_version = 5")
+            logger.info("Database migration to Version 5 successful.")
         else:
             logger.debug(
                 f"Database migration skipped (already at version {current_version})."

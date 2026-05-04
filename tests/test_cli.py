@@ -178,6 +178,77 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
             mock_ctx.db_exporter.export_user_messages.await_args.kwargs["as_json"]
         )
 
+    @patch("tg_msg_manager.cli.CLIContext")
+    async def test_run_cli_retry_runs_worker(self, mock_ctx_cls):
+        mock_ctx = MagicMock()
+        mock_ctx.initialize = AsyncMock()
+        mock_ctx.shutdown = AsyncMock()
+        mock_ctx.retry_worker = MagicMock()
+        mock_ctx.retry_worker.run_due_tasks = AsyncMock()
+        mock_ctx_cls.return_value = mock_ctx
+
+        with patch.object(sys, "argv", ["prog", "retry", "--limit", "2"]):
+            await run_cli(runtime=self.runtime)
+
+        mock_ctx.retry_worker.run_due_tasks.assert_awaited_once_with(limit=2)
+
+    @patch("tg_msg_manager.cli.enqueue_archive_pm_retry_task")
+    @patch("tg_msg_manager.cli.get_safe_user_and_chat")
+    @patch("tg_msg_manager.cli.CLIContext")
+    async def test_run_cli_export_pm_enqueues_retry_on_failure(
+        self,
+        mock_ctx_cls,
+        mock_get_safe_user_and_chat,
+        mock_enqueue_retry,
+    ):
+        mock_ctx = MagicMock()
+        mock_ctx.initialize = AsyncMock()
+        mock_ctx.shutdown = AsyncMock()
+        mock_ctx.private_archive = MagicMock()
+        mock_ctx.private_archive.archive_pm = AsyncMock(
+            side_effect=RuntimeError("boom")
+        )
+        mock_ctx.storage = MagicMock()
+        mock_ctx_cls.return_value = mock_ctx
+
+        user_ent = MagicMock(id=777)
+        mock_get_safe_user_and_chat.return_value = (user_ent, None)
+
+        with patch.object(sys, "argv", ["prog", "export-pm", "--user-id", "777"]):
+            await run_cli(runtime=self.runtime)
+
+        mock_enqueue_retry.assert_called_once()
+
+    @patch("builtins.print")
+    @patch("tg_msg_manager.cli.render_report_json", return_value="{}")
+    @patch("tg_msg_manager.cli.ReportCollector")
+    @patch("tg_msg_manager.cli.CLIContext")
+    async def test_run_cli_report_uses_read_only_context(
+        self,
+        mock_ctx_cls,
+        mock_report_collector_cls,
+        mock_render_report_json,
+        mock_print,
+    ):
+        mock_ctx = MagicMock()
+        mock_ctx.initialize = AsyncMock()
+        mock_ctx.shutdown = AsyncMock()
+        mock_ctx.storage = MagicMock()
+        mock_ctx.paths = MagicMock()
+        mock_ctx.paths.db_exports_dir = "/tmp/exports"
+        mock_ctx_cls.return_value = mock_ctx
+        mock_collector = MagicMock()
+        mock_collector.collect.return_value = MagicMock()
+        mock_report_collector_cls.return_value = mock_collector
+
+        with patch.object(sys, "argv", ["prog", "report", "--json"]):
+            await run_cli(runtime=self.runtime)
+
+        self.assertFalse(mock_ctx_cls.call_args.kwargs["needs_client"])
+        mock_report_collector_cls.assert_called_once()
+        mock_render_report_json.assert_called_once()
+        mock_print.assert_called()
+
     @patch("tg_msg_manager.cli.telemetry.log_summary")
     @patch("tg_msg_manager.cli.get_safe_user_and_chat")
     @patch("tg_msg_manager.cli.CLIContext")

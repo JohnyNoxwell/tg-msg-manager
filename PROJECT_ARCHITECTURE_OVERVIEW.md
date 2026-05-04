@@ -1,11 +1,11 @@
 # TG_CLEANER / TG_MSG_MNGR: архитектурный обзор проекта
 
-Документ собран по текущему состоянию workspace на 2026-05-03.
+Документ собран по текущему состоянию workspace на 2026-05-04.
 
 Источник анализа:
 - фактический код в `tg_msg_manager/`, `scripts/`, `tests/`
 - текущие docs: `README.md`, `COMMANDS.md`, `ROADMAP.md`, `TODO.md`, `CHANGELOG.md`
-- локальная проверка тестов: `python3 -m unittest discover -s tests -q` -> `122 tests`, `OK`
+- локальная проверка тестов: `python3 -m unittest discover -s tests -q` -> `144 tests`, `OK`
 
 Важно:
 - документ описывает текущее рабочее дерево, а не только последнюю зафиксированную версию
@@ -29,17 +29,18 @@
 ## 2. Масштаб текущего codebase
 
 Приблизительные метрики по текущему состоянию:
-- `tg_msg_manager`: `40` Python-файлов, около `10 180` строк
-- `tests`: `15` файлов, около `4 013` строк
-- `scripts`: `4` файла, около `539` строк
+- `tg_msg_manager`: `67` Python-файлов, около `13 692` строк
+- `tests`: `18` файлов, около `4 847` строк
+- `scripts`: `4` файла, около `574` строк
 
 Крупнейшие файлы:
-- `tg_msg_manager/services/exporter.py` -> `1417` строк
-- `tg_msg_manager/services/context_engine.py` -> `1198` строк
+- `tg_msg_manager/cli.py` -> `785` строк
+- `tg_msg_manager/services/exporter.py` -> `772` строк
+- `tg_msg_manager/services/context_engine.py` -> `721` строк
 - `tg_msg_manager/services/db_exporter.py` -> `718` строк
-- `tg_msg_manager/cli.py` -> `709` строк
+- `tg_msg_manager/infrastructure/storage/_sqlite_read_path.py` -> `676` строк
 
-Практический вывод: архитектура уже модульная, но часть hot-path логики все еще сосредоточена в нескольких очень крупных сервисах.
+Практический вывод: архитектура уже заметно более декомпозирована после foundation stages `1`–`5`, но несколько orchestration/read-path hotspots все еще остаются крупными.
 
 ## 3. Технологии и стек
 
@@ -73,6 +74,8 @@
 - `update` -> обновление всех зарегистрированных целей
 - `db-export` -> выгрузка накопленной локальной истории в TXT/JSONL
 - `export-pm` -> архив личной переписки с медиа-папками
+- `retry` -> повтор recoverable sync/archive задач из локальной retry queue
+- `report` -> read-only диагностика состояния БД, tracked targets, retry queue и export artifacts
 - `clean` -> удаление собственных сообщений из доступных диалогов
 - `delete` -> purge локальных данных цели из БД и файловой системы
 - `schedule` -> создание `launchd`-задачи для регулярного `update`
@@ -138,6 +141,8 @@ Telethon + SQLite + filesystem
 
 Файлы:
 - `tg_msg_manager/core/models/message.py`
+- `tg_msg_manager/core/models/retry.py`
+- `tg_msg_manager/core/models/reporting.py`
 - `tg_msg_manager/core/models/sync_report.py`
 - `tg_msg_manager/core/models/service_payloads.py`
 - `tg_msg_manager/core/models/setup.py`
@@ -145,6 +150,8 @@ Telethon + SQLite + filesystem
 
 Ответственность:
 - нормализованная модель сообщения
+- typed DTO для retry lifecycle и retry run stats
+- typed DTO для reporting/audit read-side summaries
 - typed DTO для payload'ов сервисных событий
 - typed DTO для результатов setup/scheduler
 - typed read-side records из storage
@@ -167,9 +174,13 @@ Telethon + SQLite + filesystem
 Файлы:
 - `tg_msg_manager/services/exporter.py`
 - `tg_msg_manager/services/context_engine.py`
+- `tg_msg_manager/services/context/`
 - `tg_msg_manager/services/db_exporter.py`
 - `tg_msg_manager/services/cleaner.py`
 - `tg_msg_manager/services/private_archive.py`
+- `tg_msg_manager/services/retry_worker.py`
+- `tg_msg_manager/services/reporting.py`
+- `tg_msg_manager/services/sync/`
 - `tg_msg_manager/services/file_writer.py`
 - `tg_msg_manager/services/scheduler.py`
 - `tg_msg_manager/services/alias_manager.py`
@@ -256,9 +267,8 @@ Telethon + SQLite + filesystem
 - поддержка legacy aliases для полей (`exclude_chats` -> `whitelist_chats`, `language`/`ui_language` -> `lang`)
 
 Нюанс:
-- `config.example.json` устарел и не соответствует текущей модели `Settings`
-- в example-конфиге есть поля вроде `dry_run`, `delete_media`, `batch_size`, `default_export_chats`, которых в актуальном `Settings` нет
-- это важно для внешнего анализа: docs по конфигу частично исторические, а не строго отражающие runtime
+- `config.example.json` сейчас синхронизирован с текущей моделью `Settings`
+- legacy aliases для `exclude_chats` и `language`/`ui_language` всё ещё поддерживаются, но не считаются основным documented surface
 
 ## 8. Модель данных
 
@@ -300,7 +310,7 @@ Telethon + SQLite + filesystem
 | `message_context_links` | таблица связей контекста |
 | `message_target_links` | ключевая таблица атрибуции сообщений конкретным целям |
 | `sync_state` | head-состояние чата |
-| `retry_queue` | заготовка под retry-механику |
+| `retry_queue` | typed retry lifecycle для recoverable sync/archive failures |
 | `sync_targets` | зарегистрированные цели синка и их персональные чекпоинты |
 
 Ключевая архитектурная идея: target attribution
@@ -815,16 +825,19 @@ Windows-путь:
 Для локального single-user инструмента это нормально.
 Для очень больших deep-export сценариев это будет масштабный предел.
 
-### 23.3 `retry_queue` пока больше заготовка, чем активная подсистема
+### 23.3 `retry_queue` теперь активная reliability-подсистема, но намеренно узкая по scope
 
-Схема и storage API для retry есть:
-- `enqueue_retry_task`
-- `get_retry_tasks`
-- `remove_retry_task`
+Сейчас поверх очереди уже есть:
+- typed retry models;
+- `RetryWorker`;
+- CLI surface `retry`;
+- deterministic backoff / reschedule / terminal states;
+- интеграция в tracked sync failures и `export-pm` fail-path.
 
-Но в основном рабочем приложении активного orchestration-цикла поверх этой очереди сейчас нет.
-
-То есть механизм повторов скорее недостроен, чем полноценно эксплуатируется.
+При этом scope сознательно ограничен:
+- поддерживаются только typed recoverable tasks;
+- это не универсальный job-runner;
+- orchestration остаётся локальным и синхронным по отношению к CLI-проходу.
 
 ### 23.4 `message_context_links` выглядит недоиспользованной сущностью
 
@@ -835,13 +848,14 @@ Windows-путь:
 
 Это похоже на исторический слой нормализации, который сейчас не является центральным источником истины для контекстного движка.
 
-### 23.5 Конфиг и часть текстов исторически дрейфовали
+### 23.5 Documentation drift сильно уменьшился, но архитектурный документ всё ещё требует периодической пересборки
 
-Самый явный пример:
-- `config.example.json` не соответствует актуальному `Settings`
-- некоторые i18n-строки все еще ссылаются на поле `dry_run` в `config.json`, которого в текущей модели настроек нет
+Самые заметные изменения после foundation backlog:
+- `config.example.json` выровнен с `Settings`;
+- user-facing docs уже знают про `retry` и `report`;
+- в репо появилась offline fixture-based harness в `tg_msg_manager/testing/`.
 
-Для внешнего аналитика это важно: часть operational docs уже выровнена, но некоторые конфигурационные артефакты все еще legacy.
+Для внешнего аналитика это важно: operational docs стали заметно точнее, но сам обзор остаётся "снимком текущего дерева" и требует обновления после крупных refactor waves.
 
 ### 23.6 Scheduler привязан к macOS
 
@@ -867,11 +881,13 @@ Windows-путь:
 
 ### 23.9 Типовая аккуратность выше, чем абсолютная типовая строгость
 
-В проекте много typed DTO и record-моделей, но встречается type drift.
-Пример:
-- `UserExportRow.context_group_id` типизирован как `Optional[int]`, хотя реально cluster ids могут быть строковыми UUID-подобными значениями
+В проекте много typed DTO, protocol-контрактов и record-моделей.
+После foundation backlog заметная часть старого type drift уже убрана:
+- retry lifecycle типизирован;
+- reporting read-side типизирован;
+- `context_group_id` в export/storage моделях больше не расходится с реальным runtime shape.
 
-Это не ломает рантайм, но для дальнейшей эволюции типовой дисциплины это зона внимания.
+Но общий вывод остаётся прежним: проект идёт в сторону большей типовой дисциплины, а не в сторону полной статической строгости любой ценой.
 
 ## 24. Что особенно важно знать другой модели перед анализом развития
 
@@ -882,7 +898,7 @@ Windows-путь:
 3. Главный актив архитектуры — модель `messages` + `message_target_links` + `sync_targets`.
 4. Главные ограничения роста — сложность `ExportService`/`DeepModeEngine` и single-node SQLite write path.
 5. Проект уже довольно зрелый в части операционной дисциплины: lock, graceful shutdown, telemetry, manifest-based exports, resume.
-6. Некоторые legacy-артефакты еще присутствуют: устаревший `config.example.json`, старые scripts, недоиспользуемые таблицы/queue hooks.
+6. Некоторые legacy-артефакты еще присутствуют: старые scripts, часть исторических таблиц/queue hooks и крупные архитектурные snapshots, которые нужно периодически пересобирать.
 
 ## 25. Рекомендуемый порядок чтения кода для внешнего анализа
 

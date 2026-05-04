@@ -1,5 +1,8 @@
+import json
 from dataclasses import dataclass, fields
 from typing import Any, Iterator, Mapping, Optional
+
+from ...core.models.retry import RetryTaskStatus
 
 
 def _coerce_int(value: Any, default: int = 0) -> int:
@@ -193,7 +196,7 @@ class UserExportRow(StorageRecord):
     media_type: Optional[str] = None
     reply_to_id: Optional[int] = None
     fwd_from_id: Optional[int] = None
-    context_group_id: Optional[int] = None
+    context_group_id: Optional[str] = None
     raw_payload: Any = None
     is_service: bool = False
 
@@ -212,7 +215,11 @@ class UserExportRow(StorageRecord):
                 media_type=value.get("media_type"),
                 reply_to_id=value.get("reply_to_id"),
                 fwd_from_id=value.get("fwd_from_id"),
-                context_group_id=value.get("context_group_id"),
+                context_group_id=(
+                    str(value.get("context_group_id"))
+                    if value.get("context_group_id") is not None
+                    else None
+                ),
                 raw_payload=value.get("raw_payload"),
                 is_service=_coerce_bool(value.get("is_service")),
             )
@@ -295,10 +302,26 @@ class TerminalRepairCandidate(StorageRecord):
 class RetryTaskRecord(StorageRecord):
     task_id: str = ""
     chat_id: int = 0
+    target_user_id: int = 0
     task_type: str = ""
+    status: str = RetryTaskStatus.PENDING.value
+    payload_json: str = "{}"
     last_error: Optional[str] = None
     next_retry_timestamp: int = 0
     retry_count: int = 0
+    max_attempts: int = 5
+    created_at: int = 0
+    updated_at: int = 0
+    last_attempt_timestamp: int = 0
+    completed_at: int = 0
+
+    @property
+    def payload(self) -> dict[str, Any]:
+        try:
+            value = json.loads(self.payload_json or "{}")
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return {}
+        return value if isinstance(value, dict) else {}
 
     @classmethod
     def coerce(cls, value: Any) -> "RetryTaskRecord":
@@ -308,9 +331,21 @@ class RetryTaskRecord(StorageRecord):
             return cls(
                 task_id=str(value.get("task_id") or ""),
                 chat_id=_coerce_int(value.get("chat_id")),
+                target_user_id=_coerce_int(
+                    value.get("target_user_id", value.get("chat_id"))
+                ),
                 task_type=str(value.get("task_type") or ""),
+                status=str(
+                    value.get("status") or RetryTaskStatus.PENDING.value
+                ).lower(),
+                payload_json=str(value.get("payload_json") or "{}"),
                 last_error=value.get("last_error"),
                 next_retry_timestamp=_coerce_int(value.get("next_retry_timestamp")),
                 retry_count=_coerce_int(value.get("retry_count")),
+                max_attempts=_coerce_int(value.get("max_attempts"), 5),
+                created_at=_coerce_int(value.get("created_at")),
+                updated_at=_coerce_int(value.get("updated_at")),
+                last_attempt_timestamp=_coerce_int(value.get("last_attempt_timestamp")),
+                completed_at=_coerce_int(value.get("completed_at")),
             )
         return cls()

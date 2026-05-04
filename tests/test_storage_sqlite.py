@@ -1,5 +1,6 @@
 import sys
 import os
+import sqlite3
 import time
 import unittest
 from datetime import datetime
@@ -231,7 +232,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
                 media_type=None,
                 reply_to_id=None,
                 fwd_from_id=None,
-                context_group_id=None,
+                context_group_id="cluster-1",
                 raw_payload={},
             ),
             MessageData(
@@ -271,6 +272,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(targets[0].user_msg_count, 2)
         self.assertEqual(targets[0].context_msg_count, 1)
         self.assertEqual([row["message_id"] for row in rows], [1, 2, 3])
+        self.assertEqual(rows[0].context_group_id, "cluster-1")
 
     async def test_register_target_preserves_last_sync_at_on_existing_target(self):
         self.storage.register_target(999, "Target User", 321)
@@ -496,6 +498,78 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(tasks[0], RetryTaskRecord)
         self.assertEqual(tasks[0].task_id, "task1")
         self.assertEqual(tasks[0].chat_id, 123)
+        self.assertEqual(tasks[0].target_user_id, 123)
+        self.assertEqual(tasks[0].status, "pending")
+
+    async def test_retry_task_lifecycle_updates_status_and_attempts(self):
+        self.storage.enqueue_retry_task(
+            "task1",
+            123,
+            "sync_target",
+            "Timeout",
+            target_user_id=456,
+            payload={"chat_id": 123, "user_id": 456},
+            next_retry_timestamp=0,
+        )
+
+        due = self.storage.get_due_retry_tasks()
+        self.assertEqual(len(due), 1)
+        self.assertEqual(due[0].payload["user_id"], 456)
+
+        next_status = self.storage.mark_retry_task_rescheduled(
+            "task1", "Still failing", next_retry_timestamp=999
+        )
+        self.assertEqual(next_status, "retrying")
+
+        listed = self.storage.list_retry_tasks()
+        self.assertEqual(listed[0].retry_count, 1)
+        self.assertEqual(listed[0].status, "retrying")
+        self.assertEqual(listed[0].next_retry_timestamp, 999)
+
+        self.storage.mark_retry_task_completed("task1")
+        listed = self.storage.list_retry_tasks()
+        self.assertEqual(listed[0].status, "completed")
+
+        cleaned = self.storage.cleanup_retry_tasks()
+        self.assertEqual(cleaned, 1)
+        self.assertEqual(self.storage.list_retry_tasks(), [])
+
+    async def test_retry_queue_migration_adds_lifecycle_columns(self):
+        await self.storage.close()
+        if os.path.exists(self.db_path):
+            os.remove(self.db_path)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """
+            CREATE TABLE retry_queue (
+                task_id TEXT PRIMARY KEY,
+                chat_id INTEGER,
+                task_type TEXT,
+                retry_count INTEGER DEFAULT 0,
+                last_error TEXT,
+                next_retry_timestamp INTEGER
+            )
+        """
+        )
+        conn.execute(
+            """
+            INSERT INTO retry_queue (task_id, chat_id, task_type, retry_count, last_error, next_retry_timestamp)
+            VALUES ('legacy-task', 123, 'export', 2, 'Timeout', 0)
+        """
+        )
+        conn.execute("PRAGMA user_version = 4")
+        conn.commit()
+        conn.close()
+
+        self.storage = SQLiteStorage(self.db_path)
+        tasks = self.storage.list_retry_tasks()
+
+        self.assertEqual(len(tasks), 1)
+        self.assertEqual(tasks[0].task_id, "legacy-task")
+        self.assertEqual(tasks[0].target_user_id, 123)
+        self.assertEqual(tasks[0].status, "retrying")
+        self.assertGreaterEqual(tasks[0].max_attempts, 5)
 
     async def asyncTearDown(self):
         await self.storage.close()

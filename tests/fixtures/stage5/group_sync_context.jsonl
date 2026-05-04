@@ -1,0 +1,11 @@
+{"kind":"entity","entity_id":1001,"entity_type":"group","title":"Fixture Group","include_in_dialogs":true}
+{"kind":"entity","entity_id":5001,"entity_type":"user","first_name":"Target","last_name":"Alpha","username":"target_alpha"}
+{"kind":"entity","entity_id":5002,"entity_type":"user","first_name":"Responder","last_name":"Beta","username":"responder_beta"}
+{"kind":"message","chat_id":1001,"message_id":16,"user_id":5002,"author_name":"Responder Beta","timestamp":1704067380,"text":"Follow-up context","reply_to_id":15,"raw_payload":{"fixture":"group_sync_context","reply_to":{"reply_to_msg_id":15}}}
+{"kind":"message","chat_id":1001,"message_id":15,"user_id":5001,"author_name":"Target Alpha","timestamp":1704067320,"text":"Target asks for help","reply_to_id":14,"raw_payload":{"fixture":"group_sync_context","reply_to":{"reply_to_msg_id":14}}}
+{"kind":"message","chat_id":1001,"message_id":14,"user_id":5002,"author_name":"Responder Beta","timestamp":1704067260,"text":"Parent context reply","raw_payload":{"fixture":"group_sync_context"}}
+{"kind":"message","chat_id":1001,"message_id":13,"user_id":5001,"author_name":"Target Alpha","timestamp":1704067200,"text":"Target alpha baseline","raw_payload":{"fixture":"group_sync_context","edit_date":1704067200}}
+{"kind":"message","chat_id":1001,"message_id":13,"user_id":5001,"author_name":"Target Alpha","timestamp":1704067200,"text":"Target alpha baseline","raw_payload":{"fixture":"group_sync_context","duplicate":true,"edit_date":1704067200}}
+{"kind":"message","chat_id":1001,"message_id":12,"user_id":5002,"author_name":"Responder Beta","timestamp":1704067140,"text":"Earlier context","raw_payload":{"fixture":"group_sync_context"}}
+{"kind":"deleted","chat_id":1001,"message_id":11}
+{"kind":"missing","chat_id":1001,"message_id":10}

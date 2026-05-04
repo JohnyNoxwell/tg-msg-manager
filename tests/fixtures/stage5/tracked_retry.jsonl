@@ -1,0 +1,7 @@
+{"kind":"entity","entity_id":2001,"entity_type":"group","title":"Retry Fixture Group","include_in_dialogs":true}
+{"kind":"entity","entity_id":6001,"entity_type":"user","first_name":"Retry","last_name":"Target","username":"retry_target"}
+{"kind":"entity","entity_id":6002,"entity_type":"user","first_name":"Retry","last_name":"Peer","username":"retry_peer"}
+{"kind":"failure","method":"iter_messages","entity_id":2001,"from_user_id":6001,"times":1,"error_type":"RuntimeError","message":"fixture retryable sync failure"}
+{"kind":"message","chat_id":2001,"message_id":31,"user_id":6002,"author_name":"Retry Peer","timestamp":1704067980,"text":"Support context","raw_payload":{"fixture":"tracked_retry"}}
+{"kind":"message","chat_id":2001,"message_id":30,"user_id":6001,"author_name":"Retry Target","timestamp":1704067920,"text":"Retry target primary","reply_to_id":31,"raw_payload":{"fixture":"tracked_retry","reply_to":{"reply_to_msg_id":31}}}
+{"kind":"message","chat_id":2001,"message_id":29,"user_id":6001,"author_name":"Retry Target","timestamp":1704067860,"text":"Retry target earlier","raw_payload":{"fixture":"tracked_retry"}}

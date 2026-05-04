@@ -1,3 +1,9 @@
+"""Status: active.
+
+Workspace reset and target reseed helper for controlled local sync rehearsals.
+Intended for manual maintenance, not for the main runtime path.
+"""
+
 import argparse
 import shutil
 from pathlib import Path
@@ -72,7 +78,9 @@ def seed_targets(db_path: Path, targets: list[tuple[int, str, int]], depth: int)
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Reset local Telegram exports and reseed sync_targets.")
+    parser = argparse.ArgumentParser(
+        description="Reset local Telegram exports and reseed sync_targets."
+    )
     parser.add_argument("--targets-file", default=str(DEFAULT_TARGETS_FILE))
     parser.add_argument("--db-path", default=str(DEFAULT_DB_PATH))
     parser.add_argument("--depth", type=int, default=2)

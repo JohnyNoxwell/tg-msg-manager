@@ -1,22 +1,13 @@
 {
   "api_id": 123456,
   "api_hash": "YOUR_API_HASH",
-  "session_name": "tg_delete_my_msgs",
-
-  "dry_run": true,
-  "min_date_days_ago": null,
-
+  "session_name": "tg_msg_manager",
+  "db_path": "messages.db",
+  "account_name": "Default Account",
+  "whitelist_chats": [],
   "include_chats": [],
-  "exclude_chats": [],
-  "exclude_chat_titles": [],
-
-  "delete_media": true,
-  "delete_text": true,
-  "delete_forwards": true,
-
-  "base_delay_sec": 0.15,
-  "max_delay_sec": 5.0,
-  "batch_size": 50,
-  "default_export_chats": []
+  "chats_to_search_user_msgs": [],
+  "max_rps": 3.0,
+  "log_level": "INFO",
+  "lang": "ru"
 }
-

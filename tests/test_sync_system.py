@@ -390,6 +390,39 @@ class TestSyncSystem(unittest.IsolatedAsyncioTestCase):
         payload = ExportTrackedUpdateStartedPayload.coerce(events[0].payload)
         self.assertEqual(payload.target_count, 1)
 
+    async def test_sync_all_tracked_enqueues_retry_and_continues_after_target_failure(
+        self,
+    ):
+        self.storage.get_primary_targets = MagicMock(
+            return_value=[
+                {"chat_id": 200, "user_id": 111},
+                {"chat_id": 300, "user_id": 222},
+            ]
+        )
+        self.storage.get_sync_status = MagicMock(
+            side_effect=[
+                {"author_name": "User One"},
+                {"author_name": "User Two"},
+            ]
+        )
+        self.storage.get_user = MagicMock(return_value=None)
+        self.storage.enqueue_retry_task = MagicMock()
+        self.mock_client.get_entity = AsyncMock(
+            side_effect=[MagicMock(id=200), MagicMock(id=300)]
+        )
+
+        service = ExportService(self.mock_client, self.storage)
+        service.sync_chat = AsyncMock(side_effect=[RuntimeError("boom"), 5])
+
+        stats = await service.sync_all_tracked()
+
+        self.assertEqual(service.sync_chat.await_count, 2)
+        self.storage.enqueue_retry_task.assert_called_once()
+        self.assertEqual(stats[111]["count"], 0)
+        self.assertFalse(stats[111]["dirty"])
+        self.assertEqual(stats[222]["count"], 5)
+        self.assertTrue(stats[222]["dirty"])
+
 
 if __name__ == "__main__":
     unittest.main()

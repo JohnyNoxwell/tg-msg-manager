@@ -1,3 +1,9 @@
+"""Status: active.
+
+Read-only helper to export target-linked context directly from local SQLite.
+Useful for diagnostics and one-off inspections outside the main CLI flow.
+"""
+
 import argparse
 import json
 import sqlite3
@@ -64,7 +70,7 @@ def resolve_output_path(
     suffix = f"_chat_{chat_id}" if chat_id is not None else ""
     return (
         DEFAULT_EXPORT_DIR
-        / f"context_user_{user_id}{suffix}.{ 'jsonl' if fmt == 'jsonl' else 'txt' }"
+        / f"context_user_{user_id}{suffix}.{'jsonl' if fmt == 'jsonl' else 'txt'}"
     )
 
 
@@ -212,7 +218,9 @@ def row_to_payload(row: sqlite3.Row, target_user_id: int) -> dict[str, Any]:
     }
 
 
-def write_jsonl(rows: list[sqlite3.Row], output_path: Path, target_user_id: int) -> None:
+def write_jsonl(
+    rows: list[sqlite3.Row], output_path: Path, target_user_id: int
+) -> None:
     with output_path.open("w", encoding="utf-8") as handle:
         for row in rows:
             payload = row_to_payload(row, target_user_id)

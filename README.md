@@ -18,6 +18,8 @@ python3 -m tg_msg_manager.cli db-export --user-id 123456789
 python3 -m tg_msg_manager.cli export-pm --user-id 123456789
 python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json
 python3 -m tg_msg_manager.cli update
+python3 -m tg_msg_manager.cli retry --list
+python3 -m tg_msg_manager.cli report
 ```
 
 ### 🚀 Быстрый старт
@@ -40,15 +42,17 @@ python3 -m tg_msg_manager.cli update
 
 ---
 
-### 🌟 Основные функции (Интерактивное меню)
+### 🌟 Основные функции
 
-Все возможности доступны через удобный графический интерфейс в терминале:
+Основные возможности проекта:
 
 * 🧹 **Глобальная очистка (`clean`)** — Удаляет **только ваши** сообщения из всех выбранных чатов. Поддерживает фильтры и безопасный режим (Dry Run).
 * 📥 **Умный экспорт с контекстом (`export`)** — Собирает сообщения цели вместе с окружающим контекстом беседы, восстанавливая полную картину диалога.
 * 💬 **Архив лички (`export-pm`)** — Текстовый бэкап приватного чата с подготовленной структурой папок под медиа.
 * 🗄️ **SQLite База данных** — Все данные хранятся в структурированной базе `messages.db`. Это обеспечивает мгновенный поиск и отсутствие дубликатов.
 * 📤 **Экспорт из БД** — Выгрузка накопленных данных из SQLite в JSON/Text. JSONL по умолчанию теперь компактный и ориентирован на анализ нейросетью.
+* ♻️ **Retry Queue (`retry`)** — Управление повторными задачами для recoverable sync/archive ошибок без ручного вмешательства в БД.
+* 📋 **Audit Report (`report`)** — Read-only диагностика локальной БД, retry-очереди, export artifacts и состояния tracked targets без доступа к Telegram.
 
 ---
 
@@ -79,6 +83,15 @@ python3 -m tg_msg_manager.cli update
     `python3 -m tg_msg_manager.cli delete --user-id 123456789`
 *   **Планировщик (macOS)**:
     `python3 -m tg_msg_manager.cli schedule`
+*   **Повтор задач retry-очереди**:
+    `python3 -m tg_msg_manager.cli retry --list`
+    `python3 -m tg_msg_manager.cli retry --limit 10`
+    `python3 -m tg_msg_manager.cli retry --cleanup`
+    `--list` печатает локальное состояние retry-очереди, обычный запуск исполняет due tasks, `--cleanup` удаляет terminal rows.
+*   **Диагностический отчёт**:
+    `python3 -m tg_msg_manager.cli report`
+    `python3 -m tg_msg_manager.cli report --json`
+    Команда работает только через SQLite/filesystem read-side и не требует Telegram credentials.
 *   **Установка алиасов**:
     `python3 -m tg_msg_manager.cli setup`
 
@@ -92,11 +105,49 @@ make test
 make verify
 ```
 
+Offline regression harness:
+
+```bash
+python3 -m unittest tests.test_fixture_e2e -q
+```
+
 Минимальный smoke-check с текущей Telegram-сессией:
 
 ```bash
 python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --flat --limit 1
 ```
+
+### ⚙️ Конфигурация
+
+Приложение читает настройки из `config.json`, переменных окружения `TG_*`, `.env` и init args.
+
+Базовый пример:
+
+```json
+{
+  "api_id": 123456,
+  "api_hash": "YOUR_API_HASH",
+  "session_name": "tg_msg_manager",
+  "db_path": "messages.db",
+  "account_name": "Default Account",
+  "whitelist_chats": [],
+  "include_chats": [],
+  "chats_to_search_user_msgs": [],
+  "max_rps": 3.0,
+  "log_level": "INFO",
+  "lang": "ru"
+}
+```
+
+Приоритет источников:
+- init args;
+- env vars `TG_*`;
+- `config.json`;
+- `.env`.
+
+Legacy aliases still supported:
+- `exclude_chats` -> `whitelist_chats`
+- `language` / `ui_language` -> `lang`
 
 ### Known Limitations
 
@@ -106,6 +157,17 @@ python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --f
 * Планировщик `schedule` сейчас ориентирован на macOS `launchd`.
 * `db-export --json` по умолчанию не включает полный `raw_payload`; если когда-нибудь понадобится полный Telethon-слепок, это потребует отдельного full-профиля экспорта.
 * После прерванного `export/tge` команда `update/tgu` может иметь заметную подготовительную паузу перед первым видимым прогрессом, если системе нужно переиспользовать большой общий HEAD-срез чата.
+* `retry` покрывает только типизированные recoverable tasks (`sync_target`, `archive_pm`); это не произвольная универсальная очередь задач.
+* `report` — диагностический read-only срез состояния системы, а не аналитический слой с keyword/topic или graph intelligence.
+
+### 🧪 Fixture-Based E2E
+
+Начиная с foundation stages `3`–`5`, в репо есть автономная offline harness:
+- `tests/fixtures/stage5/*.jsonl` — anonymized Telegram-like fixtures;
+- `tg_msg_manager/testing/` — `FakeTelegramClient`, fixture loaders, temp runtime helpers;
+- `tests/test_fixture_e2e.py` — end-to-end покрытие для `sync`, `context`, `db-export`, `retry`, `report`.
+
+Эта harness не требует сети и используется как regression-опора для дальнейших refactor/change batches.
 
 <a id="алиасы"></a>
 #### 🚀 Быстрые Алиасы (Power User)
@@ -134,6 +196,8 @@ python3 -m tg_msg_manager.cli db-export --user-id 123456789
 python3 -m tg_msg_manager.cli export-pm --user-id 123456789
 python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json
 python3 -m tg_msg_manager.cli update
+python3 -m tg_msg_manager.cli retry --list
+python3 -m tg_msg_manager.cli report
 ```
 
 ### 🚀 Quick Start
@@ -156,15 +220,17 @@ python3 -m tg_msg_manager.cli update
 
 ---
 
-### 🌟 Core Features (Interactive Menu)
+### 🌟 Core Features
 
-All features are available through a premium terminal UI:
+Core system capabilities:
 
 * 🧹 **Global Cleanup (`clean`)** — Removes **your own** messages from all selected chats. Supports whitelists and safe Dry Run mode.
 * 📥 **Deep Context Export (`export`)** — Automatically retrieves target messages along with the "surrounding" conversation window.
 * 💬 **PM Archive (`export-pm`)** — Text backup for private conversations with a prepared folder structure for media.
 * 🗄️ **SQLite Storage** — All messages are stored in a structured `messages.db` for instant querying and zero duplicates.
 * 📤 **Database Export** — Export collected SQLite records into JSON or Text. JSONL now defaults to a compact AI-friendly profile.
+* ♻️ **Retry Queue (`retry`)** — Replays recoverable sync/archive failures through typed retry tasks instead of manual DB surgery.
+* 📋 **Audit Report (`report`)** — Read-only diagnostics for local DB state, retry backlog, export artifacts, and tracked-target health without Telegram access.
 
 ---
 
@@ -195,6 +261,15 @@ Subcommands can be executed directly for automation:
     `python3 -m tg_msg_manager.cli delete --user-id 123456789`
 *   **Scheduler (macOS)**:
     `python3 -m tg_msg_manager.cli schedule`
+*   **Retry Queue Replay**:
+    `python3 -m tg_msg_manager.cli retry --list`
+    `python3 -m tg_msg_manager.cli retry --limit 10`
+    `python3 -m tg_msg_manager.cli retry --cleanup`
+    `--list` prints the local retry queue, plain execution runs due tasks, and `--cleanup` removes terminal rows.
+*   **Diagnostic Report**:
+    `python3 -m tg_msg_manager.cli report`
+    `python3 -m tg_msg_manager.cli report --json`
+    The command is fully read-only and works from SQLite/filesystem state without Telegram credentials.
 *   **Alias Setup**:
     `python3 -m tg_msg_manager.cli setup`
 
@@ -208,11 +283,49 @@ make test
 make verify
 ```
 
+Offline regression harness:
+
+```bash
+python3 -m unittest tests.test_fixture_e2e -q
+```
+
 Minimal live smoke-check with the current Telegram session:
 
 ```bash
 python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --flat --limit 1
 ```
+
+### ⚙️ Configuration
+
+The app reads settings from `config.json`, `TG_*` environment variables, `.env`, and init args.
+
+Minimal example:
+
+```json
+{
+  "api_id": 123456,
+  "api_hash": "YOUR_API_HASH",
+  "session_name": "tg_msg_manager",
+  "db_path": "messages.db",
+  "account_name": "Default Account",
+  "whitelist_chats": [],
+  "include_chats": [],
+  "chats_to_search_user_msgs": [],
+  "max_rps": 3.0,
+  "log_level": "INFO",
+  "lang": "ru"
+}
+```
+
+Source precedence:
+- init args;
+- `TG_*` env vars;
+- `config.json`;
+- `.env`.
+
+Supported legacy aliases:
+- `exclude_chats` -> `whitelist_chats`
+- `language` / `ui_language` -> `lang`
 
 ### Known Limitations
 
@@ -222,6 +335,17 @@ python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --f
 * The built-in `schedule` command currently targets macOS `launchd`.
 * `db-export --json` no longer includes the full `raw_payload` by default; a future explicit full-export profile would be needed for raw Telethon dumps.
 * After an interrupted `export/tge`, `update/tgu` may have a noticeable preparation pause before the first visible per-target progress if the service needs to rebuild a large shared chat-head slice.
+* `retry` currently covers only typed recoverable tasks (`sync_target`, `archive_pm`); it is not a general-purpose task queue.
+* `report` is an operational read-only diagnostic surface, not an analytics layer with keyword/topic or graph intelligence.
+
+### 🧪 Fixture-Based E2E
+
+Since foundation stages `3`–`5`, the repo ships an autonomous offline harness:
+- `tests/fixtures/stage5/*.jsonl` — anonymized Telegram-like fixtures;
+- `tg_msg_manager/testing/` — `FakeTelegramClient`, fixture loaders, and temporary runtime helpers;
+- `tests/test_fixture_e2e.py` — end-to-end coverage for `sync`, `context`, `db-export`, `retry`, and `report`.
+
+This harness requires no network access and acts as the regression baseline for future refactor and feature batches.
 
 <a id="aliases"></a>
 #### 🚀 Power User Aliases
