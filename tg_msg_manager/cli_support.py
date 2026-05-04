@@ -60,6 +60,7 @@ def _store_resolved_user(ctx: Any, user_ent: Any) -> None:
         first_name=getattr(user_ent, "first_name", None),
         last_name=getattr(user_ent, "last_name", None),
         username=getattr(user_ent, "username", None),
+        author_name=UI.format_name(user_ent),
     )
 
 

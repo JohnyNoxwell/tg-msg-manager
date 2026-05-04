@@ -110,7 +110,9 @@ class UI:
             last = getattr(entity, "last_name", "") or ""
             name = f"{first} {last}".strip()
             if not name:
-                name = getattr(entity, "username", "") or f"ID:{entity.id}"
+                name = (
+                    getattr(entity, "current_author_name", "") or ""
+                ).strip() or getattr(entity, "username", "") or f"ID:{entity.id}"
         elif hasattr(entity, "title"):
             name = getattr(entity, "title", f"ID:{entity.id}")
         elif isinstance(entity, dict):
@@ -119,6 +121,7 @@ class UI:
             last = entity.get("last_name") or ""
             name = (
                 f"{first} {last}".strip()
+                or entity.get("current_author_name")
                 or entity.get("username")
                 or f"ID:{entity.get('user_id', 'Unknown')}"
             )

@@ -96,10 +96,17 @@ class SQLiteSyncStateMixin:
         last_name: Optional[str] = None,
         username: Optional[str] = None,
         phone: Optional[str] = None,
+        author_name: Optional[str] = None,
     ):
         with self._write_transaction() as conn:
             self._upsert_user_in_conn(
-                conn, user_id, first_name, last_name, username, phone
+                conn, user_id, first_name, last_name, username, phone, author_name
+            )
+            self._record_user_identity_in_conn(
+                conn,
+                user_id=user_id,
+                author_name=author_name,
+                username=username,
             )
 
     def _upsert_user_in_conn(
@@ -110,19 +117,23 @@ class SQLiteSyncStateMixin:
         last_name: Optional[str] = None,
         username: Optional[str] = None,
         phone: Optional[str] = None,
+        author_name: Optional[str] = None,
     ):
+        normalized_author_name = self._normalize_identity_text(author_name)
         conn.execute(
             """
-            INSERT INTO users (user_id, first_name, last_name, username, phone)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO users (user_id, first_name, last_name, username, phone, current_author_name)
+            VALUES (?, ?, ?, ?, ?, ?)
             ON CONFLICT(user_id) DO UPDATE SET
                 first_name = COALESCE(excluded.first_name, users.first_name),
                 last_name = COALESCE(excluded.last_name, users.last_name),
                 username = COALESCE(excluded.username, users.username),
-                phone = COALESCE(excluded.phone, users.phone)
+                phone = COALESCE(excluded.phone, users.phone),
+                current_author_name = COALESCE(excluded.current_author_name, users.current_author_name)
         """,
-            (user_id, first_name, last_name, username, phone),
+            (user_id, first_name, last_name, username, phone, normalized_author_name),
         )
+        self._refresh_target_author_name_in_conn(conn, user_id, normalized_author_name)
 
     def register_target(
         self,
@@ -156,7 +167,23 @@ class SQLiteSyncStateMixin:
                     recursive_depth,
                 ),
             )
-            self._upsert_user_in_conn(conn, user_id, first_name, last_name, username)
+            self._upsert_user_in_conn(
+                conn,
+                user_id,
+                first_name,
+                last_name,
+                username,
+                author_name=author_name,
+            )
+            self._record_user_identity_in_conn(
+                conn,
+                user_id=user_id,
+                author_name=author_name,
+                username=username,
+                observed_at=now,
+                chat_id=chat_id,
+                source_message_id=None,
+            )
 
     def upsert_chat(self, chat_id: int, title: str, chat_type: Optional[str] = None):
         with self._write_transaction() as conn:

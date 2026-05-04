@@ -12,6 +12,7 @@ class SQLiteSchemaMixin:
         """Initializes database schema and applies migrations."""
         conn = self._conn
         self._create_tables(conn)
+        self._ensure_user_identity_schema(conn)
         self._ensure_sync_target_columns(conn)
         self._ensure_retry_queue_columns(conn)
         self._create_indexes(conn)
@@ -46,7 +47,8 @@ class SQLiteSchemaMixin:
                 first_name TEXT,
                 last_name TEXT,
                 username TEXT,
-                phone TEXT
+                phone TEXT,
+                current_author_name TEXT
             )
         """)
         conn.execute("""
@@ -138,6 +140,7 @@ class SQLiteSchemaMixin:
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_retry_queue_type ON retry_queue (task_type, status)"
         )
+        self._create_user_identity_indexes(conn)
 
     def _ensure_sync_target_columns(self, conn: sqlite3.Connection):
         for col, col_type in [
@@ -245,6 +248,16 @@ class SQLiteSchemaMixin:
             )
             conn.execute("PRAGMA user_version = 5")
             logger.info("Database migration to Version 5 successful.")
+
+        if current_version < 6:
+            logger.info(
+                "Running Database Migration: Version 6 (User identity history)..."
+            )
+            self._ensure_user_identity_schema(conn)
+            self._create_user_identity_indexes(conn)
+            self._backfill_user_identity_state(conn)
+            conn.execute("PRAGMA user_version = 6")
+            logger.info("Database migration to Version 6 successful.")
         else:
             logger.debug(
                 f"Database migration skipped (already at version {current_version})."

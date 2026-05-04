@@ -130,7 +130,18 @@ class SQLiteWritePathMixin:
         raw = self._normalize_raw_payload(data.get("raw_payload", {}))
 
         if data["user_id"]:
-            self._upsert_user_from_payload_in_conn(conn, data["user_id"], raw)
+            self._upsert_user_from_payload_in_conn(
+                conn,
+                data["user_id"],
+                raw,
+                author_name=data.get("author_name"),
+                observed_at=data.get("timestamp"),
+                chat_id=data.get("chat_id"),
+                source_message_id=data.get("message_id"),
+            )
+            self._refresh_target_author_name_in_conn(
+                conn, data["user_id"], data.get("author_name")
+            )
 
         self._upsert_chat_from_payload_in_conn(conn, data["chat_id"], raw)
         self._upsert_context_link_in_conn(
@@ -167,7 +178,17 @@ class SQLiteWritePathMixin:
             (chat_id, message_id, target_id),
         )
 
-    def _upsert_user_from_payload_in_conn(self, conn, user_id: int, raw: dict):
+    def _upsert_user_from_payload_in_conn(
+        self,
+        conn,
+        user_id: int,
+        raw: dict,
+        *,
+        author_name: Optional[str] = None,
+        observed_at: Optional[int] = None,
+        chat_id: Optional[int] = None,
+        source_message_id: Optional[int] = None,
+    ):
         first_name = raw.get("first_name") or ""
         last_name = raw.get("last_name") or ""
         username = raw.get("username") or ""
@@ -180,7 +201,24 @@ class SQLiteWritePathMixin:
             username = username or sender.get("username", "")
             phone = phone or sender.get("phone", "")
 
-        self._upsert_user_in_conn(conn, user_id, first_name, last_name, username, phone)
+        self._upsert_user_in_conn(
+            conn,
+            user_id,
+            first_name,
+            last_name,
+            username,
+            phone,
+            author_name,
+        )
+        self._record_user_identity_in_conn(
+            conn,
+            user_id=user_id,
+            author_name=author_name,
+            username=username,
+            observed_at=observed_at,
+            chat_id=chat_id,
+            source_message_id=source_message_id,
+        )
 
     def _upsert_chat_from_payload_in_conn(self, conn, chat_id: int, raw: dict):
         chat_title = raw.get("chat_title") or raw.get("title") or ""

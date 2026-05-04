@@ -24,6 +24,7 @@ from tg_msg_manager.infrastructure.storage.records import (
     SyncStatus,
     TerminalRepairCandidate,
     TargetMessageBreakdown,
+    UserIdentityRecord,
     UserExportRow,
     UserExportSummary,
 )
@@ -263,6 +264,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(targets[0], PrimaryTarget)
         self.assertIsInstance(rows[0], UserExportRow)
         self.assertEqual(user.user_id, 999)
+        self.assertEqual(user.current_author_name, "Target User")
         self.assertEqual(summary["message_count"], 3)
         self.assertEqual(summary.message_count, 3)
         self.assertEqual(summary["first_message_id"], 1)
@@ -294,6 +296,62 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["author_name"], "Target User Renamed")
         self.assertEqual(row["last_sync_at"], before)
 
+        user = self.storage.get_user(999)
+        history = self.storage.get_user_identity_history(999)
+
+        self.assertEqual(user.current_author_name, "Target User Renamed")
+        self.assertEqual([item.author_name for item in history], ["Target User", "Target User Renamed"])
+
+    async def test_save_message_refreshes_target_current_author_name_and_history(self):
+        self.storage.register_target(999, "Target User", 321)
+        ts = datetime.now()
+
+        await self.storage.save_message(
+            MessageData(
+                message_id=10,
+                chat_id=321,
+                user_id=999,
+                author_name="Target User",
+                timestamp=ts,
+                text="before rename",
+                media_type=None,
+                reply_to_id=None,
+                fwd_from_id=None,
+                context_group_id=None,
+                raw_payload={"username": "target_user"},
+            ),
+            target_id=999,
+        )
+        await self.storage.save_message(
+            MessageData(
+                message_id=11,
+                chat_id=321,
+                user_id=999,
+                author_name="Renamed User",
+                timestamp=datetime.fromtimestamp(int(ts.timestamp()) + 10),
+                text="after rename",
+                media_type=None,
+                reply_to_id=None,
+                fwd_from_id=None,
+                context_group_id=None,
+                raw_payload={"username": "target_user"},
+            ),
+            target_id=999,
+        )
+
+        user = self.storage.get_user(999)
+        status = self.storage.get_sync_status(321, 999)
+        targets = self.storage.get_primary_targets()
+        history = self.storage.get_user_identity_history(999)
+
+        self.assertEqual(user.current_author_name, "Renamed User")
+        self.assertEqual(status.author_name, "Renamed User")
+        self.assertEqual(targets[0].author_name, "Renamed User")
+        self.assertTrue(all(isinstance(item, UserIdentityRecord) for item in history))
+        self.assertEqual([item.author_name for item in history], ["Target User", "Renamed User"])
+        self.assertEqual(history[-1].chat_id, 321)
+        self.assertEqual(history[-1].source_message_id, 11)
+
     async def test_checkpoint_updates_do_not_refresh_last_sync_at(self):
         self.storage.register_target(999, "Target User", 321)
         with self.storage._read_connection() as conn:
@@ -316,6 +374,132 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["tail_msg_id"], 10)
         self.assertEqual(row["is_complete"], 0)
         self.assertEqual(row["last_sync_at"], before)
+
+    async def test_identity_migration_backfills_current_name_and_history(self):
+        await self.storage.close()
+        for suffix in ("", "-wal", "-shm"):
+            path = f"{self.db_path}{suffix}"
+            if os.path.exists(path):
+                os.remove(path)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """
+            CREATE TABLE users (
+                user_id INTEGER PRIMARY KEY,
+                first_name TEXT,
+                last_name TEXT,
+                username TEXT,
+                phone TEXT
+            )
+        """
+        )
+        conn.execute(
+            """
+            CREATE TABLE messages (
+                chat_id INTEGER,
+                message_id INTEGER,
+                user_id INTEGER,
+                author_name TEXT,
+                timestamp INTEGER,
+                text TEXT,
+                media_type TEXT,
+                reply_to_id INTEGER,
+                fwd_from_id INTEGER,
+                context_group_id TEXT,
+                raw_payload TEXT,
+                payload_hash TEXT,
+                schema_version INTEGER,
+                PRIMARY KEY (chat_id, message_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            CREATE TABLE sync_targets (
+                user_id INTEGER,
+                chat_id INTEGER,
+                author_name TEXT,
+                last_msg_id INTEGER DEFAULT 0,
+                tail_msg_id INTEGER DEFAULT 0,
+                is_complete INTEGER DEFAULT 0,
+                deep_mode INTEGER DEFAULT 0,
+                recursive_depth INTEGER DEFAULT 0,
+                added_at INTEGER,
+                last_sync_at INTEGER,
+                PRIMARY KEY (user_id, chat_id)
+            )
+        """
+        )
+        conn.execute(
+            "INSERT INTO users (user_id, username) VALUES (?, ?)",
+            (999, "stable_user"),
+        )
+        conn.execute(
+            """
+            INSERT INTO messages (
+                chat_id, message_id, user_id, author_name, timestamp, text, media_type,
+                reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (
+                321,
+                1,
+                999,
+                "Old Name",
+                1700000000,
+                "before",
+                None,
+                None,
+                None,
+                None,
+                '{"username":"stable_user"}',
+                "h1",
+                1,
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO messages (
+                chat_id, message_id, user_id, author_name, timestamp, text, media_type,
+                reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (
+                321,
+                2,
+                999,
+                "New Name",
+                1700001000,
+                "after",
+                None,
+                None,
+                None,
+                None,
+                '{"username":"stable_user"}',
+                "h2",
+                1,
+            ),
+        )
+        conn.execute(
+            """
+            INSERT INTO sync_targets (
+                user_id, chat_id, author_name, added_at, last_sync_at
+            ) VALUES (?, ?, ?, ?, ?)
+        """,
+            (999, 321, "Old Name", 1700000000, 1700001000),
+        )
+        conn.execute("PRAGMA user_version = 5")
+        conn.commit()
+        conn.close()
+
+        self.storage = SQLiteStorage(self.db_path)
+
+        user = self.storage.get_user(999)
+        history = self.storage.get_user_identity_history(999)
+
+        self.assertEqual(user.current_author_name, "New Name")
+        self.assertEqual([item.author_name for item in history], ["Old Name", "New Name"])
 
     async def test_repair_terminal_incomplete_targets_marks_only_tail_threshold_rows_complete(
         self,

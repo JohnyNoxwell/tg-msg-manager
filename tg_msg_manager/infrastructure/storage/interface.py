@@ -16,6 +16,7 @@ from .records import (
     SyncStatus,
     SyncUser,
     TargetMessageBreakdown,
+    UserIdentityRecord,
     UserExportRow,
     UserExportSummary,
 )
@@ -87,6 +88,9 @@ class UserReadStorage(Protocol):
     def get_user(self, user_id: int) -> Optional[StoredUser]:
         """Returns stored user metadata."""
 
+    def get_user_identity_history(self, user_id: int) -> List[UserIdentityRecord]:
+        """Returns observed author-name/username history for a user."""
+
     def get_user_messages(self, user_id: int) -> List[MessageData]:
         """Returns all messages linked to a target user."""
 
@@ -138,6 +142,7 @@ class TargetRegistryStorage(Protocol):
         last_name: Optional[str] = None,
         username: Optional[str] = None,
         phone: Optional[str] = None,
+        author_name: Optional[str] = None,
     ) -> None:
         """Upserts user metadata."""
 
@@ -348,6 +353,10 @@ class BaseStorage(ABC):
         pass
 
     @abstractmethod
+    def get_user_identity_history(self, user_id: int) -> List[UserIdentityRecord]:
+        pass
+
+    @abstractmethod
     def get_user_messages(self, user_id: int) -> List[MessageData]:
         pass
 
@@ -401,6 +410,7 @@ class BaseStorage(ABC):
         last_name: Optional[str] = None,
         username: Optional[str] = None,
         phone: Optional[str] = None,
+        author_name: Optional[str] = None,
     ) -> None:
         pass
 

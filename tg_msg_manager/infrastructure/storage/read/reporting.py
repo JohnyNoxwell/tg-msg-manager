@@ -60,7 +60,7 @@ class SQLiteReportingReadMixin(SQLiteReadCommonMixin):
                 SELECT
                     t.user_id,
                     t.chat_id,
-                    t.author_name,
+                    COALESCE(NULLIF(u.current_author_name, ''), NULLIF(t.author_name, '')) AS author_name,
                     c.title AS chat_title,
                     t.last_msg_id,
                     t.tail_msg_id,
@@ -85,6 +85,7 @@ class SQLiteReportingReadMixin(SQLiteReadCommonMixin):
                         END
                     ), 0) AS missing_parent_messages
                 FROM sync_targets t
+                LEFT JOIN users u ON u.user_id = t.user_id
                 LEFT JOIN chats c ON c.chat_id = t.chat_id
                 LEFT JOIN message_target_links l
                     ON l.chat_id = t.chat_id AND l.target_user_id = t.user_id
@@ -93,7 +94,7 @@ class SQLiteReportingReadMixin(SQLiteReadCommonMixin):
                 GROUP BY
                     t.user_id,
                     t.chat_id,
-                    t.author_name,
+                    COALESCE(NULLIF(u.current_author_name, ''), NULLIF(t.author_name, '')),
                     c.title,
                     t.last_msg_id,
                     t.tail_msg_id,
@@ -101,7 +102,7 @@ class SQLiteReportingReadMixin(SQLiteReadCommonMixin):
                     t.deep_mode,
                     t.recursive_depth,
                     t.last_sync_at
-                ORDER BY COALESCE(t.author_name, ''), t.chat_id, t.user_id
+                ORDER BY COALESCE(NULLIF(u.current_author_name, ''), NULLIF(t.author_name, '')), t.chat_id, t.user_id
             """
             ).fetchall()
         return [

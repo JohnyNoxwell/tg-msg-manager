@@ -6,6 +6,7 @@ from contextlib import contextmanager
 from typing import Any, Optional
 
 from .interface import BaseStorage
+from ._sqlite_identity import SQLiteIdentityMixin
 from ._sqlite_read_path import SQLiteReadPathMixin
 from ._sqlite_schema import SQLiteSchemaMixin
 from ._sqlite_sync_state import SQLiteSyncStateMixin
@@ -17,6 +18,7 @@ logger = logging.getLogger(__name__)
 
 class SQLiteStorage(
     SQLiteSchemaMixin,
+    SQLiteIdentityMixin,
     SQLiteWritePathMixin,
     SQLiteReadPathMixin,
     SQLiteSyncStateMixin,

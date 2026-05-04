@@ -10,6 +10,7 @@ from ..records import (
     SyncStatus,
     SyncUser,
     TargetMessageBreakdown,
+    UserIdentityRecord,
 )
 from .common import SQLiteReadCommonMixin
 
@@ -20,15 +21,16 @@ class SQLiteTargetReadMixin(SQLiteReadCommonMixin):
             row = conn.execute(
                 """
                 SELECT
-                    last_msg_id,
-                    tail_msg_id,
-                    is_complete,
-                    deep_mode,
-                    recursive_depth,
-                    last_sync_at,
-                    author_name
-                FROM sync_targets
-                WHERE user_id = ? AND chat_id = ?
+                    t.last_msg_id,
+                    t.tail_msg_id,
+                    t.is_complete,
+                    t.deep_mode,
+                    t.recursive_depth,
+                    t.last_sync_at,
+                    COALESCE(NULLIF(u.current_author_name, ''), NULLIF(t.author_name, '')) AS author_name
+                FROM sync_targets t
+                LEFT JOIN users u ON u.user_id = t.user_id
+                WHERE t.user_id = ? AND t.chat_id = ?
             """,
                 (user_id, chat_id),
             ).fetchone()
@@ -114,13 +116,39 @@ class SQLiteTargetReadMixin(SQLiteReadCommonMixin):
             ).fetchone()
             return StoredUser.coerce(dict(row)) if row else None
 
+    def get_user_identity_history(self, user_id: int) -> List[UserIdentityRecord]:
+        with self._read_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT *
+                FROM user_identity_history
+                WHERE user_id = ?
+                ORDER BY observed_at ASC, COALESCE(source_message_id, 0) ASC
+            """,
+                (user_id,),
+            ).fetchall()
+            return [UserIdentityRecord.coerce(dict(row)) for row in rows]
+
     def get_primary_targets(self) -> List[PrimaryTarget]:
         try:
             with self._read_connection() as conn:
                 rows = conn.execute(
                     """
                     SELECT
-                        t.*, u.username, u.first_name, u.last_name, c.title as chat_title,
+                        t.user_id,
+                        t.chat_id,
+                        COALESCE(NULLIF(u.current_author_name, ''), NULLIF(t.author_name, '')) AS author_name,
+                        t.added_at,
+                        t.last_sync_at,
+                        t.last_msg_id,
+                        t.tail_msg_id,
+                        t.is_complete,
+                        t.deep_mode,
+                        t.recursive_depth,
+                        u.username,
+                        u.first_name,
+                        u.last_name,
+                        c.title as chat_title,
                         (SELECT COUNT(*)
                          FROM message_target_links l
                          JOIN messages m ON l.chat_id = m.chat_id AND l.message_id = m.message_id
@@ -132,7 +160,7 @@ class SQLiteTargetReadMixin(SQLiteReadCommonMixin):
                     FROM sync_targets t
                     LEFT JOIN users u ON t.user_id = u.user_id
                     LEFT JOIN chats c ON t.chat_id = c.chat_id
-                    ORDER BY t.author_name ASC
+                    ORDER BY COALESCE(NULLIF(u.current_author_name, ''), NULLIF(t.author_name, '')) ASC
                 """
                 ).fetchall()
                 return [PrimaryTarget.coerce(dict(row)) for row in rows]

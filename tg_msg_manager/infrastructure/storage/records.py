@@ -64,6 +64,7 @@ class StoredUser(StorageRecord):
     last_name: Optional[str] = None
     username: Optional[str] = None
     phone: Optional[str] = None
+    current_author_name: Optional[str] = None
 
     @property
     def id(self) -> int:
@@ -82,8 +83,42 @@ class StoredUser(StorageRecord):
                 last_name=value.get("last_name"),
                 username=value.get("username"),
                 phone=value.get("phone"),
+                current_author_name=value.get("current_author_name"),
             )
         raise TypeError(f"Unsupported stored user payload: {type(value)!r}")
+
+
+@dataclass(frozen=True)
+class UserIdentityRecord(StorageRecord):
+    user_id: int
+    observed_at: int = 0
+    author_name: Optional[str] = None
+    username: Optional[str] = None
+    chat_id: Optional[int] = None
+    source_message_id: Optional[int] = None
+
+    @classmethod
+    def coerce(cls, value: Any) -> "UserIdentityRecord":
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, Mapping):
+            return cls(
+                user_id=_coerce_int(value.get("user_id")),
+                observed_at=_coerce_int(value.get("observed_at")),
+                author_name=value.get("author_name"),
+                username=value.get("username"),
+                chat_id=(
+                    _coerce_int(value.get("chat_id"))
+                    if value.get("chat_id") is not None
+                    else None
+                ),
+                source_message_id=(
+                    _coerce_int(value.get("source_message_id"))
+                    if value.get("source_message_id") is not None
+                    else None
+                ),
+            )
+        return cls(user_id=0)
 
 
 @dataclass(frozen=True)

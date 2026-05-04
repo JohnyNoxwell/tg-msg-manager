@@ -46,6 +46,7 @@ async def resolve_sync_target_identity(
                     first_name=getattr(user_ent, "first_name", None),
                     last_name=getattr(user_ent, "last_name", None),
                     username=getattr(user_ent, "username", None),
+                    author_name=target_name,
                 )
             except Exception as exc:
                 logger.warning(f"Could not resolve user {from_user_id}: {exc}")
