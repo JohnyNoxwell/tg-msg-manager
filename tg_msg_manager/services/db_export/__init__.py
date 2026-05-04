@@ -10,6 +10,7 @@ from .manifest import (
 from .summary import (
     DBExportPlan,
     DBExportSource,
+    load_incremental_export_source,
     load_export_source,
     prepare_export_plan,
 )
@@ -21,6 +22,7 @@ __all__ = [
     "build_export_fingerprint",
     "can_skip_export",
     "format_txt_export_block",
+    "load_incremental_export_source",
     "load_export_manifest",
     "load_export_source",
     "manifest_dir",

@@ -603,6 +603,48 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(runs[0].last_new_message_ts, 1700001234)
         self.assertIsNotNone(runs[0].finished_at)
 
+    async def test_get_incremental_export_rows_and_summary_since_cursor(self):
+        self.storage.register_target(999, "Stable User", 321)
+        old_message = MessageData(
+            message_id=7,
+            chat_id=321,
+            user_id=999,
+            author_name="Stable User",
+            timestamp=datetime.fromtimestamp(1700001234),
+            text="old",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        new_message = MessageData(
+            message_id=8,
+            chat_id=321,
+            user_id=999,
+            author_name="Stable User",
+            timestamp=datetime.fromtimestamp(1700002234),
+            text="new",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        await self.storage.save_message(old_message, target_id=999)
+        await self.storage.save_message(new_message, target_id=999)
+
+        summary = self.storage.get_user_export_summary_since(999, 1700001234, 7)
+        rows = list(self.storage.iter_user_export_rows_since(999, 1700001234, 7))
+
+        self.assertIsNotNone(summary)
+        self.assertEqual(summary.message_count, 1)
+        self.assertEqual(summary.first_message_id, 8)
+        self.assertEqual(summary.last_message_id, 8)
+        self.assertEqual(summary.first_timestamp, 1700002234)
+        self.assertEqual(summary.last_timestamp, 1700002234)
+        self.assertEqual([row.message_id for row in rows], [8])
+
     async def test_export_runs_migration_creates_table_for_version_9_databases(self):
         await self.storage.close()
         for suffix in ("", "-wal", "-shm"):

@@ -10,6 +10,7 @@ from .db_export import (
     build_export_fingerprint,
     can_skip_export,
     format_txt_export_block,
+    load_incremental_export_source,
     load_export_manifest,
     load_export_source,
     manifest_dir,
@@ -21,6 +22,8 @@ from .db_export import (
 )
 from ..infrastructure.storage.interface import DBExportStorage
 from ..infrastructure.storage.records import (
+    UserExportSummary,
+    ExportTargetRecord,
     UserExportRow,
 )
 from ..core.models.message import MessageData
@@ -170,6 +173,24 @@ class DBExportService:
         return load_export_source(
             self.storage,
             user_id=user_id,
+            as_json=as_json,
+            json_profile=json_profile,
+        )
+
+    def _load_incremental_export_source(
+        self,
+        *,
+        user_id: int,
+        last_exported_message_ts: int,
+        last_exported_message_id: int,
+        as_json: bool,
+        json_profile: str,
+    ) -> Optional[_DBExportSource]:
+        return load_incremental_export_source(
+            self.storage,
+            user_id=user_id,
+            last_exported_message_ts=last_exported_message_ts,
+            last_exported_message_id=last_exported_message_id,
             as_json=as_json,
             json_profile=json_profile,
         )
@@ -358,6 +379,86 @@ class DBExportService:
         run_id = starter(target_user_id=user_id)
         return int(run_id) if run_id is not None else None
 
+    def _resolve_existing_export_path(
+        self,
+        *,
+        export_target: Any,
+        fallback_output_dir: str,
+    ) -> Optional[str]:
+        export_filename = getattr(export_target, "export_filename", None)
+        export_dir = getattr(export_target, "export_dir", None) or fallback_output_dir
+        if not export_filename:
+            return None
+        return os.path.join(export_dir, export_filename)
+
+    def _supports_incremental_update(
+        self,
+        *,
+        export_target: Any,
+        output_dir: Optional[str],
+        as_json: bool,
+        include_date: bool,
+        json_profile: str,
+    ) -> bool:
+        if not as_json or include_date or json_profile != "ai":
+            return False
+        if export_target is None:
+            return False
+
+        export_filename = getattr(export_target, "export_filename", None)
+        export_dir = getattr(export_target, "export_dir", None)
+        last_ts = getattr(export_target, "last_exported_message_ts", None)
+        last_message_id = getattr(export_target, "last_exported_message_id", None)
+        if not export_filename or last_ts is None or last_message_id is None:
+            return False
+        if output_dir and export_dir and os.path.abspath(output_dir) != os.path.abspath(
+            export_dir
+        ):
+            return False
+        return export_filename.endswith(".jsonl")
+
+    def _persist_current_manifest_from_db_state(
+        self,
+        *,
+        user_id: int,
+        output_path: str,
+        output_dir: str,
+        as_json: bool,
+        include_date: bool,
+        json_profile: str,
+        part_count: int,
+    ) -> None:
+        full_summary_getter = getattr(self.storage, "get_user_export_summary", None)
+        if not callable(full_summary_getter):
+            return
+        full_summary = UserExportSummary.coerce(full_summary_getter(user_id))
+        if full_summary is None:
+            return
+        source = _DBExportSource(
+            export_summary=full_summary,
+            export_rows=None,
+            export_row_iter_factory=None,
+            messages=None,
+            source_count=full_summary.message_count,
+        )
+        plan = self._prepare_export_plan(
+            user_id=user_id,
+            output_dir=output_dir,
+            source=source,
+            as_json=as_json,
+            include_date=include_date,
+            json_profile=json_profile,
+        )
+        self._persist_export_manifest(
+            output_dir,
+            user_id,
+            {
+                "output_path": output_path,
+                "part_count": part_count,
+                "fingerprint": plan.fingerprint,
+            },
+        )
+
     def _finish_export_run(
         self,
         run_id: Optional[int],
@@ -388,12 +489,13 @@ class DBExportService:
         as_json: bool,
         json_profile: str,
         expected_count: int,
+        overwrite: bool = True,
         on_progress: Optional[Callable[[int, Any], None]] = None,
     ) -> tuple[FileRotateWriter, int]:
         writer = FileRotateWriter(
             output_path,
             as_json=as_json,
-            overwrite=True,
+            overwrite=overwrite,
             persist_every_writes=25 if as_json else 5,
         )
         write_batch_size = self._write_batch_size(
@@ -549,6 +651,7 @@ class DBExportService:
                 as_json=as_json,
                 json_profile=json_profile,
                 expected_count=source.source_count,
+                overwrite=True,
                 on_progress=track_progress,
             )
             elapsed_seconds = perf_counter() - started_at
@@ -600,6 +703,138 @@ class DBExportService:
             )
             logger.info(f"DB Export complete for {plan.target_author}: {count} messages.")
             return plan.output_path
+        except Exception as exc:
+            self._finish_export_run(
+                run_id,
+                status=EXPORT_RUN_STATUS_FAILED,
+                new_messages_count=processed_count,
+                last_new_message_ts=processed_last_ts,
+                error=str(exc),
+            )
+            raise
+
+    async def update_user_messages(
+        self,
+        user_id: int,
+        output_dir: Optional[str] = None,
+        as_json: bool = True,
+        include_date: bool = False,
+        json_profile: str = "ai",
+    ) -> str:
+        resolved_output_dir = output_dir or self.default_output_dir
+        export_target = ExportTargetRecord.coerce(
+            getattr(self.storage, "get_export_target", lambda _uid: None)(user_id)
+        )
+        if not self._supports_incremental_update(
+            export_target=export_target,
+            output_dir=output_dir,
+            as_json=as_json,
+            include_date=include_date,
+            json_profile=json_profile,
+        ):
+            return await self.export_user_messages(
+                user_id,
+                output_dir=output_dir,
+                as_json=as_json,
+                include_date=include_date,
+                json_profile=json_profile,
+            )
+
+        output_path = self._resolve_existing_export_path(
+            export_target=export_target,
+            fallback_output_dir=resolved_output_dir,
+        )
+        if not output_path or not os.path.exists(output_path):
+            return await self.export_user_messages(
+                user_id,
+                output_dir=output_dir,
+                as_json=as_json,
+                include_date=include_date,
+                json_profile=json_profile,
+            )
+
+        last_ts = int(getattr(export_target, "last_exported_message_ts"))
+        last_message_id = int(getattr(export_target, "last_exported_message_id"))
+        run_id = self._start_export_run(user_id=user_id)
+        processed_count = 0
+        processed_last_ts: Optional[int] = None
+        processed_last_message_id: Optional[int] = None
+
+        def track_progress(count: int, item: Any) -> None:
+            nonlocal processed_count, processed_last_ts, processed_last_message_id
+            processed_count = count
+            timestamp = getattr(item, "timestamp", None)
+            message_id = getattr(item, "message_id", None)
+            if timestamp is None and isinstance(item, dict):
+                timestamp = item.get("timestamp")
+            if message_id is None and isinstance(item, dict):
+                message_id = item.get("message_id")
+            processed_last_ts = int(timestamp) if timestamp is not None else None
+            processed_last_message_id = (
+                int(message_id) if message_id is not None else None
+            )
+
+        try:
+            source = self._load_incremental_export_source(
+                user_id=user_id,
+                last_exported_message_ts=last_ts,
+                last_exported_message_id=last_message_id,
+                as_json=as_json,
+                json_profile=json_profile,
+            )
+            if source is None:
+                self._finish_export_run(
+                    run_id,
+                    status=EXPORT_RUN_STATUS_SUCCESS,
+                    new_messages_count=0,
+                )
+                return output_path
+
+            target_author = (
+                self._prepare_export_plan(
+                    user_id=user_id,
+                    output_dir=resolved_output_dir,
+                    source=source,
+                    as_json=as_json,
+                    include_date=include_date,
+                    json_profile=json_profile,
+                ).target_author
+            )
+            writer, count = await self._write_export_payloads(
+                source=source,
+                output_path=output_path,
+                as_json=as_json,
+                json_profile=json_profile,
+                expected_count=source.source_count,
+                overwrite=False,
+                on_progress=track_progress,
+            )
+            self._upsert_export_target_state(
+                user_id=user_id,
+                output_path=output_path,
+                target_author=target_author,
+                source=source,
+                fingerprint={
+                    "last_timestamp": processed_last_ts,
+                    "last_message_id": processed_last_message_id,
+                },
+            )
+            self._persist_current_manifest_from_db_state(
+                user_id=user_id,
+                output_path=output_path,
+                output_dir=os.path.dirname(output_path) or resolved_output_dir,
+                as_json=as_json,
+                include_date=include_date,
+                json_profile=json_profile,
+                part_count=writer.current_part,
+            )
+            self._finish_export_run(
+                run_id,
+                status=EXPORT_RUN_STATUS_SUCCESS,
+                new_messages_count=count,
+                last_new_message_ts=processed_last_ts,
+            )
+            return output_path
         except Exception as exc:
             self._finish_export_run(
                 run_id,

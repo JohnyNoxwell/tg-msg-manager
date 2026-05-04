@@ -19,10 +19,10 @@ Implemented slices from this TODO:
 - wired `DBExportService` to persist export target filename/path/cursor/current identity into SQLite.
 - added DB-backed `export_runs` journal;
 - wired `DBExportService` to persist `running` / `success` / `failed` lifecycle per export attempt.
+- switched `update` export flow to DB-backed cursor append for JSONL exports using `export_targets.last_exported_message_ts/message_id`.
 
 Still pending from the larger TODO:
 
-- DB-backed incremental export cursor/update flow;
 - broader message-link hardening around `(chat_id, message_id)`.
 
 ## 0. Контекст и цель

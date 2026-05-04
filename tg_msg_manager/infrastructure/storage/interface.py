@@ -99,13 +99,38 @@ class UserReadStorage(Protocol):
     def get_user_export_summary(self, user_id: int) -> Optional[UserExportSummary]:
         """Returns deterministic summary metadata for exports when available."""
 
+    def get_user_export_summary_since(
+        self,
+        user_id: int,
+        last_exported_message_ts: int,
+        last_exported_message_id: int,
+    ) -> Optional[UserExportSummary]:
+        """Returns deterministic summary metadata for messages newer than the cursor."""
+
     def iter_user_export_rows(
         self, user_id: int, chunk_size: int = 1000
     ) -> Iterable[UserExportRow]:
         """Streams export rows in deterministic order."""
 
+    def iter_user_export_rows_since(
+        self,
+        user_id: int,
+        last_exported_message_ts: int,
+        last_exported_message_id: int,
+        chunk_size: int = 1000,
+    ) -> Iterable[UserExportRow]:
+        """Streams export rows newer than the cursor in deterministic order."""
+
     def get_user_export_rows(self, user_id: int) -> List[UserExportRow]:
         """Returns materialized export rows for legacy callers/backends."""
+
+    def get_user_export_rows_since(
+        self,
+        user_id: int,
+        last_exported_message_ts: int,
+        last_exported_message_id: int,
+    ) -> List[UserExportRow]:
+        """Returns materialized export rows newer than the cursor."""
 
     def get_export_target(self, user_id: int) -> Optional[ExportTargetRecord]:
         """Returns DB-backed export state for a target user."""
@@ -400,13 +425,41 @@ class BaseStorage(ABC):
         pass
 
     @abstractmethod
+    def get_user_export_summary_since(
+        self,
+        user_id: int,
+        last_exported_message_ts: int,
+        last_exported_message_id: int,
+    ) -> Optional[UserExportSummary]:
+        pass
+
+    @abstractmethod
     def iter_user_export_rows(
         self, user_id: int, chunk_size: int = 1000
     ) -> Iterable[UserExportRow]:
         pass
 
     @abstractmethod
+    def iter_user_export_rows_since(
+        self,
+        user_id: int,
+        last_exported_message_ts: int,
+        last_exported_message_id: int,
+        chunk_size: int = 1000,
+    ) -> Iterable[UserExportRow]:
+        pass
+
+    @abstractmethod
     def get_user_export_rows(self, user_id: int) -> List[UserExportRow]:
+        pass
+
+    @abstractmethod
+    def get_user_export_rows_since(
+        self,
+        user_id: int,
+        last_exported_message_ts: int,
+        last_exported_message_id: int,
+    ) -> List[UserExportRow]:
         pass
 
     @abstractmethod

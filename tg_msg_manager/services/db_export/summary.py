@@ -135,6 +135,90 @@ def load_export_source(
     )
 
 
+def load_incremental_export_source(
+    storage: object,
+    *,
+    user_id: int,
+    last_exported_message_ts: int,
+    last_exported_message_id: int,
+    as_json: bool,
+    json_profile: str,
+) -> Optional[DBExportSource]:
+    export_summary = None
+    export_rows = None
+    if as_json and json_profile == "ai":
+        summary_getter = getattr(storage, "get_user_export_summary_since", None)
+        iter_getter = getattr(storage, "iter_user_export_rows_since", None)
+        if callable(summary_getter):
+            export_summary = UserExportSummary.coerce(
+                summary_getter(
+                    user_id,
+                    last_exported_message_ts,
+                    last_exported_message_id,
+                )
+            )
+            if export_summary and callable(iter_getter):
+                return DBExportSource(
+                    export_summary=export_summary,
+                    export_rows=None,
+                    export_row_iter_factory=lambda: (
+                        UserExportRow.coerce(row)
+                        for row in iter_getter(
+                            user_id,
+                            last_exported_message_ts,
+                            last_exported_message_id,
+                        )
+                    ),
+                    messages=None,
+                    source_count=export_summary.message_count,
+                )
+
+        getter = getattr(storage, "get_user_export_rows_since", None)
+        if callable(getter):
+            raw_rows = getter(
+                user_id,
+                last_exported_message_ts,
+                last_exported_message_id,
+            )
+            if raw_rows is not None:
+                export_rows = [UserExportRow.coerce(row) for row in raw_rows]
+
+    if export_summary:
+        source_count = export_summary.message_count
+    elif export_rows is not None:
+        source_count = len(export_rows)
+    else:
+        messages = []
+        for message in storage.get_user_messages(user_id):
+            message_ts = int(message.timestamp.timestamp())
+            if message_ts > last_exported_message_ts or (
+                message_ts == last_exported_message_ts
+                and message.message_id > last_exported_message_id
+            ):
+                messages.append(message)
+        source_count = len(messages)
+        if source_count <= 0:
+            return None
+        return DBExportSource(
+            export_summary=None,
+            export_rows=None,
+            export_row_iter_factory=None,
+            messages=messages,
+            source_count=source_count,
+        )
+
+    if source_count <= 0:
+        return None
+
+    return DBExportSource(
+        export_summary=export_summary,
+        export_rows=export_rows,
+        export_row_iter_factory=None,
+        messages=None,
+        source_count=source_count,
+    )
+
+
 def prepare_export_plan(
     storage: object,
     *,

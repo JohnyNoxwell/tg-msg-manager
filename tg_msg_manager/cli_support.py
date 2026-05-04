@@ -144,7 +144,7 @@ async def _sync_and_export_dirty_targets(
 ) -> TrackedSyncRunReport:
     stats = await ctx.exporter.sync_all_tracked()
     for uid in get_dirty_target_ids(stats):
-        await ctx.db_exporter.export_user_messages(
+        await ctx.db_exporter.update_user_messages(
             uid, as_json=True, include_date=False
         )
     if emit_telemetry_summary:

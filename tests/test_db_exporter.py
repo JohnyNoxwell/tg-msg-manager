@@ -18,9 +18,13 @@ from tg_msg_manager.services.db_exporter import DBExportService
 class TestDBExporter(unittest.TestCase):
     def setUp(self):
         self.storage = MagicMock()
+        self.storage.get_export_target.return_value = None
         self.storage.get_user_export_summary.return_value = None
+        self.storage.get_user_export_summary_since.return_value = None
         self.storage.get_user_export_rows.return_value = None
+        self.storage.get_user_export_rows_since.return_value = None
         self.storage.iter_user_export_rows.return_value = iter(())
+        self.storage.iter_user_export_rows_since.return_value = iter(())
         self.storage.start_export_run.return_value = 44
         self.service = DBExportService(self.storage)
         self.tmpdir = tempfile.mkdtemp(prefix="tg_db_export_test_")
@@ -385,6 +389,117 @@ class TestDBExporter(unittest.TestCase):
             new_messages_count=0,
             last_new_message_ts=None,
             error="disk full",
+        )
+
+    def test_update_user_messages_appends_only_new_rows_from_db_cursor(self):
+        initial_path = os.path.join(self.tmpdir, "Stable_User_3.jsonl")
+        with open(initial_path, "w", encoding="utf-8") as handle:
+            handle.write('{"message_id":7,"text":"old"}\n')
+
+        self.storage.get_export_target.return_value = {
+            "target_user_id": 3,
+            "export_filename": "Stable_User_3.jsonl",
+            "export_dir": self.tmpdir,
+            "last_exported_message_ts": 1700001234,
+            "last_exported_message_id": 7,
+            "last_known_author_name": "Stable User",
+            "last_known_username": "stable",
+        }
+        self.storage.get_user_export_summary_since.return_value = {
+            "message_count": 1,
+            "first_message_id": 8,
+            "last_message_id": 8,
+            "first_timestamp": 1700002234,
+            "last_timestamp": 1700002234,
+            "target_author_name": "Stable User",
+        }
+        row = {
+            "message_id": 8,
+            "chat_id": 2,
+            "user_id": 3,
+            "author_name": "Stable User",
+            "timestamp": 1700002234,
+            "text": "new",
+            "media_type": None,
+            "reply_to_id": None,
+            "fwd_from_id": None,
+            "context_group_id": None,
+            "raw_payload": "{}",
+            "is_service": 0,
+        }
+        self.storage.iter_user_export_rows_since.side_effect = (
+            lambda user_id, last_ts, last_message_id: iter([row])
+        )
+        self.storage.get_user_export_summary.return_value = {
+            "message_count": 2,
+            "first_message_id": 7,
+            "last_message_id": 8,
+            "first_timestamp": 1700001234,
+            "last_timestamp": 1700002234,
+            "target_author_name": "Stable User",
+        }
+        self.storage.get_user.return_value = {
+            "user_id": 3,
+            "first_name": "Stable",
+            "last_name": "User",
+            "username": "stable",
+        }
+
+        output_path = asyncio.run(
+            self.service.update_user_messages(3, output_dir=self.tmpdir, as_json=True)
+        )
+
+        self.assertEqual(output_path, initial_path)
+        with open(initial_path, "r", encoding="utf-8") as handle:
+            lines = handle.readlines()
+        self.assertEqual(len(lines), 2)
+        self.assertIn('"message_id":7', lines[0])
+        self.assertIn('"message_id":8', lines[1])
+        self.storage.upsert_export_target.assert_called_once_with(
+            target_user_id=3,
+            export_filename="Stable_User_3.jsonl",
+            export_dir=self.tmpdir,
+            last_exported_message_ts=1700002234,
+            last_exported_message_id=8,
+            last_known_author_name="Stable User",
+            last_known_username="stable",
+        )
+        self.storage.finish_export_run.assert_called_once_with(
+            44,
+            status="success",
+            new_messages_count=1,
+            last_new_message_ts=1700002234,
+            error=None,
+        )
+
+    def test_update_user_messages_returns_existing_path_when_no_new_rows(self):
+        initial_path = os.path.join(self.tmpdir, "Stable_User_3.jsonl")
+        with open(initial_path, "w", encoding="utf-8") as handle:
+            handle.write('{"message_id":7,"text":"old"}\n')
+
+        self.storage.get_export_target.return_value = {
+            "target_user_id": 3,
+            "export_filename": "Stable_User_3.jsonl",
+            "export_dir": self.tmpdir,
+            "last_exported_message_ts": 1700001234,
+            "last_exported_message_id": 7,
+            "last_known_author_name": "Stable User",
+            "last_known_username": "stable",
+        }
+        self.storage.get_user_export_summary_since.return_value = None
+
+        output_path = asyncio.run(
+            self.service.update_user_messages(3, output_dir=self.tmpdir, as_json=True)
+        )
+
+        self.assertEqual(output_path, initial_path)
+        self.storage.upsert_export_target.assert_not_called()
+        self.storage.finish_export_run.assert_called_once_with(
+            44,
+            status="success",
+            new_messages_count=0,
+            last_new_message_ts=None,
+            error=None,
         )
 
     def test_export_user_messages_streaming_row_fast_path_skips_unchanged_without_len_none_crash(
