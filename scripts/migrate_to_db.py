@@ -1,3 +1,7 @@
+# LEGACY / HISTORICAL SCRIPT
+# This script is not part of the supported Stage 0 runtime path.
+# Do not use as a source of truth without validating against current package structure.
+
 """Status: broken legacy.
 
 This migration helper targets pre-refactor import paths and an old data model.

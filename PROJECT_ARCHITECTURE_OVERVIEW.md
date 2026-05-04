@@ -4,8 +4,8 @@
 
 Источник анализа:
 - фактический код в `tg_msg_manager/`, `scripts/`, `tests/`
-- текущие docs: `README.md`, `COMMANDS.md`, `ROADMAP.md`, `TODO.md`, `CHANGELOG.md`
-- локальная проверка тестов: `python3 -m unittest discover -s tests -q` -> `144 tests`, `OK`
+- текущие docs: `README.md`, `COMMANDS.md`, `ROADMAP.md`, `TODO.md`, `CHANGELOG.md`, `docs/ARCHITECTURE_RULES.md`, `docs/refactor/*`
+- локальная проверка тестов: `python3 -m unittest discover -s tests -q` -> `148 tests`, `OK`
 
 Важно:
 - документ описывает текущее рабочее дерево, а не только последнюю зафиксированную версию
@@ -29,18 +29,24 @@
 ## 2. Масштаб текущего codebase
 
 Приблизительные метрики по текущему состоянию:
-- `tg_msg_manager`: `67` Python-файлов, около `13 692` строк
-- `tests`: `18` файлов, около `4 847` строк
-- `scripts`: `4` файла, около `574` строк
+- `tg_msg_manager`: `83` Python-файла, около `14 171` строк
+- `tests`: `18` файлов, около `4 955` строк
+- `scripts`: `4` файла, около `578` строк
 
 Крупнейшие файлы:
-- `tg_msg_manager/cli.py` -> `785` строк
 - `tg_msg_manager/services/exporter.py` -> `772` строк
 - `tg_msg_manager/services/context_engine.py` -> `721` строк
-- `tg_msg_manager/services/db_exporter.py` -> `718` строк
-- `tg_msg_manager/infrastructure/storage/_sqlite_read_path.py` -> `676` строк
+- `tg_msg_manager/i18n.py` -> `564` строки
+- `tg_msg_manager/infrastructure/storage/interface.py` -> `505` строк
+- `tg_msg_manager/core/models/service_payloads.py` -> `501` строка
+- `tg_msg_manager/services/db_exporter.py` -> `450` строк
 
-Практический вывод: архитектура уже заметно более декомпозирована после foundation stages `1`–`5`, но несколько orchestration/read-path hotspots все еще остаются крупными.
+Для Stage 0 hot-path сравнения отдельно важно:
+- `tg_msg_manager/cli.py` -> `248` строк
+- `tg_msg_manager/services/db_exporter.py` -> `450` строк
+- `tg_msg_manager/infrastructure/storage/_sqlite_read_path.py` -> `17` строк
+
+Практический вывод: после Stage 0 CLI и SQLite read-side уже заметно ужаты, а основной оставшийся complexity pressure сместился в orchestration-heavy сервисы и write-path.
 
 ## 3. Технологии и стек
 
@@ -107,16 +113,22 @@ Telethon + SQLite + filesystem
 
 Файлы:
 - `tg_msg_manager/cli.py`
+- `tg_msg_manager/cli_parser.py`
+- `tg_msg_manager/cli_commands.py`
+- `tg_msg_manager/cli_menu.py`
+- `tg_msg_manager/cli_support.py`
 - `tg_msg_manager/cli_io.py`
 - `tg_msg_manager/utils/ui.py`
 - `tg_msg_manager/i18n.py`
 
 Ответственность слоя:
-- парсинг CLI-команд
-- запуск интерактивного меню
-- ввод пользователя
-- рендер прогресса и финальных summary
-- переключение языка
+- `cli.py` -> thin entry point / runtime wiring / dispatch
+- `cli_parser.py` -> argparse construction
+- `cli_commands.py` -> command handlers
+- `cli_menu.py` -> interactive menu flows
+- `cli_support.py` -> shared CLI-side helpers
+- `cli_io.py` / `ui.py` -> terminal input and rendering
+- `i18n.py` -> language switching and localized strings
 
 Ключевой момент: сервисы больше не печатают прогресс напрямую в терминал. Они эмитят service events, а CLI-слой уже рендерит их.
 
@@ -176,6 +188,7 @@ Telethon + SQLite + filesystem
 - `tg_msg_manager/services/context_engine.py`
 - `tg_msg_manager/services/context/`
 - `tg_msg_manager/services/db_exporter.py`
+- `tg_msg_manager/services/db_export/`
 - `tg_msg_manager/services/cleaner.py`
 - `tg_msg_manager/services/private_archive.py`
 - `tg_msg_manager/services/retry_worker.py`
@@ -195,12 +208,13 @@ Telethon + SQLite + filesystem
 - `tg_msg_manager/infrastructure/storage/_sqlite_schema.py`
 - `tg_msg_manager/infrastructure/storage/_sqlite_write_path.py`
 - `tg_msg_manager/infrastructure/storage/_sqlite_read_path.py`
+- `tg_msg_manager/infrastructure/storage/read/`
 - `tg_msg_manager/infrastructure/storage/_sqlite_sync_state.py`
 
 Ответственность:
 - схема БД
 - write path
-- read path
+- compatibility read-path aggregator + grouped read modules
 - sync state
 - миграции
 - typed storage contracts
@@ -363,7 +377,8 @@ Telethon + SQLite + filesystem
 `SQLiteStorage` разбит mixin-архитектурой:
 - schema
 - write path
-- read path
+- read path aggregator
+- grouped read modules
 - sync state
 
 Это один из главных рефакторингов проекта.
@@ -376,6 +391,13 @@ Write discipline:
 
 Read discipline:
 - отдельные read-connections на запрос
+- SELECT-логика разнесена по responsibility-группам:
+  - `read/messages.py`
+  - `read/targets.py`
+  - `read/context.py`
+  - `read/exports.py`
+  - `read/reporting.py`
+  - `read/common.py`
 
 Практический смысл:
 - запись максимально централизована и детерминирована
@@ -632,11 +654,11 @@ Fingerprint включает:
 
 Содержит реальную persistence implementation и ее contracts.
 
-### `cli.py` + `cli_io.py`
+### `cli.py` + `cli_*` + `cli_io.py`
 
-Содержат composition root + presentation glue.
+Содержат composition root + parser/handler/menu/support glue.
 
-Это хороший признак зрелости: orchestration и rendering уже разведены.
+Это хороший признак зрелости: entrypoint, dispatch, menu-flow и rendering уже разведены по отдельным модулям.
 
 ## 14. Наблюдаемость и операционная диагностика
 
@@ -771,8 +793,8 @@ Windows-путь:
 - `scripts/cleanup_exports.py` -> утилита для чистки legacy export-артефактов
 
 Нюанс:
-- `scripts/migrate_to_db.py` выглядит legacy-скриптом и, судя по импортам, не соответствует текущей структуре пакета
-- для внешнего анализа его лучше считать историческим артефактом, а не надежным рабочим инструментом
+- `scripts/migrate_to_db.py` теперь явно помечен как legacy / historical script
+- для внешнего анализа его следует считать историческим артефактом, а не поддерживаемым operational инструментом
 
 ## 21. Тесты и качество
 
@@ -791,7 +813,7 @@ Windows-путь:
 - i18n
 
 Фактический статус на момент анализа:
-- `144` теста проходят
+- `148` тестов проходят
 
 Но важно понимать характер покрытия:
 - это в основном unit и mock-heavy tests
@@ -818,10 +840,12 @@ Windows-путь:
 Главные зоны сложности:
 - `services/exporter.py`
 - `services/context_engine.py`
-- `services/db_exporter.py`
-- `cli.py`
+- `infrastructure/storage/_sqlite_write_path.py`
+- `services/private_archive.py`
 
-Хотя они уже декомпозированы лучше, чем раньше, это все равно самые вероятные кандидаты на дальнейшее дробление.
+При этом важно различать:
+- `services/db_exporter.py`, `cli.py` и `_sqlite_read_path.py` уже заметно уменьшены после Stage 0;
+- главные следующие кандидаты на дальнейшее дробление теперь лежат скорее в orchestration/write-path зоне.
 
 ### 23.2 SQLite write path остается центральным bottleneck
 
@@ -859,10 +883,11 @@ Windows-путь:
 
 ### 23.5 Documentation drift сильно уменьшился, но архитектурный документ всё ещё требует периодической пересборки
 
-Самые заметные изменения после foundation backlog:
+Самые заметные изменения после recent refactor stages:
 - `config.example.json` выровнен с `Settings`;
 - user-facing docs уже знают про `retry` и `report`;
 - в репо появилась offline fixture-based harness в `tg_msg_manager/testing/`.
+- Stage 0 добавил `docs/refactor/*` и `docs/ARCHITECTURE_RULES.md`.
 
 Для внешнего аналитика это важно: operational docs стали заметно точнее, но сам обзор остаётся "снимком текущего дерева" и требует обновления после крупных refactor waves.
 
@@ -891,7 +916,7 @@ Windows-путь:
 ### 23.9 Типовая аккуратность выше, чем абсолютная типовая строгость
 
 В проекте много typed DTO, protocol-контрактов и record-моделей.
-После foundation backlog заметная часть старого type drift уже убрана:
+После recent refactor stages заметная часть старого type drift уже убрана:
 - retry lifecycle типизирован;
 - reporting read-side типизирован;
 - `context_group_id` в export/storage моделях больше не расходится с реальным runtime shape.
@@ -915,21 +940,29 @@ Windows-путь:
 
 1. `README.md`
 2. `tg_msg_manager/cli.py`
-3. `tg_msg_manager/core/runtime.py`
-4. `tg_msg_manager/core/config.py`
-5. `tg_msg_manager/services/exporter.py`
-6. `tg_msg_manager/services/context_engine.py`
-7. `tg_msg_manager/infrastructure/storage/sqlite.py`
-8. `tg_msg_manager/infrastructure/storage/_sqlite_schema.py`
-9. `tg_msg_manager/infrastructure/storage/_sqlite_write_path.py`
-10. `tg_msg_manager/infrastructure/storage/_sqlite_read_path.py`
-11. `tg_msg_manager/services/db_exporter.py`
-12. `tg_msg_manager/services/cleaner.py`
-13. `tg_msg_manager/services/private_archive.py`
-14. `tests/test_sync_system.py`
-15. `tests/test_storage_sqlite.py`
-16. `CHANGELOG.md`
-17. `TODO.md`
+3. `tg_msg_manager/cli_parser.py`
+4. `tg_msg_manager/cli_commands.py`
+5. `tg_msg_manager/cli_menu.py`
+6. `tg_msg_manager/core/runtime.py`
+7. `tg_msg_manager/core/config.py`
+8. `tg_msg_manager/services/exporter.py`
+9. `tg_msg_manager/services/sync/`
+10. `tg_msg_manager/services/context_engine.py`
+11. `tg_msg_manager/services/context/`
+12. `tg_msg_manager/infrastructure/storage/sqlite.py`
+13. `tg_msg_manager/infrastructure/storage/_sqlite_schema.py`
+14. `tg_msg_manager/infrastructure/storage/_sqlite_write_path.py`
+15. `tg_msg_manager/infrastructure/storage/_sqlite_read_path.py`
+16. `tg_msg_manager/infrastructure/storage/read/`
+17. `tg_msg_manager/services/db_exporter.py`
+18. `tg_msg_manager/services/db_export/`
+19. `tg_msg_manager/services/cleaner.py`
+20. `tg_msg_manager/services/private_archive.py`
+21. `tests/test_sync_system.py`
+22. `tests/test_storage_sqlite.py`
+23. `docs/refactor/STAGE_0_FINAL_REPORT.md`
+24. `CHANGELOG.md`
+25. `TODO.md`
 
 Такой порядок даст:
 - сначала картину продукта

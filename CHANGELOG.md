@@ -1,6 +1,30 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.17] - 2026-05-04
+
+### Changed (EN)
+- **Stage 0 Completion**: Completed the refactor baseline gate by turning `cli.py` into a thin compatibility entrypoint, splitting DB export helpers into dedicated modules, and reducing the old SQLite read-path monolith to an aggregator over grouped read mixins.
+- **Behavior Freeze**: Kept the public CLI surface unchanged while adding explicit regression coverage for parser defaults and command inventory.
+- **Architecture Guardrails**: Added Stage 0 baseline/smoke/audit documentation plus formal architecture rules so future features do not grow inside the remaining hot-path files.
+
+### Added (EN)
+- Added `tg_msg_manager/cli_parser.py`, `tg_msg_manager/cli_commands.py`, `tg_msg_manager/cli_menu.py`, and `tg_msg_manager/cli_support.py`.
+- Added `tg_msg_manager/services/db_export/` for manifest, JSONL, TXT, and export-plan helpers.
+- Added `tg_msg_manager/infrastructure/storage/read/` for grouped message/target/context/export/reporting reads.
+- Added `docs/ARCHITECTURE_RULES.md` and Stage 0 reports under `docs/refactor/`.
+
+### Изменения (RU)
+- **Завершение Stage 0**: Завершён baseline refactor-gate: `cli.py` стал thin compatibility entrypoint, DB export helper-логика вынесена в отдельные модули, а старый монолит `_sqlite_read_path.py` сведён к aggregator-слою поверх сгруппированных read mixins.
+- **Заморозка поведения**: Публичный CLI surface сохранён без изменений; добавлено явное regression-покрытие для parser defaults и command inventory.
+- **Архитектурные guardrails**: Добавлены Stage 0 baseline/smoke/audit документы и формальные architecture rules, чтобы будущие features не росли внутри оставшихся hot-path файлов.
+
+### Добавлено (RU)
+- Добавлены `tg_msg_manager/cli_parser.py`, `tg_msg_manager/cli_commands.py`, `tg_msg_manager/cli_menu.py` и `tg_msg_manager/cli_support.py`.
+- Добавлен пакет `tg_msg_manager/services/db_export/` для manifest, JSONL, TXT и export-plan helpers.
+- Добавлен пакет `tg_msg_manager/infrastructure/storage/read/` для grouped message/target/context/export/reporting reads.
+- Добавлены `docs/ARCHITECTURE_RULES.md` и Stage 0 отчёты в `docs/refactor/`.
+
 ## [4.2.16] - 2026-05-04
 
 ### Changed (EN)

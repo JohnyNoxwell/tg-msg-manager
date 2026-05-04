@@ -10,6 +10,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tg_msg_manager.cli import (
     CLIContext,
     _dispatch_main_menu_choice,
+    build_cli_parser,
     get_dirty_target_ids,
     run_cli,
 )
@@ -130,8 +131,8 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(get_dirty_target_ids(stats), [2, 4])
 
-    @patch("tg_msg_manager.cli.telemetry.log_summary")
-    @patch("tg_msg_manager.cli.get_safe_user_and_chat")
+    @patch("tg_msg_manager.cli_support.telemetry.log_summary")
+    @patch("tg_msg_manager.cli_commands.get_safe_user_and_chat")
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_export_logs_telemetry_summary(
         self,
@@ -197,8 +198,8 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
 
         mock_ctx.retry_worker.run_due_tasks.assert_awaited_once_with(limit=2)
 
-    @patch("tg_msg_manager.cli.enqueue_archive_pm_retry_task")
-    @patch("tg_msg_manager.cli.get_safe_user_and_chat")
+    @patch("tg_msg_manager.cli_commands.enqueue_archive_pm_retry_task")
+    @patch("tg_msg_manager.cli_commands.get_safe_user_and_chat")
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_export_pm_enqueues_retry_on_failure(
         self,
@@ -224,7 +225,7 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
 
         mock_enqueue_retry.assert_called_once()
 
-    @patch("tg_msg_manager.cli._handle_menu_retry", new_callable=AsyncMock)
+    @patch("tg_msg_manager.cli_menu._handle_menu_retry", new_callable=AsyncMock)
     async def test_dispatch_main_menu_choice_routes_retry_hotkey(
         self,
         mock_retry_menu,
@@ -236,7 +237,7 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(keep_running)
         mock_retry_menu.assert_awaited_once_with(ctx)
 
-    @patch("tg_msg_manager.cli._handle_menu_report", new_callable=AsyncMock)
+    @patch("tg_msg_manager.cli_menu._handle_menu_report", new_callable=AsyncMock)
     async def test_dispatch_main_menu_choice_routes_report_hotkey(
         self,
         mock_report_menu,
@@ -249,8 +250,8 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         mock_report_menu.assert_awaited_once_with(ctx)
 
     @patch("builtins.print")
-    @patch("tg_msg_manager.cli.render_report_json", return_value="{}")
-    @patch("tg_msg_manager.cli.ReportCollector")
+    @patch("tg_msg_manager.cli_commands.render_report_json", return_value="{}")
+    @patch("tg_msg_manager.cli_commands.ReportCollector")
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_report_uses_read_only_context(
         self,
@@ -278,8 +279,8 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         mock_render_report_json.assert_called_once()
         mock_print.assert_called()
 
-    @patch("tg_msg_manager.cli.telemetry.log_summary")
-    @patch("tg_msg_manager.cli.get_safe_user_and_chat")
+    @patch("tg_msg_manager.cli_support.telemetry.log_summary")
+    @patch("tg_msg_manager.cli_commands.get_safe_user_and_chat")
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_export_uses_numeric_user_id_fallback_when_entity_is_unresolved(
         self,
@@ -359,8 +360,8 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(observed["lang"], "en")
 
-    @patch("tg_msg_manager.cli._print_scheduler_setup_result")
-    @patch("tg_msg_manager.cli.setup_scheduler", new_callable=AsyncMock)
+    @patch("tg_msg_manager.cli_commands._print_scheduler_setup_result")
+    @patch("tg_msg_manager.cli_commands.setup_scheduler", new_callable=AsyncMock)
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_schedule_passes_typed_request_to_scheduler(
         self,
@@ -391,8 +392,8 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(request.minute, 30)
         mock_print_scheduler_setup_result.assert_called_once()
 
-    @patch("tg_msg_manager.cli.telemetry.log_summary")
-    @patch("tg_msg_manager.cli.get_safe_user_and_chat")
+    @patch("tg_msg_manager.cli_support.telemetry.log_summary")
+    @patch("tg_msg_manager.cli_commands.get_safe_user_and_chat")
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_export_without_json_writes_txt_summary(
         self,
@@ -501,6 +502,42 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
 
         parser.print_help.assert_called_once()
         mock_main_menu.assert_not_awaited()
+
+
+class TestCLIParser(unittest.TestCase):
+    def test_build_cli_parser_preserves_stage0_command_surface(self):
+        parser = build_cli_parser()
+        parsed = parser.parse_args(["export", "--user-id", "42"])
+        clean = parser.parse_args(["clean"])
+        retry = parser.parse_args(["retry"])
+
+        self.assertEqual(
+            set(parser._subparsers._group_actions[0].choices.keys()),
+            {
+                "export",
+                "update",
+                "retry",
+                "report",
+                "clean",
+                "export-pm",
+                "delete",
+                "schedule",
+                "setup",
+                "db-export",
+            },
+        )
+        self.assertTrue(parsed.deep)
+        self.assertEqual(parsed.depth, 2)
+        self.assertEqual(parsed.context_window, 3)
+        self.assertEqual(parsed.max_cluster, 10)
+        self.assertIsNone(parsed.limit)
+        self.assertFalse(parsed.json)
+        self.assertIsNone(clean.dry_run)
+        self.assertFalse(clean.apply)
+        self.assertFalse(clean.yes)
+        self.assertEqual(retry.limit, 10)
+        self.assertFalse(retry.list)
+        self.assertFalse(retry.cleanup)
 
 
 if __name__ == "__main__":
