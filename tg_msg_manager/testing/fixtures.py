@@ -2,7 +2,7 @@ import json
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Iterable, Optional
+from typing import Any, Iterable, Optional, Union
 
 from ..core.models.message import MessageData
 from .fake_telegram import FakeDialog, FakeEntity
@@ -39,7 +39,7 @@ class TelegramFixtureDataset:
     source_path: Optional[Path] = None
 
 
-def load_telegram_fixture(path: str | Path) -> TelegramFixtureDataset:
+def load_telegram_fixture(path: Union[str, Path]) -> TelegramFixtureDataset:
     fixture_path = Path(path)
     entities: dict[int, FakeEntity] = {}
     dialogs: list[FakeDialog] = []
@@ -191,7 +191,7 @@ def seed_storage_from_fixture(
     storage._conn.commit()
 
 
-def load_export_jsonl(path: str | Path) -> list[dict[str, Any]]:
+def load_export_jsonl(path: Union[str, Path]) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for raw_line in Path(path).read_text(encoding="utf-8").splitlines():
         if raw_line.strip():

@@ -7,6 +7,13 @@ from typing import List, Optional
 
 from ...core.models.message import MessageData, SCHEMA_VERSION
 from ...core.telemetry import telemetry
+from .link_types import (
+    CONTEXT_ALGO_REPLY_CONTEXT_V1,
+    CONTEXT_LINK_REPLY_PARENT,
+    TARGET_LINK_LEGACY,
+    TARGET_LINK_REPLY_CONTEXT,
+    TARGET_LINK_TARGET_AUTHOR,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -191,11 +198,11 @@ class SQLiteWritePathMixin:
         source_user_id: Optional[int] = None,
         reply_to_id: Optional[int] = None,
     ):
-        link_type = "legacy"
+        link_type = TARGET_LINK_LEGACY
         if source_user_id is not None and source_user_id == target_id:
-            link_type = "target_author"
+            link_type = TARGET_LINK_TARGET_AUTHOR
         elif reply_to_id is not None:
-            link_type = "reply_context"
+            link_type = TARGET_LINK_REPLY_CONTEXT
         conn.execute(
             """
             INSERT INTO message_target_links (
@@ -290,9 +297,9 @@ class SQLiteWritePathMixin:
                     chat_id,
                     message_id,
                     reply_to_id,
-                    "reply",
-                    1,
-                    "reply_chain_v1",
+                    CONTEXT_LINK_REPLY_PARENT,
+                    None,
+                    CONTEXT_ALGO_REPLY_CONTEXT_V1,
                     int(time.time()),
                 ),
             )

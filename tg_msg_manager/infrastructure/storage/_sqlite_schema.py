@@ -3,6 +3,13 @@ import sqlite3
 import time
 
 from ...core.models.retry import RetryTaskStatus
+from .link_types import (
+    CONTEXT_ALGO_LEGACY,
+    CONTEXT_ALGO_REPLY_CONTEXT_V1,
+    CONTEXT_LINK_LEGACY,
+    CONTEXT_LINK_REPLY_PARENT,
+    CONTEXT_LINK_UNKNOWN,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -350,6 +357,15 @@ class SQLiteSchemaMixin:
             self._backfill_missing_reply_refs(conn)
             conn.execute("PRAGMA user_version = 11")
             logger.info("Database migration to Version 11 successful.")
+
+        if current_version < 12:
+            logger.info(
+                "Running Database Migration: Version 12 (Context link type normalization)..."
+            )
+            self._normalize_context_link_types(conn)
+            self._create_context_link_indexes(conn)
+            conn.execute("PRAGMA user_version = 12")
+            logger.info("Database migration to Version 12 successful.")
         else:
             logger.debug(
                 f"Database migration skipped (already at version {current_version})."
@@ -368,6 +384,12 @@ class SQLiteSchemaMixin:
             """
             CREATE INDEX IF NOT EXISTS idx_context_links_context
             ON message_context_links (chat_id, context_message_id)
+        """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_context_links_type
+            ON message_context_links (link_type, algorithm_version)
         """
         )
 
@@ -495,9 +517,9 @@ class SQLiteSchemaMixin:
                     chat_id,
                     int(row["message_id"]),
                     int(row["context_message_id"]),
-                    "legacy",
+                    CONTEXT_LINK_LEGACY,
                     None,
-                    "legacy",
+                    CONTEXT_ALGO_LEGACY,
                     now,
                 ),
             )
@@ -524,6 +546,44 @@ class SQLiteSchemaMixin:
         conn.execute(f"ALTER TABLE message_context_links RENAME TO {backup_table}")
         conn.execute(f"ALTER TABLE {new_table} RENAME TO message_context_links")
         self._create_context_link_indexes(conn)
+
+    def _normalize_context_link_types(self, conn: sqlite3.Connection):
+        if not self._table_exists(conn, "message_context_links"):
+            return
+        conn.execute(
+            """
+            UPDATE message_context_links
+            SET
+                link_type = ?,
+                distance = NULL
+            WHERE link_type = 'reply'
+        """,
+            (CONTEXT_LINK_REPLY_PARENT,),
+        )
+        conn.execute(
+            """
+            UPDATE message_context_links
+            SET algorithm_version = ?
+            WHERE algorithm_version = 'reply_chain_v1'
+        """,
+            (CONTEXT_ALGO_REPLY_CONTEXT_V1,),
+        )
+        conn.execute(
+            """
+            UPDATE message_context_links
+            SET link_type = ?
+            WHERE COALESCE(TRIM(link_type), '') = ''
+        """,
+            (CONTEXT_LINK_UNKNOWN,),
+        )
+        conn.execute(
+            """
+            UPDATE message_context_links
+            SET algorithm_version = ?
+            WHERE COALESCE(TRIM(algorithm_version), '') = ''
+        """,
+            (CONTEXT_ALGO_LEGACY,),
+        )
 
     def _migrate_message_target_links_metadata(self, conn: sqlite3.Connection):
         if not self._table_exists(conn, "message_target_links"):

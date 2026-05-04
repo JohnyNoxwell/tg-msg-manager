@@ -1,7 +1,7 @@
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from ..infrastructure.storage.sqlite import SQLiteStorage
 from ..services.db_exporter import DBExportService
@@ -70,7 +70,7 @@ class FixtureRuntime:
         self.dataset = dataset
         self.client.replace_dataset(dataset)
 
-    def build_report(self, *, now_ts: int | None = None):
+    def build_report(self, *, now_ts: Optional[int] = None):
         collector = ReportCollector(
             storage=self.storage,
             exports_dir=self.paths.db_exports_dir,

@@ -16,6 +16,11 @@ from tg_msg_manager.infrastructure.storage.interface import (
     ExportStorage,
     PrivateArchiveStorage,
 )
+from tg_msg_manager.infrastructure.storage.link_types import (
+    CONTEXT_ALGO_REPLY_CONTEXT_V1,
+    CONTEXT_LINK_REPLY_PARENT,
+    validate_context_link_type,
+)
 from tg_msg_manager.infrastructure.storage.records import (
     DeleteUserDataResult,
     ExportRunRecord,
@@ -256,10 +261,16 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["chat_id"], 321)
         self.assertEqual(row["message_id"], 2)
         self.assertEqual(row["context_message_id"], 1)
-        self.assertEqual(row["link_type"], "reply")
-        self.assertEqual(row["distance"], 1)
-        self.assertEqual(row["algorithm_version"], "reply_chain_v1")
+        self.assertEqual(row["link_type"], CONTEXT_LINK_REPLY_PARENT)
+        self.assertIsNone(row["distance"])
+        self.assertEqual(row["algorithm_version"], CONTEXT_ALGO_REPLY_CONTEXT_V1)
         self.assertGreater(row["created_at"], 0)
+
+    async def test_validate_context_link_type_helper_accepts_only_canonical_values(self):
+        self.assertTrue(validate_context_link_type(CONTEXT_LINK_REPLY_PARENT))
+        self.assertTrue(validate_context_link_type("legacy"))
+        self.assertFalse(validate_context_link_type("reply"))
+        self.assertFalse(validate_context_link_type("same_topic"))
 
     async def test_user_export_summary_and_iterator_preserve_deterministic_order(self):
         self.storage.register_target(999, "Target User", 321)
@@ -757,7 +768,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["message_id"], 2)
         self.assertEqual(row["missing_reply_to_id"], 1)
         self.assertEqual(row["status"], "missing")
-        self.assertEqual(version, 11)
+        self.assertEqual(version, 12)
 
     async def test_export_runs_migration_creates_table_for_version_9_databases(self):
         await self.storage.close()
@@ -799,7 +810,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             version = conn.execute("PRAGMA user_version").fetchone()[0]
 
         self.assertIsNotNone(table)
-        self.assertEqual(version, 11)
+        self.assertEqual(version, 12)
 
     async def test_export_targets_migration_backfills_tracked_users(self):
         await self.storage.close()
@@ -1033,6 +1044,108 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(RuntimeError):
             self.storage = SQLiteStorage(self.db_path)
+
+    async def test_context_link_type_normalization_migrates_reply_rows(self):
+        await self.storage.close()
+        for suffix in ("", "-wal", "-shm"):
+            path = f"{self.db_path}{suffix}"
+            if os.path.exists(path):
+                os.remove(path)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """
+            CREATE TABLE messages (
+                chat_id INTEGER,
+                message_id INTEGER,
+                user_id INTEGER,
+                author_name TEXT,
+                timestamp INTEGER,
+                text TEXT,
+                media_type TEXT,
+                reply_to_id INTEGER,
+                fwd_from_id INTEGER,
+                context_group_id TEXT,
+                raw_payload TEXT,
+                payload_hash TEXT,
+                schema_version INTEGER,
+                PRIMARY KEY (chat_id, message_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            CREATE TABLE message_context_links (
+                chat_id INTEGER NOT NULL,
+                message_id INTEGER NOT NULL,
+                context_message_id INTEGER NOT NULL,
+                link_type TEXT NOT NULL DEFAULT 'unknown',
+                distance INTEGER,
+                algorithm_version TEXT NOT NULL DEFAULT 'legacy',
+                created_at INTEGER NOT NULL,
+                PRIMARY KEY (chat_id, message_id, context_message_id, link_type, algorithm_version)
+            )
+        """
+        )
+        conn.execute(
+            """
+            INSERT INTO messages (
+                chat_id, message_id, user_id, author_name, timestamp, text, media_type,
+                reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (321, 1, 111, "Parent", 1700000000, "parent", None, None, None, None, "{}", "p1", 1),
+        )
+        conn.execute(
+            """
+            INSERT INTO messages (
+                chat_id, message_id, user_id, author_name, timestamp, text, media_type,
+                reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (321, 2, 222, "Child", 1700000010, "child", None, 1, None, None, "{}", "p2", 1),
+        )
+        conn.execute(
+            """
+            INSERT INTO message_context_links (
+                chat_id,
+                message_id,
+                context_message_id,
+                link_type,
+                distance,
+                algorithm_version,
+                created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        """,
+            (321, 2, 1, "reply", 1, "reply_chain_v1", 1700000020),
+        )
+        conn.execute("PRAGMA user_version = 11")
+        conn.commit()
+        conn.close()
+
+        self.storage = SQLiteStorage(self.db_path)
+
+        with self.storage._read_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT link_type, distance, algorithm_version
+                FROM message_context_links
+            """
+            ).fetchone()
+            index_row = conn.execute(
+                """
+                SELECT name
+                FROM sqlite_master
+                WHERE type = 'index' AND name = 'idx_context_links_type'
+            """
+            ).fetchone()
+            version = conn.execute("PRAGMA user_version").fetchone()[0]
+
+        self.assertEqual(row["link_type"], CONTEXT_LINK_REPLY_PARENT)
+        self.assertIsNone(row["distance"])
+        self.assertEqual(row["algorithm_version"], CONTEXT_ALGO_REPLY_CONTEXT_V1)
+        self.assertIsNotNone(index_row)
+        self.assertEqual(version, 12)
 
     async def test_repair_terminal_incomplete_targets_marks_only_tail_threshold_rows_complete(
         self,

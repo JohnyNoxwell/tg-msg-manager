@@ -22,6 +22,7 @@ Implemented slices from this TODO:
 - switched `update` export flow to DB-backed cursor append for JSONL exports using `export_targets.last_exported_message_ts/message_id`.
 - added `missing_reply_refs` table with migration/backfill and write-path status tracking;
 - export text formatting now emits a technical note when `reply_to_id` points to a message absent in local DB.
+- added canonical context-link constants/validation and normalized old `reply` / `reply_chain_v1` rows into typed values.
 
 Still pending from the larger TODO:
 
