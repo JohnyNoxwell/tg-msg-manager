@@ -63,11 +63,17 @@ Immediate conclusion:
 ### `message_target_links`
 
 - primary key is `(chat_id, message_id, target_user_id)`
+- runtime schema now also carries `link_type` and `created_at`
+- legacy rows are migrated into metadata-aware rows and preserved in `message_target_links_legacy_backup`
+- write-path now upgrades new links toward:
+  - `target_author`
+  - `reply_context`
+  - `legacy`
 - read/write paths already join on both `chat_id` and `message_id`
 
 ## Recommended next migration order
 
 1. Open the real writable database through the migrated runtime and capture a post-migration diagnostics snapshot.
-2. Re-run `scripts/db_diagnostics.py` and compare dangling-context-link counts before and after the migration.
-3. Continue link hardening for remaining metadata/versioning concerns and export-state tables.
+2. Re-run `scripts/db_diagnostics.py` and compare pre/post-migration snapshots for both context links and target links.
+3. Continue with export-state tables and broader export bookkeeping normalization.
 4. Only after that extend thread/context analytics on top of the stabilized schema.

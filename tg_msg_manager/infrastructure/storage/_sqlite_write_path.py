@@ -120,7 +120,12 @@ class SQLiteWritePathMixin:
 
         if target_id is not None:
             self._ensure_target_link_in_conn(
-                conn, msg.chat_id, msg.message_id, target_id
+                conn,
+                msg.chat_id,
+                msg.message_id,
+                target_id,
+                source_user_id=msg.user_id,
+                reply_to_id=msg.reply_to_id,
             )
 
         if existing_hash_row and existing_hash_row["payload_hash"] == payload_hash:
@@ -168,14 +173,40 @@ class SQLiteWritePathMixin:
         return f"<<Unserializable: {type(obj)}>>"
 
     def _ensure_target_link_in_conn(
-        self, conn, chat_id: int, message_id: int, target_id: int
+        self,
+        conn,
+        chat_id: int,
+        message_id: int,
+        target_id: int,
+        *,
+        source_user_id: Optional[int] = None,
+        reply_to_id: Optional[int] = None,
     ):
+        link_type = "legacy"
+        if source_user_id is not None and source_user_id == target_id:
+            link_type = "target_author"
+        elif reply_to_id is not None:
+            link_type = "reply_context"
         conn.execute(
             """
-            INSERT OR IGNORE INTO message_target_links (chat_id, message_id, target_user_id)
-            VALUES (?, ?, ?)
+            INSERT INTO message_target_links (
+                chat_id,
+                message_id,
+                target_user_id,
+                link_type,
+                created_at
+            )
+            VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT(chat_id, message_id, target_user_id) DO UPDATE SET
+                link_type = CASE
+                    WHEN message_target_links.link_type = 'legacy' AND excluded.link_type != 'legacy'
+                        THEN excluded.link_type
+                    WHEN message_target_links.link_type = 'reply_context' AND excluded.link_type = 'target_author'
+                        THEN excluded.link_type
+                    ELSE message_target_links.link_type
+                END
         """,
-            (chat_id, message_id, target_id),
+            (chat_id, message_id, target_id, link_type, int(time.time())),
         )
 
     def _upsert_user_from_payload_in_conn(

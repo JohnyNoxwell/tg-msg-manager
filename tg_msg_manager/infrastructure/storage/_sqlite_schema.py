@@ -75,6 +75,8 @@ class SQLiteSchemaMixin:
                 chat_id INTEGER,
                 message_id INTEGER,
                 target_user_id INTEGER,
+                link_type TEXT NOT NULL DEFAULT 'legacy',
+                created_at INTEGER NOT NULL,
                 PRIMARY KEY (chat_id, message_id, target_user_id)
             )
         """)
@@ -130,12 +132,7 @@ class SQLiteSchemaMixin:
             "CREATE INDEX IF NOT EXISTS idx_msg_chat_reply ON messages (chat_id, reply_to_id)"
         )
         self._create_context_link_indexes(conn)
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_mt_link_target ON message_target_links (target_user_id)"
-        )
-        conn.execute(
-            "CREATE INDEX IF NOT EXISTS idx_mt_link_chat_target_msg ON message_target_links (chat_id, target_user_id, message_id)"
-        )
+        self._create_target_link_indexes(conn)
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_msg_context_group ON messages (context_group_id)"
         )
@@ -271,6 +268,14 @@ class SQLiteSchemaMixin:
             self._migrate_message_context_links_to_chat_safe(conn)
             conn.execute("PRAGMA user_version = 7")
             logger.info("Database migration to Version 7 successful.")
+
+        if current_version < 8:
+            logger.info(
+                "Running Database Migration: Version 8 (Target link metadata)..."
+            )
+            self._migrate_message_target_links_metadata(conn)
+            conn.execute("PRAGMA user_version = 8")
+            logger.info("Database migration to Version 8 successful.")
         else:
             logger.debug(
                 f"Database migration skipped (already at version {current_version})."
@@ -292,12 +297,52 @@ class SQLiteSchemaMixin:
         """
         )
 
+    def _create_target_link_indexes(self, conn: sqlite3.Connection):
+        if not self._target_links_has_chat_scope(conn):
+            return
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_mt_link_target
+            ON message_target_links (target_user_id)
+        """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_mt_link_message
+            ON message_target_links (chat_id, message_id)
+        """
+        )
+        conn.execute(
+            """
+            CREATE INDEX IF NOT EXISTS idx_mt_link_chat_target_msg
+            ON message_target_links (chat_id, target_user_id, message_id)
+        """
+        )
+
     def _context_links_has_chat_scope(self, conn: sqlite3.Connection) -> bool:
         columns = {
             row["name"]
             for row in conn.execute("PRAGMA table_info(message_context_links)").fetchall()
         }
         return "chat_id" in columns and "algorithm_version" in columns
+
+    def _target_links_has_chat_scope(self, conn: sqlite3.Connection) -> bool:
+        columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(message_target_links)").fetchall()
+        }
+        return "chat_id" in columns
+
+    def _target_links_has_metadata(self, conn: sqlite3.Connection) -> bool:
+        columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(message_target_links)").fetchall()
+        }
+        return (
+            "chat_id" in columns
+            and "link_type" in columns
+            and "created_at" in columns
+        )
 
     def _migrate_message_context_links_to_chat_safe(self, conn: sqlite3.Connection):
         if not self._table_exists(conn, "message_context_links"):
@@ -392,6 +437,95 @@ class SQLiteSchemaMixin:
         conn.execute(f"ALTER TABLE {new_table} RENAME TO message_context_links")
         self._create_context_link_indexes(conn)
 
+    def _migrate_message_target_links_metadata(self, conn: sqlite3.Connection):
+        if not self._table_exists(conn, "message_target_links"):
+            self._create_target_link_indexes(conn)
+            return
+
+        if self._target_links_has_metadata(conn):
+            self._create_target_link_indexes(conn)
+            return
+
+        now = int(time.time())
+        backup_table = "message_target_links_legacy_backup"
+        new_table = "message_target_links_new"
+        if self._table_exists(conn, new_table):
+            conn.execute(f"DROP TABLE {new_table}")
+
+        conn.execute(
+            f"""
+            CREATE TABLE {new_table} (
+                chat_id INTEGER NOT NULL,
+                message_id INTEGER NOT NULL,
+                target_user_id INTEGER NOT NULL,
+                link_type TEXT NOT NULL DEFAULT 'legacy',
+                created_at INTEGER NOT NULL,
+                PRIMARY KEY (chat_id, message_id, target_user_id),
+                FOREIGN KEY (chat_id, message_id)
+                    REFERENCES messages(chat_id, message_id)
+            )
+        """
+        )
+
+        columns = {
+            row["name"]
+            for row in conn.execute("PRAGMA table_info(message_target_links)").fetchall()
+        }
+        select_cols = ["message_id", "target_user_id"]
+        if "chat_id" in columns:
+            select_cols.insert(0, "chat_id")
+        rows = conn.execute(
+            f"SELECT {', '.join(select_cols)} FROM message_target_links"
+        ).fetchall()
+        for row in rows:
+            if "chat_id" in columns:
+                chat_id = int(row["chat_id"])
+            else:
+                chat_id = self._resolve_legacy_target_link_chat_id(
+                    conn,
+                    message_id=int(row["message_id"]),
+                )
+            conn.execute(
+                f"""
+                INSERT INTO {new_table} (
+                    chat_id,
+                    message_id,
+                    target_user_id,
+                    link_type,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?, ?)
+            """,
+                (
+                    chat_id,
+                    int(row["message_id"]),
+                    int(row["target_user_id"]),
+                    "legacy",
+                    now,
+                ),
+            )
+
+        broken_refs = conn.execute(
+            f"""
+            SELECT COUNT(*)
+            FROM {new_table} l
+            LEFT JOIN messages m
+              ON m.chat_id = l.chat_id AND m.message_id = l.message_id
+            WHERE m.message_id IS NULL
+        """
+        ).fetchone()[0]
+        if broken_refs:
+            conn.execute(f"DROP TABLE {new_table}")
+            raise RuntimeError(
+                "Target-link migration aborted: migrated rows still reference missing messages."
+            )
+
+        if self._table_exists(conn, backup_table):
+            conn.execute(f"DROP TABLE {backup_table}")
+        conn.execute(f"ALTER TABLE message_target_links RENAME TO {backup_table}")
+        conn.execute(f"ALTER TABLE {new_table} RENAME TO message_target_links")
+        self._create_target_link_indexes(conn)
+
     def _resolve_legacy_context_link_chat_id(
         self,
         conn: sqlite3.Connection,
@@ -426,6 +560,37 @@ class SQLiteSchemaMixin:
         raise RuntimeError(
             "Context-link migration aborted: could not resolve a unique chat_id for "
             f"legacy link ({message_id} -> {context_message_id})."
+        )
+
+    def _resolve_legacy_target_link_chat_id(
+        self,
+        conn: sqlite3.Connection,
+        *,
+        message_id: int,
+    ) -> int:
+        chat_rows = conn.execute(
+            """
+            SELECT DISTINCT chat_id
+            FROM messages
+            ORDER BY chat_id ASC
+        """
+        ).fetchall()
+        if len(chat_rows) == 1:
+            return int(chat_rows[0]["chat_id"])
+
+        rows = conn.execute(
+            """
+            SELECT DISTINCT chat_id
+            FROM messages
+            WHERE message_id = ?
+        """,
+            (message_id,),
+        ).fetchall()
+        if len(rows) == 1:
+            return int(rows[0]["chat_id"])
+        raise RuntimeError(
+            "Target-link migration aborted: could not resolve a unique chat_id for "
+            f"legacy target link message_id={message_id}."
         )
 
     def _table_exists(self, conn: sqlite3.Connection, table_name: str) -> bool:
@@ -489,21 +654,56 @@ class SQLiteSchemaMixin:
         """
         Retroactively populates message_target_links for existing data.
         """
+        now = int(time.time())
         with self._write_transaction() as conn:
-            conn.execute("""
-                INSERT OR IGNORE INTO message_target_links (chat_id, message_id, target_user_id)
-                SELECT chat_id, message_id, user_id FROM messages
-                WHERE user_id IN (SELECT user_id FROM sync_targets)
-            """)
-            conn.execute("""
-                INSERT OR IGNORE INTO message_target_links (chat_id, message_id, target_user_id)
-                SELECT m.chat_id, m.message_id, t.target_user_id
-                FROM messages m
-                JOIN (
-                    SELECT DISTINCT m1.context_group_id, l.target_user_id, l.chat_id
-                    FROM message_target_links l
-                    JOIN messages m1 ON l.chat_id = m1.chat_id AND l.message_id = m1.message_id
-                    WHERE m1.context_group_id IS NOT NULL
-                ) t ON m.chat_id = t.chat_id AND m.context_group_id = t.context_group_id
-            """)
+            columns = {
+                row["name"]
+                for row in conn.execute("PRAGMA table_info(message_target_links)").fetchall()
+            }
+            if "link_type" in columns and "created_at" in columns:
+                conn.execute("""
+                    INSERT OR IGNORE INTO message_target_links (
+                        chat_id,
+                        message_id,
+                        target_user_id,
+                        link_type,
+                        created_at
+                    )
+                    SELECT chat_id, message_id, user_id, 'legacy', ? FROM messages
+                    WHERE user_id IN (SELECT user_id FROM sync_targets)
+                """, (now,))
+                conn.execute("""
+                    INSERT OR IGNORE INTO message_target_links (
+                        chat_id,
+                        message_id,
+                        target_user_id,
+                        link_type,
+                        created_at
+                    )
+                    SELECT m.chat_id, m.message_id, t.target_user_id, 'legacy', ?
+                    FROM messages m
+                    JOIN (
+                        SELECT DISTINCT m1.context_group_id, l.target_user_id, l.chat_id
+                        FROM message_target_links l
+                        JOIN messages m1 ON l.chat_id = m1.chat_id AND l.message_id = m1.message_id
+                        WHERE m1.context_group_id IS NOT NULL
+                    ) t ON m.chat_id = t.chat_id AND m.context_group_id = t.context_group_id
+                """, (now,))
+            else:
+                conn.execute("""
+                    INSERT OR IGNORE INTO message_target_links (chat_id, message_id, target_user_id)
+                    SELECT chat_id, message_id, user_id FROM messages
+                    WHERE user_id IN (SELECT user_id FROM sync_targets)
+                """)
+                conn.execute("""
+                    INSERT OR IGNORE INTO message_target_links (chat_id, message_id, target_user_id)
+                    SELECT m.chat_id, m.message_id, t.target_user_id
+                    FROM messages m
+                    JOIN (
+                        SELECT DISTINCT m1.context_group_id, l.target_user_id, l.chat_id
+                        FROM message_target_links l
+                        JOIN messages m1 ON l.chat_id = m1.chat_id AND l.message_id = m1.message_id
+                        WHERE m1.context_group_id IS NOT NULL
+                    ) t ON m.chat_id = t.chat_id AND m.context_group_id = t.context_group_id
+                """)
         logger.info("Database migration: Message attribution links populated.")

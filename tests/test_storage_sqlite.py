@@ -805,6 +805,61 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             ).fetchone()
             self.assertEqual(row["count"], 0)
 
+    async def test_save_message_persists_target_link_metadata(self):
+        self.storage.register_target(1, "Target User", 777)
+        own_msg = MessageData(
+            message_id=1,
+            chat_id=777,
+            user_id=1,
+            author_name="Target User",
+            timestamp=datetime.now(),
+            text="Mine",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        reply_context = MessageData(
+            message_id=2,
+            chat_id=777,
+            user_id=2,
+            author_name="Other User",
+            timestamp=datetime.now(),
+            text="Reply",
+            media_type=None,
+            reply_to_id=1,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+
+        await self.storage.save_message(own_msg, target_id=1)
+        await self.storage.save_message(reply_context, target_id=1)
+
+        with self.storage._read_connection() as conn:
+            own_row = conn.execute(
+                """
+                SELECT link_type, created_at
+                FROM message_target_links
+                WHERE chat_id = ? AND message_id = ? AND target_user_id = ?
+            """,
+                (777, 1, 1),
+            ).fetchone()
+            context_row = conn.execute(
+                """
+                SELECT link_type, created_at
+                FROM message_target_links
+                WHERE chat_id = ? AND message_id = ? AND target_user_id = ?
+            """,
+                (777, 2, 1),
+            ).fetchone()
+
+        self.assertEqual(own_row["link_type"], "target_author")
+        self.assertGreater(own_row["created_at"], 0)
+        self.assertEqual(context_row["link_type"], "reply_context")
+        self.assertGreater(context_row["created_at"], 0)
+
     async def test_filter_missing_target_links_batches_existing_ids(self):
         self.storage.register_target(1, "Target User", 777)
         msg = MessageData(
@@ -862,6 +917,222 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(breakdown["with_context"], 2)
         self.assertEqual(breakdown.own_messages, 1)
         self.assertEqual(breakdown.with_context, 2)
+
+    async def test_target_link_migration_adds_metadata_and_keeps_backup(self):
+        await self.storage.close()
+        for suffix in ("", "-wal", "-shm"):
+            path = f"{self.db_path}{suffix}"
+            if os.path.exists(path):
+                os.remove(path)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """
+            CREATE TABLE messages (
+                chat_id INTEGER,
+                message_id INTEGER,
+                user_id INTEGER,
+                author_name TEXT,
+                timestamp INTEGER,
+                text TEXT,
+                media_type TEXT,
+                reply_to_id INTEGER,
+                fwd_from_id INTEGER,
+                context_group_id TEXT,
+                raw_payload TEXT,
+                payload_hash TEXT,
+                schema_version INTEGER,
+                PRIMARY KEY (chat_id, message_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            CREATE TABLE message_target_links (
+                chat_id INTEGER,
+                message_id INTEGER,
+                target_user_id INTEGER,
+                PRIMARY KEY (chat_id, message_id, target_user_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            INSERT INTO messages (
+                chat_id, message_id, user_id, author_name, timestamp, text, media_type,
+                reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (777, 1, 1, "Target User", 1700000000, "mine", None, None, None, None, "{}", "h1", 1),
+        )
+        conn.execute(
+            """
+            INSERT INTO message_target_links (chat_id, message_id, target_user_id)
+            VALUES (?, ?, ?)
+        """,
+            (777, 1, 1),
+        )
+        conn.execute("PRAGMA user_version = 7")
+        conn.commit()
+        conn.close()
+
+        self.storage = SQLiteStorage(self.db_path)
+
+        with self.storage._read_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT chat_id, message_id, target_user_id, link_type, created_at
+                FROM message_target_links
+            """
+            ).fetchone()
+            backup_row = conn.execute(
+                """
+                SELECT chat_id, message_id, target_user_id
+                FROM message_target_links_legacy_backup
+            """
+            ).fetchone()
+
+        self.assertEqual(row["chat_id"], 777)
+        self.assertEqual(row["message_id"], 1)
+        self.assertEqual(row["target_user_id"], 1)
+        self.assertEqual(row["link_type"], "legacy")
+        self.assertGreater(row["created_at"], 0)
+        self.assertEqual(backup_row["chat_id"], 777)
+        self.assertEqual(backup_row["message_id"], 1)
+        self.assertEqual(backup_row["target_user_id"], 1)
+
+    async def test_target_link_migration_recovers_missing_chat_id_when_unambiguous(self):
+        await self.storage.close()
+        for suffix in ("", "-wal", "-shm"):
+            path = f"{self.db_path}{suffix}"
+            if os.path.exists(path):
+                os.remove(path)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """
+            CREATE TABLE messages (
+                chat_id INTEGER,
+                message_id INTEGER,
+                user_id INTEGER,
+                author_name TEXT,
+                timestamp INTEGER,
+                text TEXT,
+                media_type TEXT,
+                reply_to_id INTEGER,
+                fwd_from_id INTEGER,
+                context_group_id TEXT,
+                raw_payload TEXT,
+                payload_hash TEXT,
+                schema_version INTEGER,
+                PRIMARY KEY (chat_id, message_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            CREATE TABLE message_target_links (
+                message_id INTEGER,
+                target_user_id INTEGER,
+                PRIMARY KEY (message_id, target_user_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            INSERT INTO messages (
+                chat_id, message_id, user_id, author_name, timestamp, text, media_type,
+                reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (777, 5, 1, "Target User", 1700000000, "mine", None, None, None, None, "{}", "h5", 1),
+        )
+        conn.execute(
+            """
+            INSERT INTO message_target_links (message_id, target_user_id)
+            VALUES (?, ?)
+        """,
+            (5, 1),
+        )
+        conn.execute("PRAGMA user_version = 7")
+        conn.commit()
+        conn.close()
+
+        self.storage = SQLiteStorage(self.db_path)
+
+        with self.storage._read_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT chat_id, message_id, target_user_id, link_type
+                FROM message_target_links
+            """
+            ).fetchone()
+
+        self.assertEqual(row["chat_id"], 777)
+        self.assertEqual(row["message_id"], 5)
+        self.assertEqual(row["target_user_id"], 1)
+        self.assertEqual(row["link_type"], "legacy")
+
+    async def test_target_link_migration_fails_when_chat_id_is_ambiguous(self):
+        await self.storage.close()
+        for suffix in ("", "-wal", "-shm"):
+            path = f"{self.db_path}{suffix}"
+            if os.path.exists(path):
+                os.remove(path)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """
+            CREATE TABLE messages (
+                chat_id INTEGER,
+                message_id INTEGER,
+                user_id INTEGER,
+                author_name TEXT,
+                timestamp INTEGER,
+                text TEXT,
+                media_type TEXT,
+                reply_to_id INTEGER,
+                fwd_from_id INTEGER,
+                context_group_id TEXT,
+                raw_payload TEXT,
+                payload_hash TEXT,
+                schema_version INTEGER,
+                PRIMARY KEY (chat_id, message_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            CREATE TABLE message_target_links (
+                message_id INTEGER,
+                target_user_id INTEGER,
+                PRIMARY KEY (message_id, target_user_id)
+            )
+        """
+        )
+        for chat_id in (777, 888):
+            conn.execute(
+                """
+                INSERT INTO messages (
+                    chat_id, message_id, user_id, author_name, timestamp, text, media_type,
+                    reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (chat_id, 5, 1, "Target User", 1700000000, "mine", None, None, None, None, "{}", f"h5-{chat_id}", 1),
+            )
+        conn.execute(
+            """
+            INSERT INTO message_target_links (message_id, target_user_id)
+            VALUES (?, ?)
+        """,
+            (5, 1),
+        )
+        conn.execute("PRAGMA user_version = 7")
+        conn.commit()
+        conn.close()
+
+        with self.assertRaises(RuntimeError):
+            self.storage = SQLiteStorage(self.db_path)
 
     async def test_delete_user_data_returns_typed_result(self):
         self.storage.register_target(1, "Target User", 777)
