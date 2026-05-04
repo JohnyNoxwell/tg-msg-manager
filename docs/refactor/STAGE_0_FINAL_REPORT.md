@@ -2,6 +2,10 @@
 
 Date: 2026-05-04
 
+Historical note:
+
+- this report captures the Stage 0 completion point on 2026-05-04 and should not be read as the current full-project status snapshot.
+
 ## Scope
 
 Stage 0 was completed as a behavior-preserving refactor/documentation gate.

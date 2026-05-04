@@ -20,6 +20,8 @@ Implemented slices from this TODO:
 - added DB-backed `export_runs` journal;
 - wired `DBExportService` to persist `running` / `success` / `failed` lifecycle per export attempt.
 - switched `update` export flow to DB-backed cursor append for JSONL exports using `export_targets.last_exported_message_ts/message_id`.
+- moved export artifact manifest state into SQLite (`export_targets`) so full-export skip no longer depends on `.export_state/` as the primary source of truth;
+- kept legacy `.export_state/` reads only as a compatibility fallback for older export artifacts.
 - added `missing_reply_refs` table with migration/backfill and write-path status tracking;
 - export text formatting now emits a technical note when `reply_to_id` points to a message absent in local DB.
 - added canonical context-link constants/validation and normalized old `reply` / `reply_chain_v1` rows into typed values.

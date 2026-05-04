@@ -2,6 +2,10 @@
 
 Date: 2026-05-04
 
+Historical note:
+
+- this file is a Stage 0 snapshot, not a description of the current test count or current runtime state.
+
 ## Initial Baseline Before Stage 0 Edits
 
 - Command: `python3 -m unittest discover -s tests -q`

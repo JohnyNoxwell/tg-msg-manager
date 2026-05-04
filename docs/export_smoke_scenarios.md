@@ -57,7 +57,7 @@ Purpose:
 - checks:
   no crash
   no duplicate-message explosion in DB counts
-  exported artifact is either skipped or refreshed deterministically, depending on manifest/fingerprint state
+  exported artifact is either skipped or refreshed deterministically, depending on DB-backed artifact fingerprint state
 
 ## 5. Repeat export/update with new messages
 

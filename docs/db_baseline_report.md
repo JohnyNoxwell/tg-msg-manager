@@ -2,6 +2,12 @@
 
 Date: 2026-05-04
 
+Note:
+
+- this document is a historical pre-hardening baseline snapshot;
+- it records the state before the runtime migrations were applied to the writable database;
+- the current live runtime has since moved the working database forward beyond this baseline.
+
 Command used:
 
 ```bash
@@ -13,7 +19,7 @@ Database:
 - path: `/Users/maczone/dev/TG_CLEANER/messages.db`
 - integrity_check: `ok`
 - journal_mode: `wal`
-- user_version: `6`
+- user_version: `6` at baseline capture time
 
 Key counts:
 
@@ -50,3 +56,7 @@ Short conclusion:
 - `message_target_links` is already chat-scoped and has no dangling links in the sampled baseline.
 - The largest remaining schema/data risk is `message_context_links`, which is still keyed only by bare `message_id` pairs and shows a large dangling-link count in diagnostics.
 - Reply incompleteness is expected in the current dataset and must be treated as a first-class migration concern before deeper thread/context features are added.
+
+Current note:
+
+- this baseline should be read together with the later hardening work: current runtime/schema expectations now live in `docs/sqlite_message_id_audit.md` and the active architecture overview.

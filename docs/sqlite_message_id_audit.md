@@ -46,8 +46,7 @@ Implemented behavior:
 
 What still remains risky:
 
-- existing writable databases still need to be opened once through the migrated runtime to move from the legacy table shape to the new chat-safe one;
-- the baseline report taken before that writable migration still shows the old table shape and the pre-migration dangling-link count;
+- historical baseline documents still show the pre-migration table shape and the old dangling-link counts;
 - deeper context reconstruction still relies primarily on `messages.reply_to_id` and `context_group_id`, so this schema hardening is necessary but not sufficient for full thread semantics.
 
 Immediate conclusion:
@@ -71,9 +70,16 @@ Immediate conclusion:
   - `legacy`
 - read/write paths already join on both `chat_id` and `message_id`
 
-## Recommended next migration order
+## Current status and follow-up
 
-1. Open the real writable database through the migrated runtime and capture a post-migration diagnostics snapshot.
-2. Re-run `scripts/db_diagnostics.py` and compare pre/post-migration snapshots for both context links and target links.
-3. Continue with export-state tables and broader export bookkeeping normalization.
-4. Only after that extend thread/context analytics on top of the stabilized schema.
+Completed in runtime:
+
+1. Real writable databases are migrated through the current runtime up to schema `user_version = 14`.
+2. `message_context_links` and `message_target_links` are already chat-safe and metadata-aware.
+3. Export cursor/state and artifact manifest state are stored in SQLite via `export_targets` and `export_runs`.
+
+Follow-up direction:
+
+1. Re-run `scripts/db_diagnostics.py` when the production dataset changes materially, so docs and audits stay aligned with the live DB.
+2. Decide when it is safe to prune compatibility leftovers such as legacy backup tables and old `.export_state` sidecars.
+3. Build richer thread/context analytics only on top of the stabilized `(chat_id, message_id)` link model.

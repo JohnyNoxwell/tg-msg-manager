@@ -5,7 +5,7 @@
 Источник анализа:
 - фактический код в `tg_msg_manager/`, `scripts/`, `tests/`
 - текущие docs: `README.md`, `COMMANDS.md`, `ROADMAP.md`, `TODO.md`, `CHANGELOG.md`, `docs/ARCHITECTURE_RULES.md`, `docs/refactor/*`
-- локальная проверка тестов: `python3 -m unittest discover -s tests -q` -> `148 tests`, `OK`
+- локальная проверка тестов: `python3 -m unittest discover -s tests -q` -> `177 tests`, `OK`
 
 Важно:
 - документ описывает текущее рабочее дерево, а не только последнюю зафиксированную версию
@@ -601,7 +601,7 @@ AI JSON export умеет:
 
 ### 12.11 Fingerprint-based export skip
 
-`DBExportService` хранит manifest в `.export_state/`.
+`DBExportService` хранит artifact-manifest state в SQLite, внутри `export_targets`.
 
 Fingerprint включает:
 - user id
@@ -613,6 +613,10 @@ Fingerprint включает:
 
 Если fingerprint не изменился и все части экспорта на месте:
 - новый export не пересобирается
+
+Нюанс:
+- legacy `.export_state/` sidecar-файлы больше не являются primary source of truth;
+- они читаются только как compatibility fallback для старых export-артефактов, пока состояние не будет lazily перенесено в БД.
 
 ### 12.12 Stateful file rotation
 
@@ -927,7 +931,7 @@ Windows-путь:
 2. Самая важная бизнес-идея проекта не cleanup, а target-attributed context-aware sync.
 3. Главный актив архитектуры — модель `messages` + `message_target_links` + `sync_targets`.
 4. Главные ограничения роста — сложность `ExportService`/`DeepModeEngine` и single-node SQLite write path.
-5. Проект уже довольно зрелый в части операционной дисциплины: lock, graceful shutdown, telemetry, manifest-based exports, resume.
+5. Проект уже довольно зрелый в части операционной дисциплины: lock, graceful shutdown, telemetry, DB-backed export state, resume.
 6. Некоторые legacy-артефакты еще присутствуют: старые scripts, часть исторических таблиц/queue hooks и крупные архитектурные snapshots, которые нужно периодически пересобирать.
 
 ## 25. Рекомендуемый порядок чтения кода для внешнего анализа
