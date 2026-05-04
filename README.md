@@ -38,7 +38,7 @@ python3 -m tg_msg_manager.cli report
        ```
    *   **Способ B (После настройки)**: Введите `tg` в любом месте терминала (см. раздел [Алиасы](#алиасы)).
 
-3. **Навигация**: Используйте цифры **1-9** для выбора функций, **ESC** — для возврата назад, **0** — для выхода.
+3. **Навигация**: Используйте цифры **1-9** для основных функций, **R** для `retry`, **P** для `report`, **ESC** — для возврата назад, **0** — для выхода.
 
 ---
 
@@ -178,6 +178,8 @@ Legacy aliases still supported:
 *   `tgu` — Автоматическое обновление всей базы.
 *   `tge ID` — Быстрый экспорт конкретного пользователя.
 *   `tgpm ID` — Быстрый архив лички по user ID.
+*   `tgrt [args]` — Быстрый доступ к `retry`.
+*   `tgrp [args]` — Быстрый доступ к `report`.
 
 ---
 ---
@@ -216,7 +218,7 @@ python3 -m tg_msg_manager.cli report
        ```
    *   **Method B (After setup)**: Type `tg` anywhere in your terminal (see [Aliases](#aliases)).
 
-3. **Navigation**: Use numbers **1-9** to select, **ESC** to go back/cancel, and **0** to exit.
+3. **Navigation**: Use numbers **1-9** for the main functions, **R** for `retry`, **P** for `report`, **ESC** to go back/cancel, and **0** to exit.
 
 ---
 
@@ -356,3 +358,5 @@ Run `python3 run.py setup` to register short commands:
 *   `tgu` — Progressively update all tracked targets.
 *   `tge ID` — Quick export for a specific user.
 *   `tgpm ID` — Quick PM archive by user ID.
+*   `tgrt [args]` — Quick access to `retry`.
+*   `tgrp [args]` — Quick access to `report`.

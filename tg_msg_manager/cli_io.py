@@ -360,9 +360,22 @@ def render_main_menu(me_id: Any) -> None:
     )
     print(f" {UI.muted('ESC — back/cancel   ·   0 — exit')}")
     print(UI.rule(105))
-    for i in range(1, 10):
+    menu_items = [
+        ("1", "menu_1", "menu_1_desc"),
+        ("2", "menu_2", "menu_2_desc"),
+        ("3", "menu_3", "menu_3_desc"),
+        ("4", "menu_4", "menu_4_desc"),
+        ("5", "menu_5", "menu_5_desc"),
+        ("6", "menu_6", "menu_6_desc"),
+        ("7", "menu_7", "menu_7_desc"),
+        ("8", "menu_8", "menu_8_desc"),
+        ("9", "menu_9", "menu_9_desc"),
+        ("R", "menu_retry", "menu_retry_desc"),
+        ("P", "menu_report", "menu_report_desc"),
+    ]
+    for hotkey, label_key, desc_key in menu_items:
         print(
-            f" {UI.paint(f'[{i}]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_' + str(i)), UI.CLR_TEXT)}  {UI.muted(_('menu_' + str(i) + '_desc'))}"
+            f" {UI.paint(f'[{hotkey}]', UI.CLR_ACCENT, bold=True)} {UI.paint(_(label_key), UI.CLR_TEXT)}  {UI.muted(_(desc_key))}"
         )
     print(
         f" {UI.paint('[L]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_lang'), UI.CLR_TEXT)}"

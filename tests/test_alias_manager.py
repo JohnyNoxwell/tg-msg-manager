@@ -42,6 +42,45 @@ class TestAliasManager(unittest.TestCase):
             with open(result.rc_path, "r", encoding="utf-8") as f:
                 content = f.read()
             self.assertIn("tg-msg-manager aliases", content)
+            self.assertIn(
+                'alias tgrt="cd /tmp/project && /usr/bin/python3 -m tg_msg_manager.cli retry"',
+                content,
+            )
+            self.assertIn(
+                'alias tgrp="cd /tmp/project && /usr/bin/python3 -m tg_msg_manager.cli report"',
+                content,
+            )
+            self.assertIn(
+                'alias tgd="cd /tmp/project && /usr/bin/python3 -m tg_msg_manager.cli clean --apply --yes"',
+                content,
+            )
+
+    def test_install_windows_writes_consistent_alias_commands(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            manager = AliasManager(
+                project_root="C:/project",
+                python_executable="C:/Python/python.exe",
+            )
+            manager.os_type = "Windows"
+            manager.home_dir = tmpdir
+
+            result = manager.install()
+
+            self.assertTrue(result.success)
+            retry_bat = os.path.join(result.bin_dir, "tgrt.bat")
+            report_bat = os.path.join(result.bin_dir, "tgrp.bat")
+            delete_bat = os.path.join(result.bin_dir, "tgd.bat")
+            with open(retry_bat, "r", encoding="utf-8") as f:
+                retry_content = f.read()
+            with open(report_bat, "r", encoding="utf-8") as f:
+                report_content = f.read()
+            with open(delete_bat, "r", encoding="utf-8") as f:
+                delete_content = f.read()
+            self.assertIn("-m tg_msg_manager.cli retry %*", retry_content)
+            self.assertIn("-m tg_msg_manager.cli report %*", report_content)
+            self.assertIn(
+                "-m tg_msg_manager.cli clean --apply --yes %*", delete_content
+            )
 
     def test_get_alias_specs_returns_structured_help_entries(self):
         manager = AliasManager()
@@ -50,7 +89,10 @@ class TestAliasManager(unittest.TestCase):
 
         self.assertEqual(specs[0].alias, "tg")
         self.assertEqual(specs[0].label_key, "alias_tg")
-        self.assertGreaterEqual(len(specs), 6)
+        aliases = [spec.alias for spec in specs]
+        self.assertIn("tgrt", aliases)
+        self.assertIn("tgrp", aliases)
+        self.assertGreaterEqual(len(specs), 8)
 
 
 if __name__ == "__main__":

@@ -14,21 +14,15 @@ class AliasManager:
     Handles automatic installation of terminal aliases across different platforms.
     """
 
-    ALIASES = {
-        "tg": "tg-msg-manager",
-        "tgr": "tg-msg-manager clean --dry-run",
-        "tgd": "tg-msg-manager clean --apply",
-        "tgpm": "tg-msg-manager export-pm",
-        "tge": "tg-msg-manager export",
-        "tgu": "tg-msg-manager update",
-    }
-    ALIAS_HELP = (
-        AliasHelpEntry("tg", "alias_tg"),
-        AliasHelpEntry("tgd", "alias_tgd"),
-        AliasHelpEntry("tgr", "alias_tgr"),
-        AliasHelpEntry("tgu", "alias_tgu"),
-        AliasHelpEntry("tge", "alias_tge"),
-        AliasHelpEntry("tgpm", "alias_tgpm"),
+    ALIAS_SPECS = (
+        ("tg", "alias_tg", ""),
+        ("tgd", "alias_tgd", "clean --apply --yes"),
+        ("tgr", "alias_tgr", "clean --dry-run --yes"),
+        ("tgu", "alias_tgu", "update"),
+        ("tge", "alias_tge", "export --deep --json --user-id"),
+        ("tgpm", "alias_tgpm", "export-pm --user-id"),
+        ("tgrt", "alias_tgrt", "retry"),
+        ("tgrp", "alias_tgrp", "report"),
     )
 
     def __init__(
@@ -66,20 +60,11 @@ class AliasManager:
 
         template = 'alias {alias}="cd {root} && {py} -m tg_msg_manager.cli {cmd}"'
 
-        commands = {
-            "tg": "",
-            "tgr": "clean --dry-run --yes",
-            "tgd": "clean --apply --yes",
-            "tge": "export --deep --json --user-id",
-            "tgu": "update",
-            "tgpm": "export-pm --user-id",
-        }
-
         marker_start = "# >>> tg-msg-manager aliases >>>"
         marker_end = "# <<< tg-msg-manager aliases <<<"
 
         lines_to_add = [f"\n{marker_start}\n"]
-        for alias, cmd in commands.items():
+        for alias, _, cmd in self.ALIAS_SPECS:
             line = template.format(
                 alias=alias,
                 root=shlex.quote(self.project_root),
@@ -118,7 +103,7 @@ class AliasManager:
         if not os.path.exists(bin_dir):
             os.makedirs(bin_dir)
 
-        for alias, cmd in self.ALIASES.items():
+        for alias, _, cmd in self.ALIAS_SPECS:
             bat_path = os.path.join(bin_dir, f"{alias}.bat")
             with open(bat_path, "w") as f:
                 f.write(
@@ -135,4 +120,6 @@ class AliasManager:
 
     def get_alias_specs(self) -> List[AliasHelpEntry]:
         """Returns structured alias help entries for CLI-side localization."""
-        return list(self.ALIAS_HELP)
+        return [
+            AliasHelpEntry(alias, label_key) for alias, label_key, _ in self.ALIAS_SPECS
+        ]

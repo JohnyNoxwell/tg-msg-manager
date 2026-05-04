@@ -7,7 +7,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 # Add project root to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tg_msg_manager.cli import CLIContext, get_dirty_target_ids, run_cli
+from tg_msg_manager.cli import (
+    CLIContext,
+    _dispatch_main_menu_choice,
+    get_dirty_target_ids,
+    run_cli,
+)
 from tg_msg_manager.core.models.sync_report import TrackedSyncRunReport
 from tg_msg_manager.core.config import Settings
 from tg_msg_manager.core.runtime import AppPaths, AppRuntime
@@ -218,6 +223,30 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
             await run_cli(runtime=self.runtime)
 
         mock_enqueue_retry.assert_called_once()
+
+    @patch("tg_msg_manager.cli._handle_menu_retry", new_callable=AsyncMock)
+    async def test_dispatch_main_menu_choice_routes_retry_hotkey(
+        self,
+        mock_retry_menu,
+    ):
+        ctx = MagicMock()
+
+        keep_running = await _dispatch_main_menu_choice(ctx, "R")
+
+        self.assertTrue(keep_running)
+        mock_retry_menu.assert_awaited_once_with(ctx)
+
+    @patch("tg_msg_manager.cli._handle_menu_report", new_callable=AsyncMock)
+    async def test_dispatch_main_menu_choice_routes_report_hotkey(
+        self,
+        mock_report_menu,
+    ):
+        ctx = MagicMock()
+
+        keep_running = await _dispatch_main_menu_choice(ctx, "P")
+
+        self.assertTrue(keep_running)
+        mock_report_menu.assert_awaited_once_with(ctx)
 
     @patch("builtins.print")
     @patch("tg_msg_manager.cli.render_report_json", return_value="{}")

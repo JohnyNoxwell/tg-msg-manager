@@ -685,12 +685,62 @@ async def _handle_menu_db_export(ctx: CLIContext) -> None:
     pause_for_enter()
 
 
+async def _handle_menu_retry(ctx: CLIContext) -> None:
+    UI.print_header(_("menu_retry"), _("sub_retry_info"))
+    print(f"  [1] {_('retry_action_run')}")
+    print(f"  [2] {_('retry_action_list')}")
+    print(f"  [3] {_('retry_action_cleanup')}")
+    choice = TerminalInput.prompt_with_esc("\n" + _("retry_action_prompt") + ": ")
+    if choice is None:
+        return
+
+    normalized = choice.strip()
+    if normalized == "2":
+        _print_retry_tasks(ctx.storage.list_retry_tasks(limit=10))
+    elif normalized == "3":
+        cleaned = ctx.storage.cleanup_retry_tasks()
+        _print_retry_summary(RetryRunStats(cleaned=cleaned))
+    else:
+        stats = await ctx.retry_worker.run_due_tasks(limit=10)
+        _print_retry_summary(stats)
+    pause_for_enter()
+
+
+async def _handle_menu_report(ctx: CLIContext) -> None:
+    UI.print_header(_("menu_report"), _("sub_report_info"))
+    print(f"  [1] {_('report_format_markdown')}")
+    print(f"  [2] {_('report_format_json')}")
+    choice = TerminalInput.prompt_with_esc("\n" + _("report_format_prompt") + ": ")
+    if choice is None:
+        return
+
+    collector = ReportCollector(
+        storage=ctx.storage,
+        exports_dir=ctx.paths.db_exports_dir,
+    )
+    report = collector.collect()
+    normalized = choice.strip()
+    output = (
+        render_report_json(report)
+        if normalized == "2"
+        else render_report_markdown(report)
+    )
+    print(output)
+    pause_for_enter()
+
+
 async def _dispatch_main_menu_choice(ctx: CLIContext, choice: str) -> bool:
     if choice == "L":
         set_lang("en" if get_lang() == "ru" else "ru")
         return True
     if choice == "0":
         return False
+    if choice == "R":
+        await _handle_menu_retry(ctx)
+        return True
+    if choice == "P":
+        await _handle_menu_report(ctx)
+        return True
 
     handlers = {
         "1": _handle_menu_export,

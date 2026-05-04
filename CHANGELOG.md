@@ -1,6 +1,26 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.16] - 2026-05-04
+
+### Changed (EN)
+- **Alias Consistency**: Reworked alias installation to use one canonical alias-spec list for both Unix and Windows, eliminating drift between shells and platforms.
+- **New Quick Commands**: Added `tgrt` for `retry` and `tgrp` for `report`, so alias installation now covers the current operational CLI surfaces introduced during the foundation backlog.
+- **Setup Surface Alignment**: Updated setup/help/docs strings so the documented alias list matches the aliases actually installed.
+- **Interactive Menu Coverage**: Added `R` and `P` hotkeys to the terminal control-center so `retry` and `report` are available from the interactive console utility, not only as direct CLI commands.
+
+### Fixed (EN)
+- Fixed Windows alias installation so destructive cleanup shortcuts include the same `--yes` confirmation bypass as Unix aliases.
+
+### Изменения (RU)
+- **Консистентность алиасов**: Установка алиасов переведена на один canonical alias-spec список для Unix и Windows, чтобы убрать drift между shell/platform реализациями.
+- **Новые быстрые команды**: Добавлены `tgrt` для `retry` и `tgrp` для `report`, так что alias-installation теперь покрывает актуальные operational CLI surfaces из foundation backlog.
+- **Выравнивание setup surface**: Обновлены setup/help/docs строки, чтобы документированный список алиасов совпадал с реально устанавливаемыми командами.
+- **Покрытие интерактивного меню**: В terminal control-center добавлены hotkeys `R` и `P`, так что `retry` и `report` доступны не только как прямые CLI-команды, но и из консольной утилиты.
+
+### Исправления (RU)
+- Исправлена установка Windows-алиасов: destructive shortcut для cleanup теперь тоже включает `--yes`, как и Unix-версия.
+
 ## [4.2.15] - 2026-05-04
 
 ### Changed (EN)

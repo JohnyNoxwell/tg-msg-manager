@@ -14,6 +14,7 @@
 
 **Особенности управления:**
 *   **Выбор**: Просто нажмите цифру (напр. `1`), нажимать Enter не нужно.
+*   **Дополнительные hotkeys**: Нажмите `R` для Retry Queue и `P` для Audit Report.
 *   **Отмена/Назад**: Нажмите клавишу **ESC** в любой момент.
 *   **Выход**: Нажмите `0` в главном меню.
 
@@ -27,9 +28,8 @@
 7.  **Настройка**: Установка терминальных алиасов.
 8.  **О программе**: Техническая информация.
 9.  **Экспорт из БД**: Выгрузка из SQLite в JSON/Text.
-
-Примечание:
-*   `retry` и `report` доступны как прямые CLI-команды и пока не вынесены в интерактивное меню.
+R.  **Retry Queue**: Просмотр, повтор и cleanup retry-задач.
+P.  **Audit Report**: Read-only диагностика локального состояния.
 
 ---
 
@@ -147,7 +147,7 @@ tg-msg-manager report --json
 ```bash
 tg-msg-manager setup
 ```
-Устанавливает алиасы `tg`, `tgr`, `tgd`, `tge`, `tgu`, `tgpm`.
+Устанавливает алиасы `tg`, `tgr`, `tgd`, `tge`, `tgu`, `tgpm`, `tgrt`, `tgrp`.
 
 ---
 
@@ -161,6 +161,7 @@ Launch via the `tg` shortcut or run `tg-msg-manager` without arguments from an i
 
 **Navigation:**
 *   **Selection**: Press any numeric key (e.g., `1`) for instant activation. No Enter key is needed.
+*   **Extra hotkeys**: Press `R` for Retry Queue and `P` for Audit Report.
 *   **Cancel/Back**: Press the **ESC** key at any point to return to the previous screen.
 *   **Exit**: Press `0` from the main menu.
 
@@ -174,9 +175,8 @@ Launch via the `tg` shortcut or run `tg-msg-manager` without arguments from an i
 7.  **Setup**: Install terminal aliases.
 8.  **About**: System information and versions.
 9.  **DB Export Service**: Convert SQLite records to JSON/Text.
-
-Note:
-*   `retry` and `report` currently exist as direct CLI commands and are not exposed in the interactive menu yet.
+R.  **Retry Queue**: Inspect, replay, and clean retry tasks.
+P.  **Audit Report**: Read-only local-state diagnostics.
 
 ---
 
@@ -294,7 +294,7 @@ tg-msg-manager report --json
 ```bash
 tg-msg-manager setup
 ```
-Installs the `tg`, `tgr`, `tgd`, `tge`, `tgu`, and `tgpm` shortcuts.
+Installs the `tg`, `tgr`, `tgd`, `tge`, `tgu`, `tgpm`, `tgrt`, and `tgrp` shortcuts.
 
 ---
 
