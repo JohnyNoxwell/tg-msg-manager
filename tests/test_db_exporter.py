@@ -18,7 +18,24 @@ from tg_msg_manager.services.db_exporter import DBExportService
 class TestDBExporter(unittest.TestCase):
     def setUp(self):
         self.storage = MagicMock()
-        self.storage.get_export_target.return_value = None
+        self._export_targets = {}
+
+        def get_export_target(user_id):
+            return self._export_targets.get(user_id)
+
+        def upsert_export_target(**kwargs):
+            target_user_id = int(kwargs["target_user_id"])
+            current = dict(self._export_targets.get(target_user_id) or {})
+            current["target_user_id"] = target_user_id
+            for key, value in kwargs.items():
+                if key == "target_user_id":
+                    continue
+                if value is not None or key not in current:
+                    current[key] = value
+            self._export_targets[target_user_id] = current
+
+        self.storage.get_export_target.side_effect = get_export_target
+        self.storage.upsert_export_target.side_effect = upsert_export_target
         self.storage.get_user_export_summary.return_value = None
         self.storage.get_user_export_summary_since.return_value = None
         self.storage.get_user_export_rows.return_value = None
@@ -284,15 +301,24 @@ class TestDBExporter(unittest.TestCase):
             self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=True)
         )
 
-        self.storage.upsert_export_target.assert_called_once_with(
-            target_user_id=3,
-            export_filename=os.path.basename(output_path),
-            export_dir=os.path.dirname(output_path),
-            last_exported_message_ts=1700001234,
-            last_exported_message_id=7,
-            last_known_author_name="Stable User",
-            last_known_username="stable",
-        )
+        self.storage.upsert_export_target.assert_called_once()
+        kwargs = self.storage.upsert_export_target.call_args.kwargs
+        self.assertEqual(kwargs["target_user_id"], 3)
+        self.assertEqual(kwargs["export_filename"], os.path.basename(output_path))
+        self.assertEqual(kwargs["export_dir"], os.path.dirname(output_path))
+        self.assertEqual(kwargs["last_exported_message_ts"], 1700001234)
+        self.assertEqual(kwargs["last_exported_message_id"], 7)
+        self.assertEqual(kwargs["export_part_count"], 1)
+        self.assertEqual(kwargs["artifact_message_count"], 1)
+        self.assertEqual(kwargs["artifact_first_message_id"], 7)
+        self.assertEqual(kwargs["artifact_last_message_id"], 7)
+        self.assertEqual(kwargs["artifact_first_timestamp"], 1700001234)
+        self.assertEqual(kwargs["artifact_last_timestamp"], 1700001234)
+        self.assertTrue(kwargs["artifact_as_json"])
+        self.assertFalse(kwargs["artifact_include_date"])
+        self.assertEqual(kwargs["artifact_json_profile"], "ai")
+        self.assertEqual(kwargs["last_known_author_name"], "Stable User")
+        self.assertEqual(kwargs["last_known_username"], "stable")
         self.storage.start_export_run.assert_called_once_with(target_user_id=3)
         self.storage.finish_export_run.assert_called_once_with(
             44,
@@ -335,15 +361,17 @@ class TestDBExporter(unittest.TestCase):
         )
 
         self.assertEqual(first_path, second_path)
-        self.storage.upsert_export_target.assert_called_once_with(
-            target_user_id=3,
-            export_filename=os.path.basename(second_path),
-            export_dir=os.path.dirname(second_path),
-            last_exported_message_ts=1700002222,
-            last_exported_message_id=9,
-            last_known_author_name="Stable User",
-            last_known_username="stable",
-        )
+        self.storage.upsert_export_target.assert_called_once()
+        kwargs = self.storage.upsert_export_target.call_args.kwargs
+        self.assertEqual(kwargs["target_user_id"], 3)
+        self.assertEqual(kwargs["export_filename"], os.path.basename(second_path))
+        self.assertEqual(kwargs["export_dir"], os.path.dirname(second_path))
+        self.assertEqual(kwargs["last_exported_message_ts"], 1700002222)
+        self.assertEqual(kwargs["last_exported_message_id"], 9)
+        self.assertEqual(kwargs["export_part_count"], 1)
+        self.assertEqual(kwargs["artifact_message_count"], 1)
+        self.assertEqual(kwargs["last_known_author_name"], "Stable User")
+        self.assertEqual(kwargs["last_known_username"], "stable")
         self.storage.finish_export_run.assert_called_with(
             44,
             status="success",
@@ -351,6 +379,103 @@ class TestDBExporter(unittest.TestCase):
             last_new_message_ts=None,
             error=None,
         )
+
+    def test_export_user_messages_does_not_write_legacy_manifest_sidecar(self):
+        message = MessageData(
+            message_id=10,
+            chat_id=2,
+            user_id=3,
+            author_name="Stable User",
+            timestamp=datetime.fromtimestamp(1700003333),
+            text="hello",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        self.storage.get_user_messages.return_value = [message]
+        self.storage.get_user.return_value = {
+            "user_id": 3,
+            "first_name": "Stable",
+            "last_name": "User",
+            "username": "stable",
+        }
+
+        output_path = asyncio.run(
+            self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=True)
+        )
+
+        self.assertTrue(os.path.exists(output_path))
+        self.assertFalse(
+            os.path.exists(os.path.join(self.tmpdir, ".export_state", "3.json"))
+        )
+
+    def test_export_user_messages_legacy_manifest_fallback_backfills_db_state(self):
+        telemetry.reset()
+        message = MessageData(
+            message_id=11,
+            chat_id=2,
+            user_id=3,
+            author_name="Stable User",
+            timestamp=datetime.fromtimestamp(1700004444),
+            text="hello",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        self.storage.get_user_messages.return_value = [message]
+        self.storage.get_user.return_value = {
+            "user_id": 3,
+            "first_name": "Stable",
+            "last_name": "User",
+            "username": "stable",
+        }
+
+        output_path = os.path.join(self.tmpdir, "Stable_User_3.jsonl")
+        with open(output_path, "w", encoding="utf-8") as handle:
+            handle.write('{"message_id":11,"text":"hello"}\n')
+
+        os.makedirs(os.path.join(self.tmpdir, ".export_state"), exist_ok=True)
+        with open(
+            os.path.join(self.tmpdir, ".export_state", "3.json"),
+            "w",
+            encoding="utf-8",
+        ) as handle:
+            json.dump(
+                {
+                    "output_path": output_path,
+                    "part_count": 1,
+                    "fingerprint": {
+                        "user_id": 3,
+                        "message_count": 1,
+                        "first_message_id": 11,
+                        "last_message_id": 11,
+                        "first_timestamp": 1700004444,
+                        "last_timestamp": 1700004444,
+                        "as_json": True,
+                        "include_date": False,
+                        "json_profile": "ai",
+                    },
+                },
+                handle,
+            )
+
+        unchanged_path = asyncio.run(
+            self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=True)
+        )
+
+        self.assertEqual(unchanged_path, output_path)
+        self.storage.upsert_export_target.assert_called_once()
+        kwargs = self.storage.upsert_export_target.call_args.kwargs
+        self.assertEqual(kwargs["target_user_id"], 3)
+        self.assertEqual(kwargs["export_part_count"], 1)
+        self.assertEqual(kwargs["artifact_message_count"], 1)
+        self.assertEqual(self._export_targets[3]["artifact_last_message_id"], 11)
+        summary = telemetry.get_summary()
+        self.assertEqual(summary["counters"]["db_export.skipped_unchanged"], 1)
 
     def test_export_user_messages_records_failed_export_run_without_cursor_update(self):
         message = MessageData(
@@ -396,7 +521,7 @@ class TestDBExporter(unittest.TestCase):
         with open(initial_path, "w", encoding="utf-8") as handle:
             handle.write('{"message_id":7,"text":"old"}\n')
 
-        self.storage.get_export_target.return_value = {
+        self._export_targets[3] = {
             "target_user_id": 3,
             "export_filename": "Stable_User_3.jsonl",
             "export_dir": self.tmpdir,
@@ -455,15 +580,19 @@ class TestDBExporter(unittest.TestCase):
         self.assertEqual(len(lines), 2)
         self.assertIn('"message_id":7', lines[0])
         self.assertIn('"message_id":8', lines[1])
-        self.storage.upsert_export_target.assert_called_once_with(
-            target_user_id=3,
-            export_filename="Stable_User_3.jsonl",
-            export_dir=self.tmpdir,
-            last_exported_message_ts=1700002234,
-            last_exported_message_id=8,
-            last_known_author_name="Stable User",
-            last_known_username="stable",
-        )
+        self.storage.upsert_export_target.assert_called_once()
+        kwargs = self.storage.upsert_export_target.call_args.kwargs
+        self.assertEqual(kwargs["target_user_id"], 3)
+        self.assertEqual(kwargs["export_filename"], "Stable_User_3.jsonl")
+        self.assertEqual(kwargs["export_dir"], self.tmpdir)
+        self.assertEqual(kwargs["last_exported_message_ts"], 1700002234)
+        self.assertEqual(kwargs["last_exported_message_id"], 8)
+        self.assertEqual(kwargs["export_part_count"], 1)
+        self.assertEqual(kwargs["artifact_message_count"], 2)
+        self.assertEqual(kwargs["artifact_first_message_id"], 7)
+        self.assertEqual(kwargs["artifact_last_message_id"], 8)
+        self.assertEqual(kwargs["last_known_author_name"], "Stable User")
+        self.assertEqual(kwargs["last_known_username"], "stable")
         self.storage.finish_export_run.assert_called_once_with(
             44,
             status="success",
@@ -477,7 +606,7 @@ class TestDBExporter(unittest.TestCase):
         with open(initial_path, "w", encoding="utf-8") as handle:
             handle.write('{"message_id":7,"text":"old"}\n')
 
-        self.storage.get_export_target.return_value = {
+        self._export_targets[3] = {
             "target_user_id": 3,
             "export_filename": "Stable_User_3.jsonl",
             "export_dir": self.tmpdir,

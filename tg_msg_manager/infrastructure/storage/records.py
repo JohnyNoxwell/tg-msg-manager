@@ -227,6 +227,15 @@ class ExportTargetRecord(StorageRecord):
     export_dir: Optional[str] = None
     last_exported_message_ts: Optional[int] = None
     last_exported_message_id: Optional[int] = None
+    export_part_count: Optional[int] = None
+    artifact_message_count: Optional[int] = None
+    artifact_first_message_id: Optional[int] = None
+    artifact_last_message_id: Optional[int] = None
+    artifact_first_timestamp: Optional[int] = None
+    artifact_last_timestamp: Optional[int] = None
+    artifact_as_json: Optional[bool] = None
+    artifact_include_date: Optional[bool] = None
+    artifact_json_profile: Optional[str] = None
     last_known_author_name: Optional[str] = None
     last_known_username: Optional[str] = None
     created_at: int = 0
@@ -255,6 +264,47 @@ class ExportTargetRecord(StorageRecord):
                     if value.get("last_exported_message_id") is not None
                     else None
                 ),
+                export_part_count=(
+                    _coerce_int(value.get("export_part_count"))
+                    if value.get("export_part_count") is not None
+                    else None
+                ),
+                artifact_message_count=(
+                    _coerce_int(value.get("artifact_message_count"))
+                    if value.get("artifact_message_count") is not None
+                    else None
+                ),
+                artifact_first_message_id=(
+                    _coerce_int(value.get("artifact_first_message_id"))
+                    if value.get("artifact_first_message_id") is not None
+                    else None
+                ),
+                artifact_last_message_id=(
+                    _coerce_int(value.get("artifact_last_message_id"))
+                    if value.get("artifact_last_message_id") is not None
+                    else None
+                ),
+                artifact_first_timestamp=(
+                    _coerce_int(value.get("artifact_first_timestamp"))
+                    if value.get("artifact_first_timestamp") is not None
+                    else None
+                ),
+                artifact_last_timestamp=(
+                    _coerce_int(value.get("artifact_last_timestamp"))
+                    if value.get("artifact_last_timestamp") is not None
+                    else None
+                ),
+                artifact_as_json=(
+                    _coerce_bool(value.get("artifact_as_json"))
+                    if value.get("artifact_as_json") is not None
+                    else None
+                ),
+                artifact_include_date=(
+                    _coerce_bool(value.get("artifact_include_date"))
+                    if value.get("artifact_include_date") is not None
+                    else None
+                ),
+                artifact_json_profile=value.get("artifact_json_profile"),
                 last_known_author_name=value.get("last_known_author_name"),
                 last_known_username=value.get("last_known_username"),
                 created_at=_coerce_int(value.get("created_at")),

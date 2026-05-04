@@ -574,6 +574,15 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             export_dir="DB_EXPORTS",
             last_exported_message_ts=1700001000,
             last_exported_message_id=77,
+            export_part_count=2,
+            artifact_message_count=42,
+            artifact_first_message_id=1,
+            artifact_last_message_id=77,
+            artifact_first_timestamp=1700000000,
+            artifact_last_timestamp=1700001000,
+            artifact_as_json=True,
+            artifact_include_date=False,
+            artifact_json_profile="ai",
             last_known_author_name="Stable User",
             last_known_username="stable",
         )
@@ -586,6 +595,15 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(record.export_dir, "DB_EXPORTS")
         self.assertEqual(record.last_exported_message_ts, 1700001000)
         self.assertEqual(record.last_exported_message_id, 77)
+        self.assertEqual(record.export_part_count, 2)
+        self.assertEqual(record.artifact_message_count, 42)
+        self.assertEqual(record.artifact_first_message_id, 1)
+        self.assertEqual(record.artifact_last_message_id, 77)
+        self.assertEqual(record.artifact_first_timestamp, 1700000000)
+        self.assertEqual(record.artifact_last_timestamp, 1700001000)
+        self.assertTrue(record.artifact_as_json)
+        self.assertFalse(record.artifact_include_date)
+        self.assertEqual(record.artifact_json_profile, "ai")
         self.assertEqual(record.last_known_author_name, "Stable User")
         self.assertEqual(record.last_known_username, "stable")
 
@@ -768,7 +786,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["message_id"], 2)
         self.assertEqual(row["missing_reply_to_id"], 1)
         self.assertEqual(row["status"], "missing")
-        self.assertEqual(version, 13)
+        self.assertEqual(version, 14)
 
     async def test_export_runs_migration_creates_table_for_version_9_databases(self):
         await self.storage.close()
@@ -810,7 +828,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             version = conn.execute("PRAGMA user_version").fetchone()[0]
 
         self.assertIsNotNone(table)
-        self.assertEqual(version, 13)
+        self.assertEqual(version, 14)
 
     async def test_export_targets_migration_backfills_tracked_users(self):
         await self.storage.close()
@@ -875,6 +893,15 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(record.export_dir)
         self.assertIsNone(record.last_exported_message_ts)
         self.assertIsNone(record.last_exported_message_id)
+        self.assertIsNone(record.export_part_count)
+        self.assertIsNone(record.artifact_message_count)
+        self.assertIsNone(record.artifact_first_message_id)
+        self.assertIsNone(record.artifact_last_message_id)
+        self.assertIsNone(record.artifact_first_timestamp)
+        self.assertIsNone(record.artifact_last_timestamp)
+        self.assertIsNone(record.artifact_as_json)
+        self.assertIsNone(record.artifact_include_date)
+        self.assertIsNone(record.artifact_json_profile)
         self.assertEqual(record.last_known_author_name, "Stable User")
         self.assertEqual(record.last_known_username, "stable")
         self.assertGreater(record.created_at, 0)
@@ -1145,7 +1172,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(row["distance"])
         self.assertEqual(row["algorithm_version"], CONTEXT_ALGO_REPLY_CONTEXT_V1)
         self.assertIsNotNone(index_row)
-        self.assertEqual(version, 13)
+        self.assertEqual(version, 14)
 
     async def test_context_link_migration_skips_dangling_legacy_rows_but_keeps_backup(self):
         await self.storage.close()
@@ -1218,7 +1245,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(migrated_count, 0)
         self.assertEqual(backup_count, 1)
-        self.assertEqual(version, 13)
+        self.assertEqual(version, 14)
 
     async def test_repair_terminal_incomplete_targets_marks_only_tail_threshold_rows_complete(
         self,
@@ -1696,7 +1723,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(migrated_count, 0)
         self.assertEqual(backup_count, 1)
-        self.assertEqual(version, 13)
+        self.assertEqual(version, 14)
 
     async def test_target_link_reclassification_upgrades_legacy_rows_in_place(self):
         await self.storage.close()
@@ -1779,7 +1806,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             ).fetchall()
             version = conn.execute("PRAGMA user_version").fetchone()[0]
 
-        self.assertEqual(version, 13)
+        self.assertEqual(version, 14)
         self.assertEqual(
             [(row["message_id"], row["link_type"]) for row in rows],
             [

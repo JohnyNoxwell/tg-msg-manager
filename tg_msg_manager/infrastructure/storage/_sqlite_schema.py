@@ -23,6 +23,7 @@ class SQLiteSchemaMixin:
         conn = self._conn
         self._create_tables(conn)
         self._ensure_user_identity_schema(conn)
+        self._ensure_export_target_columns(conn)
         self._ensure_sync_target_columns(conn)
         self._ensure_retry_queue_columns(conn)
         self._create_indexes(conn)
@@ -137,6 +138,15 @@ class SQLiteSchemaMixin:
                 export_dir TEXT,
                 last_exported_message_ts INTEGER,
                 last_exported_message_id INTEGER,
+                export_part_count INTEGER,
+                artifact_message_count INTEGER,
+                artifact_first_message_id INTEGER,
+                artifact_last_message_id INTEGER,
+                artifact_first_timestamp INTEGER,
+                artifact_last_timestamp INTEGER,
+                artifact_as_json INTEGER,
+                artifact_include_date INTEGER,
+                artifact_json_profile TEXT,
                 last_known_author_name TEXT,
                 last_known_username TEXT,
                 created_at INTEGER NOT NULL,
@@ -212,6 +222,23 @@ class SQLiteSchemaMixin:
         ]:
             try:
                 conn.execute(f"ALTER TABLE sync_targets ADD COLUMN {col} {col_type}")
+            except sqlite3.OperationalError:
+                pass
+
+    def _ensure_export_target_columns(self, conn: sqlite3.Connection):
+        for col, col_type in [
+            ("export_part_count", "INTEGER"),
+            ("artifact_message_count", "INTEGER"),
+            ("artifact_first_message_id", "INTEGER"),
+            ("artifact_last_message_id", "INTEGER"),
+            ("artifact_first_timestamp", "INTEGER"),
+            ("artifact_last_timestamp", "INTEGER"),
+            ("artifact_as_json", "INTEGER"),
+            ("artifact_include_date", "INTEGER"),
+            ("artifact_json_profile", "TEXT"),
+        ]:
+            try:
+                conn.execute(f"ALTER TABLE export_targets ADD COLUMN {col} {col_type}")
             except sqlite3.OperationalError:
                 pass
 
@@ -377,6 +404,14 @@ class SQLiteSchemaMixin:
             self._reclassify_target_link_types(conn)
             conn.execute("PRAGMA user_version = 13")
             logger.info("Database migration to Version 13 successful.")
+
+        if current_version < 14:
+            logger.info(
+                "Running Database Migration: Version 14 (DB-backed export artifact manifest)..."
+            )
+            self._ensure_export_target_columns(conn)
+            conn.execute("PRAGMA user_version = 14")
+            logger.info("Database migration to Version 14 successful.")
         else:
             logger.debug(
                 f"Database migration skipped (already at version {current_version})."

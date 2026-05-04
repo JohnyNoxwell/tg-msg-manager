@@ -8,14 +8,13 @@ from .file_writer import FileRotateWriter
 from .db_export import (
     DBExportSource as _DBExportSource,
     build_export_fingerprint,
-    can_skip_export,
+    expected_export_paths,
     format_txt_export_block,
     load_incremental_export_source,
     load_export_manifest,
     load_export_source,
     manifest_dir,
     manifest_path,
-    persist_export_manifest,
     prepare_export_plan,
     serialize_json_message,
     serialize_row_as_ai_jsonl,
@@ -78,21 +77,93 @@ class DBExportService:
     ) -> Optional[Dict[str, Any]]:
         return load_export_manifest(output_dir, user_id)
 
-    def _persist_export_manifest(
-        self,
-        output_dir: str,
-        user_id: int,
-        payload: Dict[str, Any],
-    ) -> None:
-        persist_export_manifest(output_dir, user_id, payload)
+    def _artifact_paths_exist(self, output_path: str, part_count: int) -> bool:
+        return all(
+            os.path.exists(path)
+            for path in expected_export_paths(output_path, max(1, int(part_count)))
+        )
 
-    def _can_skip_export(
+    def _db_skip_match(
         self,
+        *,
         output_dir: str,
         user_id: int,
         fingerprint: Dict[str, Any],
-    ) -> Optional[str]:
-        return can_skip_export(output_dir, user_id, fingerprint)
+    ) -> Optional[Dict[str, Any]]:
+        export_target = ExportTargetRecord.coerce(
+            getattr(self.storage, "get_export_target", lambda _uid: None)(user_id)
+        )
+        if export_target is None:
+            return None
+
+        output_path = self._resolve_existing_export_path(
+            export_target=export_target,
+            fallback_output_dir=output_dir,
+        )
+        if not output_path:
+            return None
+        if (
+            output_dir
+            and export_target.export_dir
+            and os.path.abspath(output_dir) != os.path.abspath(export_target.export_dir)
+        ):
+            return None
+
+        if (
+            export_target.artifact_message_count != fingerprint.get("message_count")
+            or export_target.artifact_first_message_id
+            != fingerprint.get("first_message_id")
+            or export_target.artifact_last_message_id
+            != fingerprint.get("last_message_id")
+            or export_target.artifact_first_timestamp
+            != fingerprint.get("first_timestamp")
+            or export_target.artifact_last_timestamp
+            != fingerprint.get("last_timestamp")
+            or export_target.artifact_as_json != fingerprint.get("as_json")
+            or export_target.artifact_include_date != fingerprint.get("include_date")
+            or export_target.artifact_json_profile != fingerprint.get("json_profile")
+        ):
+            return None
+
+        part_count = getattr(export_target, "export_part_count", None)
+        if part_count is None:
+            return None
+
+        if not self._artifact_paths_exist(output_path, part_count):
+            return None
+
+        return {
+            "output_path": output_path,
+            "part_count": int(part_count),
+        }
+
+    def _legacy_manifest_skip_match(
+        self,
+        *,
+        output_dir: str,
+        user_id: int,
+        fingerprint: Dict[str, Any],
+    ) -> Optional[Dict[str, Any]]:
+        manifest = self._load_export_manifest(output_dir, user_id)
+        if not manifest or manifest.get("fingerprint") != fingerprint:
+            return None
+
+        output_path = manifest.get("output_path")
+        if not output_path or not isinstance(output_path, str):
+            return None
+
+        try:
+            part_count = max(1, int(manifest.get("part_count", 1)))
+        except Exception:
+            return None
+
+        if not self._artifact_paths_exist(output_path, part_count):
+            return None
+
+        return {
+            "output_path": output_path,
+            "part_count": part_count,
+        }
 
     def _resolve_export_author_name(
         self, user_id: int, messages: List[MessageData]
@@ -222,9 +293,17 @@ class DBExportService:
         user_id: int,
         fingerprint: Dict[str, Any],
         source_count: int,
-    ) -> Optional[str]:
-        unchanged_path = self._can_skip_export(output_dir, user_id, fingerprint)
-        if not unchanged_path:
+    ) -> Optional[Dict[str, Any]]:
+        unchanged = self._db_skip_match(
+            output_dir=output_dir,
+            user_id=user_id,
+            fingerprint=fingerprint,
+        ) or self._legacy_manifest_skip_match(
+            output_dir=output_dir,
+            user_id=user_id,
+            fingerprint=fingerprint,
+        )
+        if not unchanged:
             return None
 
         telemetry.track_counter("db_export.skipped_unchanged", 1)
@@ -235,11 +314,11 @@ class DBExportService:
                 "metrics": {
                     "user_id": user_id,
                     "messages": source_count,
-                    "path": unchanged_path,
+                    "path": unchanged["output_path"],
                 },
             },
         )
-        return unchanged_path
+        return unchanged
 
     def _cleanup_existing_export_files(
         self,
@@ -346,6 +425,7 @@ class DBExportService:
         target_author: str,
         source: _DBExportSource,
         fingerprint: Dict[str, Any],
+        part_count: Optional[int] = None,
     ) -> None:
         updater = getattr(self.storage, "upsert_export_target", None)
         if not callable(updater):
@@ -368,6 +448,47 @@ class DBExportService:
             export_dir=os.path.dirname(output_path) or None,
             last_exported_message_ts=last_ts,
             last_exported_message_id=last_message_id,
+            export_part_count=part_count,
+            artifact_message_count=(
+                int(fingerprint["message_count"])
+                if fingerprint.get("message_count") is not None
+                else None
+            ),
+            artifact_first_message_id=(
+                int(fingerprint["first_message_id"])
+                if fingerprint.get("first_message_id") is not None
+                else None
+            ),
+            artifact_last_message_id=(
+                int(fingerprint["last_message_id"])
+                if fingerprint.get("last_message_id") is not None
+                else None
+            ),
+            artifact_first_timestamp=(
+                int(fingerprint["first_timestamp"])
+                if fingerprint.get("first_timestamp") is not None
+                else None
+            ),
+            artifact_last_timestamp=(
+                int(fingerprint["last_timestamp"])
+                if fingerprint.get("last_timestamp") is not None
+                else None
+            ),
+            artifact_as_json=(
+                bool(fingerprint["as_json"])
+                if fingerprint.get("as_json") is not None
+                else None
+            ),
+            artifact_include_date=(
+                bool(fingerprint["include_date"])
+                if fingerprint.get("include_date") is not None
+                else None
+            ),
+            artifact_json_profile=(
+                str(fingerprint["json_profile"])
+                if fingerprint.get("json_profile") is not None
+                else None
+            ),
             last_known_author_name=target_author,
             last_known_username=username,
         )
@@ -417,12 +538,11 @@ class DBExportService:
             return False
         return export_filename.endswith(".jsonl")
 
-    def _persist_current_manifest_from_db_state(
+    def _refresh_export_target_artifact_from_db_state(
         self,
         *,
         user_id: int,
         output_path: str,
-        output_dir: str,
         as_json: bool,
         include_date: bool,
         json_profile: str,
@@ -443,20 +563,19 @@ class DBExportService:
         )
         plan = self._prepare_export_plan(
             user_id=user_id,
-            output_dir=output_dir,
+            output_dir=os.path.dirname(output_path) or self.default_output_dir,
             source=source,
             as_json=as_json,
             include_date=include_date,
             json_profile=json_profile,
         )
-        self._persist_export_manifest(
-            output_dir,
-            user_id,
-            {
-                "output_path": output_path,
-                "part_count": part_count,
-                "fingerprint": plan.fingerprint,
-            },
+        self._upsert_export_target_state(
+            user_id=user_id,
+            output_path=output_path,
+            target_author=plan.target_author,
+            source=source,
+            fingerprint=plan.fingerprint,
+            part_count=part_count,
         )
 
     def _finish_export_run(
@@ -618,26 +737,27 @@ class DBExportService:
                 include_date=include_date,
                 json_profile=json_profile,
             )
-            unchanged_path = self._maybe_skip_unchanged_export(
+            unchanged = self._maybe_skip_unchanged_export(
                 output_dir=resolved_output_dir,
                 user_id=user_id,
                 fingerprint=plan.fingerprint,
                 source_count=source.source_count,
             )
-            if unchanged_path:
+            if unchanged:
                 self._upsert_export_target_state(
                     user_id=user_id,
-                    output_path=unchanged_path,
+                    output_path=unchanged["output_path"],
                     target_author=plan.target_author,
                     source=source,
                     fingerprint=plan.fingerprint,
+                    part_count=unchanged["part_count"],
                 )
                 self._finish_export_run(
                     run_id,
                     status=EXPORT_RUN_STATUS_SUCCESS,
                     new_messages_count=0,
                 )
-                return unchanged_path
+                return unchanged["output_path"]
 
             self._cleanup_existing_export_files(
                 output_dir=resolved_output_dir,
@@ -675,21 +795,13 @@ class DBExportService:
                     },
                 },
             )
-            self._persist_export_manifest(
-                resolved_output_dir,
-                user_id,
-                {
-                    "output_path": plan.output_path,
-                    "part_count": writer.current_part,
-                    "fingerprint": plan.fingerprint,
-                },
-            )
             self._upsert_export_target_state(
                 user_id=user_id,
                 output_path=plan.output_path,
                 target_author=plan.target_author,
                 source=source,
                 fingerprint=plan.fingerprint,
+                part_count=writer.current_part,
             )
             last_ts, _last_message_id = self._extract_export_cursor(
                 source=source,
@@ -809,20 +921,9 @@ class DBExportService:
                 overwrite=False,
                 on_progress=track_progress,
             )
-            self._upsert_export_target_state(
+            self._refresh_export_target_artifact_from_db_state(
                 user_id=user_id,
                 output_path=output_path,
-                target_author=target_author,
-                source=source,
-                fingerprint={
-                    "last_timestamp": processed_last_ts,
-                    "last_message_id": processed_last_message_id,
-                },
-            )
-            self._persist_current_manifest_from_db_state(
-                user_id=user_id,
-                output_path=output_path,
-                output_dir=os.path.dirname(output_path) or resolved_output_dir,
                 as_json=as_json,
                 include_date=include_date,
                 json_profile=json_profile,
