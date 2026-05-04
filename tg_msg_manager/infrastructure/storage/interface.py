@@ -10,6 +10,7 @@ from ...core.models.reporting import (
 )
 from .records import (
     DeleteUserDataResult,
+    ExportTargetRecord,
     PrimaryTarget,
     RetryTaskRecord,
     StoredUser,
@@ -105,6 +106,9 @@ class UserReadStorage(Protocol):
     def get_user_export_rows(self, user_id: int) -> List[UserExportRow]:
         """Returns materialized export rows for legacy callers/backends."""
 
+    def get_export_target(self, user_id: int) -> Optional[ExportTargetRecord]:
+        """Returns DB-backed export state for a target user."""
+
 
 @runtime_checkable
 class TargetLinkReadStorage(Protocol):
@@ -194,7 +198,18 @@ class ContextStorage(MessageWriteStorage, Protocol):
 
 @runtime_checkable
 class DBExportStorage(UserReadStorage, Protocol):
-    """Storage contract required by DBExportService."""
+    def upsert_export_target(
+        self,
+        *,
+        target_user_id: int,
+        export_filename: Optional[str] = None,
+        export_dir: Optional[str] = None,
+        last_exported_message_ts: Optional[int] = None,
+        last_exported_message_id: Optional[int] = None,
+        last_known_author_name: Optional[str] = None,
+        last_known_username: Optional[str] = None,
+    ) -> None:
+        """Persists DB-backed export state for a target user."""
 
 
 @runtime_checkable
@@ -375,6 +390,10 @@ class BaseStorage(ABC):
         pass
 
     @abstractmethod
+    def get_export_target(self, user_id: int) -> Optional[ExportTargetRecord]:
+        pass
+
+    @abstractmethod
     def get_target_message_breakdown(
         self, chat_id: int, target_id: int
     ) -> TargetMessageBreakdown:
@@ -435,6 +454,20 @@ class BaseStorage(ABC):
     @abstractmethod
     def upsert_chat(
         self, chat_id: int, title: str, chat_type: Optional[str] = None
+    ) -> None:
+        pass
+
+    @abstractmethod
+    def upsert_export_target(
+        self,
+        *,
+        target_user_id: int,
+        export_filename: Optional[str] = None,
+        export_dir: Optional[str] = None,
+        last_exported_message_ts: Optional[int] = None,
+        last_exported_message_id: Optional[int] = None,
+        last_known_author_name: Optional[str] = None,
+        last_known_username: Optional[str] = None,
     ) -> None:
         pass
 

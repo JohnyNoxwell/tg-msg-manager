@@ -253,6 +253,85 @@ class TestDBExporter(unittest.TestCase):
         self.storage.get_user_export_rows.assert_not_called()
         self.assertTrue(os.path.exists(output_path))
 
+    def test_export_user_messages_updates_db_backed_export_target_state(self):
+        message = MessageData(
+            message_id=7,
+            chat_id=2,
+            user_id=3,
+            author_name="Stable User",
+            timestamp=datetime.fromtimestamp(1700001234),
+            text="hello",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        self.storage.get_user_messages.return_value = [message]
+        self.storage.get_user.return_value = {
+            "user_id": 3,
+            "first_name": "Stable",
+            "last_name": "User",
+            "username": "stable",
+        }
+
+        output_path = asyncio.run(
+            self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=True)
+        )
+
+        self.storage.upsert_export_target.assert_called_once_with(
+            target_user_id=3,
+            export_filename=os.path.basename(output_path),
+            export_dir=os.path.dirname(output_path),
+            last_exported_message_ts=1700001234,
+            last_exported_message_id=7,
+            last_known_author_name="Stable User",
+            last_known_username="stable",
+        )
+
+    def test_export_user_messages_skip_path_still_updates_export_target_state(self):
+        telemetry.reset()
+        message = MessageData(
+            message_id=9,
+            chat_id=2,
+            user_id=3,
+            author_name="Stable User",
+            timestamp=datetime.fromtimestamp(1700002222),
+            text="hello",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        self.storage.get_user_messages.return_value = [message]
+        self.storage.get_user.return_value = {
+            "user_id": 3,
+            "first_name": "Stable",
+            "last_name": "User",
+            "username": "stable",
+        }
+
+        first_path = asyncio.run(
+            self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=True)
+        )
+        self.storage.upsert_export_target.reset_mock()
+
+        second_path = asyncio.run(
+            self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=True)
+        )
+
+        self.assertEqual(first_path, second_path)
+        self.storage.upsert_export_target.assert_called_once_with(
+            target_user_id=3,
+            export_filename=os.path.basename(second_path),
+            export_dir=os.path.dirname(second_path),
+            last_exported_message_ts=1700002222,
+            last_exported_message_id=9,
+            last_known_author_name="Stable User",
+            last_known_username="stable",
+        )
+
     def test_export_user_messages_streaming_row_fast_path_skips_unchanged_without_len_none_crash(
         self,
     ):

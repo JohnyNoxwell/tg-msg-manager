@@ -3,11 +3,23 @@ from typing import List, Optional
 
 from ....core.models.message import MessageData
 from ....core.telemetry import telemetry
-from ..records import UserExportRow, UserExportSummary
+from ..records import ExportTargetRecord, UserExportRow, UserExportSummary
 from .common import SQLiteReadCommonMixin
 
 
 class SQLiteExportReadMixin(SQLiteReadCommonMixin):
+    def get_export_target(self, user_id: int) -> Optional[ExportTargetRecord]:
+        with self._read_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT *
+                FROM export_targets
+                WHERE target_user_id = ?
+            """,
+                (user_id,),
+            ).fetchone()
+            return ExportTargetRecord.coerce(dict(row)) if row else None
+
     def get_user_messages(self, user_id: int) -> List[MessageData]:
         with self._read_connection() as conn:
             rows = conn.execute(

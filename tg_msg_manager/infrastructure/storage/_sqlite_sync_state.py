@@ -189,6 +189,67 @@ class SQLiteSyncStateMixin:
         with self._write_transaction() as conn:
             self._upsert_chat_in_conn(conn, chat_id, title, chat_type)
 
+    def upsert_export_target(
+        self,
+        *,
+        target_user_id: int,
+        export_filename: Optional[str] = None,
+        export_dir: Optional[str] = None,
+        last_exported_message_ts: Optional[int] = None,
+        last_exported_message_id: Optional[int] = None,
+        last_known_author_name: Optional[str] = None,
+        last_known_username: Optional[str] = None,
+    ):
+        now = int(time.time())
+        with self._write_transaction() as conn:
+            conn.execute(
+                """
+                INSERT INTO export_targets (
+                    target_user_id,
+                    export_filename,
+                    export_dir,
+                    last_exported_message_ts,
+                    last_exported_message_id,
+                    last_known_author_name,
+                    last_known_username,
+                    created_at,
+                    updated_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON CONFLICT(target_user_id) DO UPDATE SET
+                    export_filename = COALESCE(excluded.export_filename, export_targets.export_filename),
+                    export_dir = COALESCE(excluded.export_dir, export_targets.export_dir),
+                    last_exported_message_ts = COALESCE(
+                        excluded.last_exported_message_ts,
+                        export_targets.last_exported_message_ts
+                    ),
+                    last_exported_message_id = COALESCE(
+                        excluded.last_exported_message_id,
+                        export_targets.last_exported_message_id
+                    ),
+                    last_known_author_name = COALESCE(
+                        excluded.last_known_author_name,
+                        export_targets.last_known_author_name
+                    ),
+                    last_known_username = COALESCE(
+                        excluded.last_known_username,
+                        export_targets.last_known_username
+                    ),
+                    updated_at = excluded.updated_at
+            """,
+                (
+                    target_user_id,
+                    export_filename,
+                    export_dir,
+                    last_exported_message_ts,
+                    last_exported_message_id,
+                    self._normalize_identity_text(last_known_author_name),
+                    self._normalize_identity_text(last_known_username),
+                    now,
+                    now,
+                ),
+            )
+
     def _upsert_chat_in_conn(
         self, conn, chat_id: int, title: str, chat_type: Optional[str] = None
     ):

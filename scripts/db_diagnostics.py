@@ -17,6 +17,7 @@ KEY_TABLES = [
     "sync_state",
     "message_context_links",
     "message_target_links",
+    "export_targets",
     "retry_queue",
     "user_identity_history",
 ]

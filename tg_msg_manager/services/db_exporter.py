@@ -281,6 +281,72 @@ class DBExportService:
         )
         return formatted_block, last_date, message.user_id
 
+    def _extract_export_cursor(
+        self,
+        *,
+        source: _DBExportSource,
+        fingerprint: Dict[str, Any],
+    ) -> tuple[Optional[int], Optional[int]]:
+        last_ts = fingerprint.get("last_timestamp")
+        last_message_id = fingerprint.get("last_message_id")
+        if last_ts is not None or last_message_id is not None:
+            return (
+                int(last_ts) if last_ts is not None else None,
+                int(last_message_id) if last_message_id is not None else None,
+            )
+
+        if source.export_summary is not None:
+            return (
+                source.export_summary.last_timestamp,
+                source.export_summary.last_message_id,
+            )
+
+        if source.export_rows:
+            last_row = source.export_rows[-1]
+            return last_row.timestamp, last_row.message_id
+
+        if source.messages:
+            last_message = sorted(
+                source.messages, key=lambda message: (message.timestamp, message.message_id)
+            )[-1]
+            return int(last_message.timestamp.timestamp()), last_message.message_id
+
+        return None, None
+
+    def _upsert_export_target_state(
+        self,
+        *,
+        user_id: int,
+        output_path: str,
+        target_author: str,
+        source: _DBExportSource,
+        fingerprint: Dict[str, Any],
+    ) -> None:
+        updater = getattr(self.storage, "upsert_export_target", None)
+        if not callable(updater):
+            return
+
+        db_user = getattr(self.storage, "get_user", lambda _user_id: None)(user_id)
+        username = None
+        if db_user is not None:
+            username = getattr(db_user, "username", None)
+            if username is None and isinstance(db_user, dict):
+                username = db_user.get("username")
+
+        last_ts, last_message_id = self._extract_export_cursor(
+            source=source,
+            fingerprint=fingerprint,
+        )
+        updater(
+            target_user_id=user_id,
+            export_filename=os.path.basename(output_path) or None,
+            export_dir=os.path.dirname(output_path) or None,
+            last_exported_message_ts=last_ts,
+            last_exported_message_id=last_message_id,
+            last_known_author_name=target_author,
+            last_known_username=username,
+        )
+
     async def _write_export_payloads(
         self,
         *,
@@ -401,6 +467,13 @@ class DBExportService:
             source_count=source.source_count,
         )
         if unchanged_path:
+            self._upsert_export_target_state(
+                user_id=user_id,
+                output_path=unchanged_path,
+                target_author=plan.target_author,
+                source=source,
+                fingerprint=plan.fingerprint,
+            )
             return unchanged_path
 
         self._cleanup_existing_export_files(
@@ -445,6 +518,13 @@ class DBExportService:
                 "part_count": writer.current_part,
                 "fingerprint": plan.fingerprint,
             },
+        )
+        self._upsert_export_target_state(
+            user_id=user_id,
+            output_path=plan.output_path,
+            target_author=plan.target_author,
+            source=source,
+            fingerprint=plan.fingerprint,
         )
         logger.info(f"DB Export complete for {plan.target_author}: {count} messages.")
         return plan.output_path

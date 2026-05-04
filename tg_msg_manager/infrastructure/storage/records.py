@@ -221,6 +221,49 @@ class UserExportSummary(StorageRecord):
 
 
 @dataclass(frozen=True)
+class ExportTargetRecord(StorageRecord):
+    target_user_id: int
+    export_filename: Optional[str] = None
+    export_dir: Optional[str] = None
+    last_exported_message_ts: Optional[int] = None
+    last_exported_message_id: Optional[int] = None
+    last_known_author_name: Optional[str] = None
+    last_known_username: Optional[str] = None
+    created_at: int = 0
+    updated_at: int = 0
+
+    @classmethod
+    def coerce(cls, value: Any) -> Optional["ExportTargetRecord"]:
+        if value is None:
+            return None
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, Mapping):
+            return cls(
+                target_user_id=_coerce_int(
+                    value.get("target_user_id", value.get("user_id"))
+                ),
+                export_filename=value.get("export_filename"),
+                export_dir=value.get("export_dir"),
+                last_exported_message_ts=(
+                    _coerce_int(value.get("last_exported_message_ts"))
+                    if value.get("last_exported_message_ts") is not None
+                    else None
+                ),
+                last_exported_message_id=(
+                    _coerce_int(value.get("last_exported_message_id"))
+                    if value.get("last_exported_message_id") is not None
+                    else None
+                ),
+                last_known_author_name=value.get("last_known_author_name"),
+                last_known_username=value.get("last_known_username"),
+                created_at=_coerce_int(value.get("created_at")),
+                updated_at=_coerce_int(value.get("updated_at")),
+            )
+        raise TypeError(f"Unsupported export target payload: {type(value)!r}")
+
+
+@dataclass(frozen=True)
 class UserExportRow(StorageRecord):
     message_id: int
     chat_id: int

@@ -120,6 +120,19 @@ class SQLiteSchemaMixin:
                 PRIMARY KEY (user_id, chat_id)
             )
         """)
+        conn.execute("""
+            CREATE TABLE IF NOT EXISTS export_targets (
+                target_user_id INTEGER PRIMARY KEY,
+                export_filename TEXT,
+                export_dir TEXT,
+                last_exported_message_ts INTEGER,
+                last_exported_message_id INTEGER,
+                last_known_author_name TEXT,
+                last_known_username TEXT,
+                created_at INTEGER NOT NULL,
+                updated_at INTEGER NOT NULL
+            )
+        """)
 
     def _create_indexes(self, conn: sqlite3.Connection):
         conn.execute(
@@ -133,6 +146,9 @@ class SQLiteSchemaMixin:
         )
         self._create_context_link_indexes(conn)
         self._create_target_link_indexes(conn)
+        conn.execute(
+            "CREATE INDEX IF NOT EXISTS idx_export_targets_updated_at ON export_targets (updated_at)"
+        )
         conn.execute(
             "CREATE INDEX IF NOT EXISTS idx_msg_context_group ON messages (context_group_id)"
         )
@@ -276,6 +292,14 @@ class SQLiteSchemaMixin:
             self._migrate_message_target_links_metadata(conn)
             conn.execute("PRAGMA user_version = 8")
             logger.info("Database migration to Version 8 successful.")
+
+        if current_version < 9:
+            logger.info(
+                "Running Database Migration: Version 9 (Export targets state)..."
+            )
+            self._backfill_export_targets(conn)
+            conn.execute("PRAGMA user_version = 9")
+            logger.info("Database migration to Version 9 successful.")
         else:
             logger.debug(
                 f"Database migration skipped (already at version {current_version})."
@@ -603,6 +627,41 @@ class SQLiteSchemaMixin:
             (table_name,),
         ).fetchone()
         return row is not None
+
+    def _backfill_export_targets(self, conn: sqlite3.Connection):
+        now = int(time.time())
+        conn.execute(
+            """
+            INSERT OR IGNORE INTO export_targets (
+                target_user_id,
+                export_filename,
+                export_dir,
+                last_exported_message_ts,
+                last_exported_message_id,
+                last_known_author_name,
+                last_known_username,
+                created_at,
+                updated_at
+            )
+            SELECT
+                t.user_id,
+                NULL,
+                NULL,
+                NULL,
+                NULL,
+                COALESCE(
+                    NULLIF(u.current_author_name, ''),
+                    NULLIF(t.author_name, '')
+                ),
+                NULLIF(u.username, ''),
+                ?,
+                ?
+            FROM sync_targets t
+            LEFT JOIN users u ON u.user_id = t.user_id
+            GROUP BY t.user_id
+        """,
+            (now, now),
+        )
 
     def _migrate_sync_targets_to_composite_pk(self):
         """Migration helper to move sync_targets to composite PRIMARY KEY."""

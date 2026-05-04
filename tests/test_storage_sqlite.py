@@ -18,6 +18,7 @@ from tg_msg_manager.infrastructure.storage.interface import (
 )
 from tg_msg_manager.infrastructure.storage.records import (
     DeleteUserDataResult,
+    ExportTargetRecord,
     PrimaryTarget,
     RetryTaskRecord,
     StoredUser,
@@ -553,6 +554,96 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(user.current_author_name, "New Name")
         self.assertEqual([item.author_name for item in history], ["Old Name", "New Name"])
+
+    async def test_upsert_and_get_export_target(self):
+        self.storage.upsert_export_target(
+            target_user_id=999,
+            export_filename="Stable_User_999.jsonl",
+            export_dir="DB_EXPORTS",
+            last_exported_message_ts=1700001000,
+            last_exported_message_id=77,
+            last_known_author_name="Stable User",
+            last_known_username="stable",
+        )
+
+        record = self.storage.get_export_target(999)
+
+        self.assertIsInstance(record, ExportTargetRecord)
+        self.assertEqual(record.target_user_id, 999)
+        self.assertEqual(record.export_filename, "Stable_User_999.jsonl")
+        self.assertEqual(record.export_dir, "DB_EXPORTS")
+        self.assertEqual(record.last_exported_message_ts, 1700001000)
+        self.assertEqual(record.last_exported_message_id, 77)
+        self.assertEqual(record.last_known_author_name, "Stable User")
+        self.assertEqual(record.last_known_username, "stable")
+
+    async def test_export_targets_migration_backfills_tracked_users(self):
+        await self.storage.close()
+        for suffix in ("", "-wal", "-shm"):
+            path = f"{self.db_path}{suffix}"
+            if os.path.exists(path):
+                os.remove(path)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """
+            CREATE TABLE users (
+                user_id INTEGER PRIMARY KEY,
+                first_name TEXT,
+                last_name TEXT,
+                username TEXT,
+                phone TEXT,
+                current_author_name TEXT
+            )
+        """
+        )
+        conn.execute(
+            """
+            CREATE TABLE sync_targets (
+                user_id INTEGER,
+                chat_id INTEGER,
+                author_name TEXT,
+                last_msg_id INTEGER DEFAULT 0,
+                tail_msg_id INTEGER DEFAULT 0,
+                is_complete INTEGER DEFAULT 0,
+                deep_mode INTEGER DEFAULT 0,
+                recursive_depth INTEGER DEFAULT 0,
+                added_at INTEGER,
+                last_sync_at INTEGER,
+                PRIMARY KEY (user_id, chat_id)
+            )
+        """
+        )
+        conn.execute(
+            "INSERT INTO users (user_id, username, current_author_name) VALUES (?, ?, ?)",
+            (999, "stable", "Stable User"),
+        )
+        conn.execute(
+            """
+            INSERT INTO sync_targets (
+                user_id, chat_id, author_name, added_at, last_sync_at
+            ) VALUES (?, ?, ?, ?, ?)
+        """,
+            (999, 321, "Old User", 1700000000, 1700001000),
+        )
+        conn.execute("PRAGMA user_version = 8")
+        conn.commit()
+        conn.close()
+
+        self.storage = SQLiteStorage(self.db_path)
+
+        record = self.storage.get_export_target(999)
+
+        self.assertIsInstance(record, ExportTargetRecord)
+        self.assertEqual(record.target_user_id, 999)
+        self.assertIsNone(record.export_filename)
+        self.assertIsNone(record.export_dir)
+        self.assertIsNone(record.last_exported_message_ts)
+        self.assertIsNone(record.last_exported_message_id)
+        self.assertEqual(record.last_known_author_name, "Stable User")
+        self.assertEqual(record.last_known_username, "stable")
+        self.assertGreater(record.created_at, 0)
+        self.assertGreater(record.updated_at, 0)
 
     async def test_context_link_migration_backfills_chat_safe_rows_and_keeps_backup(self):
         await self.storage.close()
