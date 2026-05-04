@@ -35,6 +35,10 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         # Use a temporary test database
         self.db_path = "test_storage.db"
+        for suffix in ("", "-wal", "-shm"):
+            path = f"{self.db_path}{suffix}"
+            if os.path.exists(path):
+                os.remove(path)
         self.storage = SQLiteStorage(self.db_path)
 
     def tearDown(self):
@@ -205,6 +209,55 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(target_status.last_msg_id, 50)
         self.assertEqual(author_status["last_msg_id"], 0)
         self.assertEqual(len(self.storage.get_user_messages(999)), 1)
+
+    async def test_save_message_persists_chat_safe_context_link_metadata(self):
+        parent = MessageData(
+            message_id=1,
+            chat_id=321,
+            user_id=999,
+            author_name="Parent User",
+            timestamp=datetime.now(),
+            text="parent",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        child = MessageData(
+            message_id=2,
+            chat_id=321,
+            user_id=999,
+            author_name="Parent User",
+            timestamp=datetime.now(),
+            text="child",
+            media_type=None,
+            reply_to_id=1,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+
+        await self.storage.save_message(parent)
+        await self.storage.save_message(child)
+
+        with self.storage._read_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT chat_id, message_id, context_message_id, link_type, distance, algorithm_version, created_at
+                FROM message_context_links
+                WHERE chat_id = ? AND message_id = ? AND context_message_id = ?
+            """,
+                (321, 2, 1),
+            ).fetchone()
+
+        self.assertEqual(row["chat_id"], 321)
+        self.assertEqual(row["message_id"], 2)
+        self.assertEqual(row["context_message_id"], 1)
+        self.assertEqual(row["link_type"], "reply")
+        self.assertEqual(row["distance"], 1)
+        self.assertEqual(row["algorithm_version"], "reply_chain_v1")
+        self.assertGreater(row["created_at"], 0)
 
     async def test_user_export_summary_and_iterator_preserve_deterministic_order(self):
         self.storage.register_target(999, "Target User", 321)
@@ -500,6 +553,171 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(user.current_author_name, "New Name")
         self.assertEqual([item.author_name for item in history], ["Old Name", "New Name"])
+
+    async def test_context_link_migration_backfills_chat_safe_rows_and_keeps_backup(self):
+        await self.storage.close()
+        for suffix in ("", "-wal", "-shm"):
+            path = f"{self.db_path}{suffix}"
+            if os.path.exists(path):
+                os.remove(path)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """
+            CREATE TABLE messages (
+                chat_id INTEGER,
+                message_id INTEGER,
+                user_id INTEGER,
+                author_name TEXT,
+                timestamp INTEGER,
+                text TEXT,
+                media_type TEXT,
+                reply_to_id INTEGER,
+                fwd_from_id INTEGER,
+                context_group_id TEXT,
+                raw_payload TEXT,
+                payload_hash TEXT,
+                schema_version INTEGER,
+                PRIMARY KEY (chat_id, message_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            CREATE TABLE message_context_links (
+                message_id INTEGER,
+                context_message_id INTEGER,
+                link_type TEXT,
+                PRIMARY KEY (message_id, context_message_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            INSERT INTO messages (
+                chat_id, message_id, user_id, author_name, timestamp, text, media_type,
+                reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (321, 1, 999, "Parent", 1700000000, "parent", None, None, None, None, "{}", "p1", 1),
+        )
+        conn.execute(
+            """
+            INSERT INTO messages (
+                chat_id, message_id, user_id, author_name, timestamp, text, media_type,
+                reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (321, 2, 999, "Child", 1700000010, "child", None, 1, None, None, "{}", "p2", 1),
+        )
+        conn.execute(
+            """
+            INSERT INTO message_context_links (message_id, context_message_id, link_type)
+            VALUES (?, ?, ?)
+        """,
+            (2, 1, "reply"),
+        )
+        conn.execute("PRAGMA user_version = 6")
+        conn.commit()
+        conn.close()
+
+        self.storage = SQLiteStorage(self.db_path)
+
+        with self.storage._read_connection() as conn:
+            row = conn.execute(
+                """
+                SELECT chat_id, message_id, context_message_id, link_type, distance, algorithm_version, created_at
+                FROM message_context_links
+            """
+            ).fetchone()
+            backup_row = conn.execute(
+                """
+                SELECT message_id, context_message_id, link_type
+                FROM message_context_links_legacy_backup
+            """
+            ).fetchone()
+
+        self.assertEqual(row["chat_id"], 321)
+        self.assertEqual(row["message_id"], 2)
+        self.assertEqual(row["context_message_id"], 1)
+        self.assertEqual(row["link_type"], "legacy")
+        self.assertIsNone(row["distance"])
+        self.assertEqual(row["algorithm_version"], "legacy")
+        self.assertGreater(row["created_at"], 0)
+        self.assertEqual(backup_row["message_id"], 2)
+        self.assertEqual(backup_row["context_message_id"], 1)
+        self.assertEqual(backup_row["link_type"], "reply")
+
+    async def test_context_link_migration_fails_when_chat_id_is_ambiguous(self):
+        await self.storage.close()
+        for suffix in ("", "-wal", "-shm"):
+            path = f"{self.db_path}{suffix}"
+            if os.path.exists(path):
+                os.remove(path)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """
+            CREATE TABLE messages (
+                chat_id INTEGER,
+                message_id INTEGER,
+                user_id INTEGER,
+                author_name TEXT,
+                timestamp INTEGER,
+                text TEXT,
+                media_type TEXT,
+                reply_to_id INTEGER,
+                fwd_from_id INTEGER,
+                context_group_id TEXT,
+                raw_payload TEXT,
+                payload_hash TEXT,
+                schema_version INTEGER,
+                PRIMARY KEY (chat_id, message_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            CREATE TABLE message_context_links (
+                message_id INTEGER,
+                context_message_id INTEGER,
+                link_type TEXT,
+                PRIMARY KEY (message_id, context_message_id)
+            )
+        """
+        )
+        for chat_id in (321, 654):
+            conn.execute(
+                """
+                INSERT INTO messages (
+                    chat_id, message_id, user_id, author_name, timestamp, text, media_type,
+                    reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (chat_id, 1, 999, "Parent", 1700000000, "parent", None, None, None, None, "{}", f"p1-{chat_id}", 1),
+            )
+            conn.execute(
+                """
+                INSERT INTO messages (
+                    chat_id, message_id, user_id, author_name, timestamp, text, media_type,
+                    reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+                (chat_id, 2, 999, "Child", 1700000010, "child", None, 1, None, None, "{}", f"p2-{chat_id}", 1),
+            )
+        conn.execute(
+            """
+            INSERT INTO message_context_links (message_id, context_message_id, link_type)
+            VALUES (?, ?, ?)
+        """,
+            (2, 1, "reply"),
+        )
+        conn.execute("PRAGMA user_version = 6")
+        conn.commit()
+        conn.close()
+
+        with self.assertRaises(RuntimeError):
+            self.storage = SQLiteStorage(self.db_path)
 
     async def test_repair_terminal_incomplete_targets_marks_only_tail_threshold_rows_complete(
         self,

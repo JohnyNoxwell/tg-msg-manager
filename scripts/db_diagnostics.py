@@ -82,23 +82,6 @@ QUALITY_CHECKS = [
         """,
     ),
     QueryCheck(
-        "dangling_context_links",
-        """
-        SELECT COUNT(*) AS value
-        FROM message_context_links l
-        WHERE NOT EXISTS (
-                  SELECT 1
-                  FROM messages src
-                  WHERE src.message_id = l.message_id
-              )
-           OR NOT EXISTS (
-                  SELECT 1
-                  FROM messages ctx
-                  WHERE ctx.message_id = l.context_message_id
-              )
-        """,
-    ),
-    QueryCheck(
         "dangling_target_links_missing_message",
         """
         SELECT COUNT(*) AS value
@@ -241,7 +224,50 @@ def collect_quality_checks(conn: sqlite3.Connection) -> dict[str, int | str]:
             results[check.label] = int(fetch_scalar(conn, check.sql) or 0)
         except sqlite3.OperationalError as exc:
             results[check.label] = f"unavailable: {exc}"
+    try:
+        results["dangling_context_links"] = int(
+            fetch_scalar(conn, build_dangling_context_links_sql(conn)) or 0
+        )
+    except sqlite3.OperationalError as exc:
+        results["dangling_context_links"] = f"unavailable: {exc}"
     return results
+
+
+def build_dangling_context_links_sql(conn: sqlite3.Connection) -> str:
+    if not table_exists(conn, "message_context_links"):
+        return "SELECT 0"
+    columns = {column["name"] for column in collect_columns(conn, "message_context_links")}
+    if "chat_id" in columns:
+        return """
+            SELECT COUNT(*) AS value
+            FROM message_context_links l
+            WHERE NOT EXISTS (
+                      SELECT 1
+                      FROM messages src
+                      WHERE src.chat_id = l.chat_id
+                        AND src.message_id = l.message_id
+                  )
+               OR NOT EXISTS (
+                      SELECT 1
+                      FROM messages ctx
+                      WHERE ctx.chat_id = l.chat_id
+                        AND ctx.message_id = l.context_message_id
+                  )
+        """
+    return """
+        SELECT COUNT(*) AS value
+        FROM message_context_links l
+        WHERE NOT EXISTS (
+                  SELECT 1
+                  FROM messages src
+                  WHERE src.message_id = l.message_id
+              )
+           OR NOT EXISTS (
+                  SELECT 1
+                  FROM messages ctx
+                  WHERE ctx.message_id = l.context_message_id
+              )
+    """
 
 
 def format_ts(value: int | None) -> str:

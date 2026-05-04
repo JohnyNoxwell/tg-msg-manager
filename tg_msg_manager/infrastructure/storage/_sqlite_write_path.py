@@ -145,7 +145,7 @@ class SQLiteWritePathMixin:
 
         self._upsert_chat_from_payload_in_conn(conn, data["chat_id"], raw)
         self._upsert_context_link_in_conn(
-            conn, data["message_id"], data.get("reply_to_id")
+            conn, data["chat_id"], data["message_id"], data.get("reply_to_id")
         )
         self._upsert_message_row_in_conn(conn, data, payload_hash)
         self._update_sync_state_for_message_in_conn(
@@ -226,15 +226,35 @@ class SQLiteWritePathMixin:
         self._upsert_chat_in_conn(conn, chat_id, chat_title, chat_type)
 
     def _upsert_context_link_in_conn(
-        self, conn, message_id: int, reply_to_id: Optional[int]
+        self,
+        conn,
+        chat_id: int,
+        message_id: int,
+        reply_to_id: Optional[int],
     ):
         if reply_to_id:
             conn.execute(
                 """
-                INSERT OR REPLACE INTO message_context_links (message_id, context_message_id, link_type)
-                VALUES (?, ?, ?)
+                INSERT OR REPLACE INTO message_context_links (
+                    chat_id,
+                    message_id,
+                    context_message_id,
+                    link_type,
+                    distance,
+                    algorithm_version,
+                    created_at
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?)
             """,
-                (message_id, reply_to_id, "reply"),
+                (
+                    chat_id,
+                    message_id,
+                    reply_to_id,
+                    "reply",
+                    1,
+                    "reply_chain_v1",
+                    int(time.time()),
+                ),
             )
 
     def _upsert_message_row_in_conn(self, conn, data: dict, payload_hash: str):
