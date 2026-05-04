@@ -768,7 +768,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["message_id"], 2)
         self.assertEqual(row["missing_reply_to_id"], 1)
         self.assertEqual(row["status"], "missing")
-        self.assertEqual(version, 12)
+        self.assertEqual(version, 13)
 
     async def test_export_runs_migration_creates_table_for_version_9_databases(self):
         await self.storage.close()
@@ -810,7 +810,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             version = conn.execute("PRAGMA user_version").fetchone()[0]
 
         self.assertIsNotNone(table)
-        self.assertEqual(version, 12)
+        self.assertEqual(version, 13)
 
     async def test_export_targets_migration_backfills_tracked_users(self):
         await self.storage.close()
@@ -1145,7 +1145,80 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertIsNone(row["distance"])
         self.assertEqual(row["algorithm_version"], CONTEXT_ALGO_REPLY_CONTEXT_V1)
         self.assertIsNotNone(index_row)
-        self.assertEqual(version, 12)
+        self.assertEqual(version, 13)
+
+    async def test_context_link_migration_skips_dangling_legacy_rows_but_keeps_backup(self):
+        await self.storage.close()
+        for suffix in ("", "-wal", "-shm"):
+            path = f"{self.db_path}{suffix}"
+            if os.path.exists(path):
+                os.remove(path)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """
+            CREATE TABLE messages (
+                chat_id INTEGER,
+                message_id INTEGER,
+                user_id INTEGER,
+                author_name TEXT,
+                timestamp INTEGER,
+                text TEXT,
+                media_type TEXT,
+                reply_to_id INTEGER,
+                fwd_from_id INTEGER,
+                context_group_id TEXT,
+                raw_payload TEXT,
+                payload_hash TEXT,
+                schema_version INTEGER,
+                PRIMARY KEY (chat_id, message_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            CREATE TABLE message_context_links (
+                message_id INTEGER,
+                context_message_id INTEGER,
+                link_type TEXT,
+                PRIMARY KEY (message_id, context_message_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            INSERT INTO messages (
+                chat_id, message_id, user_id, author_name, timestamp, text, media_type,
+                reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            (321, 2, 222, "Child", 1700000010, "child", None, 1, None, None, "{}", "p2", 1),
+        )
+        conn.execute(
+            """
+            INSERT INTO message_context_links (message_id, context_message_id, link_type)
+            VALUES (?, ?, ?)
+        """,
+            (2, 1, "reply"),
+        )
+        conn.execute("PRAGMA user_version = 6")
+        conn.commit()
+        conn.close()
+
+        self.storage = SQLiteStorage(self.db_path)
+
+        with self.storage._read_connection() as conn:
+            migrated_count = conn.execute(
+                "SELECT COUNT(*) AS count FROM message_context_links"
+            ).fetchone()["count"]
+            backup_count = conn.execute(
+                "SELECT COUNT(*) AS count FROM message_context_links_legacy_backup"
+            ).fetchone()["count"]
+            version = conn.execute("PRAGMA user_version").fetchone()[0]
+
+        self.assertEqual(migrated_count, 0)
+        self.assertEqual(backup_count, 1)
+        self.assertEqual(version, 13)
 
     async def test_repair_terminal_incomplete_targets_marks_only_tail_threshold_rows_complete(
         self,
@@ -1423,7 +1496,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["chat_id"], 777)
         self.assertEqual(row["message_id"], 1)
         self.assertEqual(row["target_user_id"], 1)
-        self.assertEqual(row["link_type"], "legacy")
+        self.assertEqual(row["link_type"], "target_author")
         self.assertGreater(row["created_at"], 0)
         self.assertEqual(backup_row["chat_id"], 777)
         self.assertEqual(backup_row["message_id"], 1)
@@ -1499,7 +1572,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["chat_id"], 777)
         self.assertEqual(row["message_id"], 5)
         self.assertEqual(row["target_user_id"], 1)
-        self.assertEqual(row["link_type"], "legacy")
+        self.assertEqual(row["link_type"], "target_author")
 
     async def test_target_link_migration_fails_when_chat_id_is_ambiguous(self):
         await self.storage.close()
@@ -1561,6 +1634,160 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
 
         with self.assertRaises(RuntimeError):
             self.storage = SQLiteStorage(self.db_path)
+
+    async def test_target_link_migration_skips_dangling_legacy_rows_but_keeps_backup(self):
+        await self.storage.close()
+        for suffix in ("", "-wal", "-shm"):
+            path = f"{self.db_path}{suffix}"
+            if os.path.exists(path):
+                os.remove(path)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """
+            CREATE TABLE messages (
+                chat_id INTEGER,
+                message_id INTEGER,
+                user_id INTEGER,
+                author_name TEXT,
+                timestamp INTEGER,
+                text TEXT,
+                media_type TEXT,
+                reply_to_id INTEGER,
+                fwd_from_id INTEGER,
+                context_group_id TEXT,
+                raw_payload TEXT,
+                payload_hash TEXT,
+                schema_version INTEGER,
+                PRIMARY KEY (chat_id, message_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            CREATE TABLE message_target_links (
+                message_id INTEGER,
+                target_user_id INTEGER,
+                PRIMARY KEY (message_id, target_user_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            INSERT INTO message_target_links (message_id, target_user_id)
+            VALUES (?, ?)
+        """,
+            (999, 1),
+        )
+        conn.execute("PRAGMA user_version = 7")
+        conn.commit()
+        conn.close()
+
+        self.storage = SQLiteStorage(self.db_path)
+
+        with self.storage._read_connection() as conn:
+            migrated_count = conn.execute(
+                "SELECT COUNT(*) AS count FROM message_target_links"
+            ).fetchone()["count"]
+            backup_count = conn.execute(
+                "SELECT COUNT(*) AS count FROM message_target_links_legacy_backup"
+            ).fetchone()["count"]
+            version = conn.execute("PRAGMA user_version").fetchone()[0]
+
+        self.assertEqual(migrated_count, 0)
+        self.assertEqual(backup_count, 1)
+        self.assertEqual(version, 13)
+
+    async def test_target_link_reclassification_upgrades_legacy_rows_in_place(self):
+        await self.storage.close()
+        for suffix in ("", "-wal", "-shm"):
+            path = f"{self.db_path}{suffix}"
+            if os.path.exists(path):
+                os.remove(path)
+
+        conn = sqlite3.connect(self.db_path)
+        conn.execute(
+            """
+            CREATE TABLE messages (
+                chat_id INTEGER,
+                message_id INTEGER,
+                user_id INTEGER,
+                author_name TEXT,
+                timestamp INTEGER,
+                text TEXT,
+                media_type TEXT,
+                reply_to_id INTEGER,
+                fwd_from_id INTEGER,
+                context_group_id TEXT,
+                raw_payload TEXT,
+                payload_hash TEXT,
+                schema_version INTEGER,
+                PRIMARY KEY (chat_id, message_id)
+            )
+        """
+        )
+        conn.execute(
+            """
+            CREATE TABLE message_target_links (
+                chat_id INTEGER NOT NULL,
+                message_id INTEGER NOT NULL,
+                target_user_id INTEGER NOT NULL,
+                link_type TEXT NOT NULL DEFAULT 'legacy',
+                created_at INTEGER NOT NULL,
+                PRIMARY KEY (chat_id, message_id, target_user_id)
+            )
+        """
+        )
+        conn.executemany(
+            """
+            INSERT INTO messages (
+                chat_id, message_id, user_id, author_name, timestamp, text, media_type,
+                reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+            [
+                (777, 1, 42, "Target User", 1700000000, "own", None, None, None, None, "{}", "h1", 1),
+                (777, 2, 99, "Other User", 1700000001, "reply", None, 1, None, None, "{}", "h2", 1),
+                (777, 3, 99, "Other User", 1700000002, "plain", None, None, None, None, "{}", "h3", 1),
+            ],
+        )
+        conn.executemany(
+            """
+            INSERT INTO message_target_links (
+                chat_id, message_id, target_user_id, link_type, created_at
+            ) VALUES (?, ?, ?, ?, ?)
+        """,
+            [
+                (777, 1, 42, "legacy", 1700000100),
+                (777, 2, 42, "legacy", 1700000100),
+                (777, 3, 42, "legacy", 1700000100),
+            ],
+        )
+        conn.execute("PRAGMA user_version = 12")
+        conn.commit()
+        conn.close()
+
+        self.storage = SQLiteStorage(self.db_path)
+
+        with self.storage._read_connection() as conn:
+            rows = conn.execute(
+                """
+                SELECT message_id, link_type
+                FROM message_target_links
+                ORDER BY message_id ASC
+            """
+            ).fetchall()
+            version = conn.execute("PRAGMA user_version").fetchone()[0]
+
+        self.assertEqual(version, 13)
+        self.assertEqual(
+            [(row["message_id"], row["link_type"]) for row in rows],
+            [
+                (1, "target_author"),
+                (2, "reply_context"),
+                (3, "legacy"),
+            ],
+        )
 
     async def test_delete_user_data_returns_typed_result(self):
         self.storage.register_target(1, "Target User", 777)

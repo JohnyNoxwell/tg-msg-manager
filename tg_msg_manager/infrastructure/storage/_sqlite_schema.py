@@ -9,6 +9,9 @@ from .link_types import (
     CONTEXT_LINK_LEGACY,
     CONTEXT_LINK_REPLY_PARENT,
     CONTEXT_LINK_UNKNOWN,
+    TARGET_LINK_LEGACY,
+    TARGET_LINK_REPLY_CONTEXT,
+    TARGET_LINK_TARGET_AUTHOR,
 )
 
 logger = logging.getLogger(__name__)
@@ -366,6 +369,14 @@ class SQLiteSchemaMixin:
             self._create_context_link_indexes(conn)
             conn.execute("PRAGMA user_version = 12")
             logger.info("Database migration to Version 12 successful.")
+
+        if current_version < 13:
+            logger.info(
+                "Running Database Migration: Version 13 (Target link reclassification)..."
+            )
+            self._reclassify_target_link_types(conn)
+            conn.execute("PRAGMA user_version = 13")
+            logger.info("Database migration to Version 13 successful.")
         else:
             logger.debug(
                 f"Database migration skipped (already at version {current_version})."
@@ -488,18 +499,81 @@ class SQLiteSchemaMixin:
         """
         )
 
-        rows = conn.execute(
+        chat_rows = conn.execute(
             """
-            SELECT message_id, context_message_id, link_type
-            FROM message_context_links
+            SELECT DISTINCT chat_id
+            FROM messages
+            ORDER BY chat_id ASC
         """
         ).fetchall()
-        for row in rows:
-            chat_id = self._resolve_legacy_context_link_chat_id(
-                conn,
-                message_id=int(row["message_id"]),
-                context_message_id=int(row["context_message_id"]),
+        if len(chat_rows) == 1:
+            conn.execute(
+                f"""
+                INSERT OR IGNORE INTO {new_table} (
+                    chat_id,
+                    message_id,
+                    context_message_id,
+                    link_type,
+                    distance,
+                    algorithm_version,
+                    created_at
+                )
+                SELECT
+                    ?,
+                    l.message_id,
+                    l.context_message_id,
+                    ?,
+                    NULL,
+                    ?,
+                    ?
+                FROM message_context_links l
+                CROSS JOIN messages src INDEXED BY idx_msg_standalone_id
+                CROSS JOIN messages ctx INDEXED BY idx_msg_standalone_id
+                WHERE src.message_id = l.message_id
+                  AND src.chat_id = ?
+                  AND ctx.message_id = l.context_message_id
+                  AND ctx.chat_id = ?
+            """,
+                (
+                    int(chat_rows[0]["chat_id"]),
+                    CONTEXT_LINK_LEGACY,
+                    CONTEXT_ALGO_LEGACY,
+                    now,
+                    int(chat_rows[0]["chat_id"]),
+                    int(chat_rows[0]["chat_id"]),
+                ),
             )
+        else:
+            ambiguous_rows = conn.execute(
+                """
+                SELECT
+                    l.message_id,
+                    l.context_message_id,
+                    COUNT(
+                        DISTINCT CASE
+                            WHEN ctx.message_id IS NOT NULL THEN src.chat_id
+                            ELSE NULL
+                        END
+                    ) AS matched_chats
+                FROM message_context_links l
+                LEFT JOIN messages src
+                  ON src.message_id = l.message_id
+                LEFT JOIN messages ctx
+                  ON ctx.chat_id = src.chat_id
+                 AND ctx.message_id = l.context_message_id
+                GROUP BY l.message_id, l.context_message_id
+                HAVING matched_chats > 1
+                LIMIT 1
+            """
+            ).fetchall()
+            if ambiguous_rows:
+                row = ambiguous_rows[0]
+                conn.execute(f"DROP TABLE {new_table}")
+                raise RuntimeError(
+                    "Context-link migration aborted: could not resolve a unique chat_id for "
+                    f"legacy link ({int(row['message_id'])} -> {int(row['context_message_id'])})."
+                )
+
             conn.execute(
                 f"""
                 INSERT INTO {new_table} (
@@ -511,34 +585,26 @@ class SQLiteSchemaMixin:
                     algorithm_version,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
+                SELECT
+                    src.chat_id,
+                    l.message_id,
+                    l.context_message_id,
+                    ?,
+                    NULL,
+                    ?,
+                    ?
+                FROM message_context_links l
+                CROSS JOIN messages src INDEXED BY idx_msg_standalone_id
+                CROSS JOIN messages ctx INDEXED BY idx_msg_standalone_id
+                WHERE src.message_id = l.message_id
+                  AND ctx.chat_id = src.chat_id
+                  AND ctx.message_id = l.context_message_id
             """,
                 (
-                    chat_id,
-                    int(row["message_id"]),
-                    int(row["context_message_id"]),
                     CONTEXT_LINK_LEGACY,
-                    None,
                     CONTEXT_ALGO_LEGACY,
                     now,
                 ),
-            )
-
-        broken_refs = conn.execute(
-            f"""
-            SELECT COUNT(*)
-            FROM {new_table} l
-            LEFT JOIN messages m1
-              ON m1.chat_id = l.chat_id AND m1.message_id = l.message_id
-            LEFT JOIN messages m2
-              ON m2.chat_id = l.chat_id AND m2.message_id = l.context_message_id
-            WHERE m1.message_id IS NULL OR m2.message_id IS NULL
-        """
-        ).fetchone()[0]
-        if broken_refs:
-            conn.execute(f"DROP TABLE {new_table}")
-            raise RuntimeError(
-                "Context-link migration aborted: migrated rows still reference missing messages."
             )
 
         if self._table_exists(conn, backup_table):
@@ -619,53 +685,95 @@ class SQLiteSchemaMixin:
             row["name"]
             for row in conn.execute("PRAGMA table_info(message_target_links)").fetchall()
         }
-        select_cols = ["message_id", "target_user_id"]
         if "chat_id" in columns:
-            select_cols.insert(0, "chat_id")
-        rows = conn.execute(
-            f"SELECT {', '.join(select_cols)} FROM message_target_links"
-        ).fetchall()
-        for row in rows:
-            if "chat_id" in columns:
-                chat_id = int(row["chat_id"])
-            else:
-                chat_id = self._resolve_legacy_target_link_chat_id(
-                    conn,
-                    message_id=int(row["message_id"]),
+            ambiguous_rows = conn.execute(
+                f"""
+                SELECT
+                    l.message_id,
+                    l.target_user_id,
+                    COUNT(DISTINCT src.chat_id) AS matched_chats
+                FROM message_target_links l
+                LEFT JOIN messages src
+                  ON src.message_id = l.message_id
+                WHERE l.chat_id IS NULL
+                GROUP BY l.message_id, l.target_user_id
+                HAVING matched_chats > 1
+                LIMIT 1
+            """,
+            ).fetchall()
+            if ambiguous_rows:
+                row = ambiguous_rows[0]
+                conn.execute(f"DROP TABLE {new_table}")
+                raise RuntimeError(
+                    "Target-link migration aborted: could not resolve a unique chat_id for "
+                    f"legacy target link ({int(row['message_id'])} -> {int(row['target_user_id'])})."
                 )
+
             conn.execute(
                 f"""
-                INSERT INTO {new_table} (
+                INSERT OR IGNORE INTO {new_table} (
                     chat_id,
                     message_id,
                     target_user_id,
                     link_type,
                     created_at
                 )
-                VALUES (?, ?, ?, ?, ?)
+                SELECT
+                    COALESCE(l.chat_id, src.chat_id),
+                    l.message_id,
+                    l.target_user_id,
+                    ?,
+                    ?
+                FROM message_target_links l
+                CROSS JOIN messages src INDEXED BY idx_msg_standalone_id
+                WHERE src.message_id = l.message_id
+                  AND (l.chat_id IS NULL OR src.chat_id = l.chat_id)
             """,
-                (
-                    chat_id,
-                    int(row["message_id"]),
-                    int(row["target_user_id"]),
-                    "legacy",
-                    now,
-                ),
+                ("legacy", now),
             )
+        else:
+            ambiguous_rows = conn.execute(
+                """
+                SELECT
+                    l.message_id,
+                    l.target_user_id,
+                    COUNT(DISTINCT src.chat_id) AS matched_chats
+                FROM message_target_links l
+                LEFT JOIN messages src
+                  ON src.message_id = l.message_id
+                GROUP BY l.message_id, l.target_user_id
+                HAVING matched_chats > 1
+                LIMIT 1
+            """
+            ).fetchall()
+            if ambiguous_rows:
+                row = ambiguous_rows[0]
+                conn.execute(f"DROP TABLE {new_table}")
+                raise RuntimeError(
+                    "Target-link migration aborted: could not resolve a unique chat_id for "
+                    f"legacy target link ({int(row['message_id'])} -> {int(row['target_user_id'])})."
+                )
 
-        broken_refs = conn.execute(
-            f"""
-            SELECT COUNT(*)
-            FROM {new_table} l
-            LEFT JOIN messages m
-              ON m.chat_id = l.chat_id AND m.message_id = l.message_id
-            WHERE m.message_id IS NULL
-        """
-        ).fetchone()[0]
-        if broken_refs:
-            conn.execute(f"DROP TABLE {new_table}")
-            raise RuntimeError(
-                "Target-link migration aborted: migrated rows still reference missing messages."
+            conn.execute(
+                f"""
+                INSERT OR IGNORE INTO {new_table} (
+                    chat_id,
+                    message_id,
+                    target_user_id,
+                    link_type,
+                    created_at
+                )
+                SELECT
+                    src.chat_id,
+                    l.message_id,
+                    l.target_user_id,
+                    ?,
+                    ?
+                FROM message_target_links l
+                CROSS JOIN messages src INDEXED BY idx_msg_standalone_id
+                WHERE src.message_id = l.message_id
+            """,
+                ("legacy", now),
             )
 
         if self._table_exists(conn, backup_table):
@@ -673,6 +781,43 @@ class SQLiteSchemaMixin:
         conn.execute(f"ALTER TABLE message_target_links RENAME TO {backup_table}")
         conn.execute(f"ALTER TABLE {new_table} RENAME TO message_target_links")
         self._create_target_link_indexes(conn)
+
+    def _reclassify_target_link_types(self, conn: sqlite3.Connection):
+        if not self._table_exists(conn, "message_target_links"):
+            return
+        if not self._target_links_has_metadata(conn):
+            return
+
+        conn.execute(
+            """
+            UPDATE message_target_links AS l
+            SET link_type = ?
+            WHERE EXISTS (
+                SELECT 1
+                FROM messages m
+                WHERE m.chat_id = l.chat_id
+                  AND m.message_id = l.message_id
+                  AND m.user_id = l.target_user_id
+            )
+              AND l.link_type != ?
+        """,
+            (TARGET_LINK_TARGET_AUTHOR, TARGET_LINK_TARGET_AUTHOR),
+        )
+        conn.execute(
+            """
+            UPDATE message_target_links AS l
+            SET link_type = ?
+            WHERE l.link_type = ?
+              AND EXISTS (
+                  SELECT 1
+                  FROM messages m
+                  WHERE m.chat_id = l.chat_id
+                    AND m.message_id = l.message_id
+                    AND m.reply_to_id IS NOT NULL
+              )
+        """,
+            (TARGET_LINK_REPLY_CONTEXT, TARGET_LINK_LEGACY),
+        )
 
     def _resolve_legacy_context_link_chat_id(
         self,

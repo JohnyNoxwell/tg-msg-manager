@@ -103,7 +103,11 @@ class CLIContext:
         # Setup async signals early
         self.pm.setup_async_signals(asyncio.get_running_loop(), self.emergency_callback)
 
+        sys.stdout.write("Opening SQLite database...\n")
+        sys.stdout.flush()
         self.storage = SQLiteStorage(self.paths.db_path, process_manager=self.pm)
+        sys.stdout.write("SQLite database ready.\n")
+        sys.stdout.flush()
         await self.storage.start()
 
         self.db_exporter = DBExportService(
@@ -112,13 +116,17 @@ class CLIContext:
         )
 
         if self.needs_client:
+            sys.stdout.write("Connecting to Telegram...\n")
+            sys.stdout.flush()
             self.client = TelethonClientWrapper(
                 self.settings.session_name,
                 self.settings.api_id,
                 self.settings.api_hash,
                 max_rps=self.settings.max_rps,
-            )
+                )
             await self.client.connect()
+            sys.stdout.write("Telegram connection established.\n")
+            sys.stdout.flush()
             self.exporter = ExportService(
                 self.client, self.storage, event_sink=render_service_event
             )
