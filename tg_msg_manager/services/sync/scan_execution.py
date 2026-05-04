@@ -1,4 +1,4 @@
-from typing import Any, Awaitable, Callable, Optional
+from typing import Any, Awaitable, Callable, Optional, Tuple, Union
 
 from .scan_ranges import ScanRange
 
@@ -11,9 +11,11 @@ def build_scan_message_stream(
     single_worker_limit: Optional[int],
     api_from_user: Optional[Any],
     prefetched_messages: Optional[list[Any]],
-    iter_prefetched_messages: Callable[[list[Any]], Awaitable[Any]]
-    | Callable[[list[Any]], Any],
-) -> tuple[Any, bool]:
+    iter_prefetched_messages: Union[
+        Callable[[list[Any]], Awaitable[Any]],
+        Callable[[list[Any]], Any],
+    ],
+) -> Tuple[Any, bool]:
     if scan_range.role == "HEAD" and prefetched_messages is not None:
         return iter_prefetched_messages(prefetched_messages), True
 

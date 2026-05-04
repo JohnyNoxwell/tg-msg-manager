@@ -1,7 +1,7 @@
 import logging
 import json
 import time
-from typing import List, Optional
+from typing import List, Optional, Union
 
 from .records import DeleteUserDataResult, TerminalRepairCandidate
 from ...core.models.retry import RetryTaskStatus
@@ -392,7 +392,7 @@ class SQLiteSyncStateMixin:
             RetryTaskStatus.FAILED.value,
         ]
         placeholders = ", ".join(["?"] * len(terminal_statuses))
-        params: List[int | str] = list(terminal_statuses)
+        params: List[Union[int, str]] = list(terminal_statuses)
         query = f"DELETE FROM retry_queue WHERE status IN ({placeholders})"
         if older_than_timestamp is not None:
             query += " AND updated_at <= ?"

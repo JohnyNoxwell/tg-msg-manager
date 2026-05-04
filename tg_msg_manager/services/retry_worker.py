@@ -2,7 +2,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
-from typing import Any, Optional
+from typing import Any, Optional, Union
 
 from ..core.models.retry import RetryRunStats, RetryTaskStatus, RetryTaskType
 from ..infrastructure.storage.interface import RetryStorage
@@ -57,7 +57,7 @@ def enqueue_sync_target_retry_task(
     *,
     chat_id: int,
     user_id: int,
-    error: Exception | str,
+    error: Union[Exception, str],
     backoff_policy: Optional[RetryBackoffPolicy] = None,
     max_attempts: int = 5,
 ) -> None:
@@ -83,7 +83,7 @@ def enqueue_archive_pm_retry_task(
     storage: RetryStorage,
     *,
     user_id: int,
-    error: Exception | str,
+    error: Union[Exception, str],
     backoff_policy: Optional[RetryBackoffPolicy] = None,
     max_attempts: int = 5,
 ) -> None:

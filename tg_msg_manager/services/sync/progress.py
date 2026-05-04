@@ -1,6 +1,6 @@
 import asyncio
 from dataclasses import dataclass
-from typing import Any, Callable
+from typing import Any, Callable, Optional
 
 from ...core.models.service_payloads import ExportSyncProgressPayload
 
@@ -26,7 +26,7 @@ class SyncProgressReporter:
         self.emit_progress = emit_progress
         self.interval_seconds = interval_seconds
         self._done_event = asyncio.Event()
-        self._task: asyncio.Task[None] | None = None
+        self._task: Optional[asyncio.Task] = None
 
     async def draw_status(self, extra: str = "") -> None:
         db_total = self.initial_db_total + self.progress_stats.linked

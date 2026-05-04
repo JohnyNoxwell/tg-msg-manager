@@ -4,7 +4,7 @@ from dataclasses import asdict
 from datetime import datetime, timezone
 from pathlib import Path
 from time import time
-from typing import Any
+from typing import Any, Optional, Union
 
 from ..core.models.reporting import (
     AuditReport,
@@ -25,8 +25,8 @@ class ReportCollector:
         self,
         *,
         storage: Any,
-        exports_dir: str | Path,
-        now_ts: int | None = None,
+        exports_dir: Union[str, Path],
+        now_ts: Optional[int] = None,
     ):
         self.storage = storage
         self.exports_dir = Path(exports_dir)
