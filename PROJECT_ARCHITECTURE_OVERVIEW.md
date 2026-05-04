@@ -9,7 +9,7 @@
 
 Важно:
 - документ описывает текущее рабочее дерево, а не только последнюю зафиксированную версию
-- в репозитории есть незакоммиченные изменения, поэтому это описание относится к "живому" состоянию проекта
+- на момент последней сверки рабочее дерево было синхронизировано с `main`, но сам документ всё равно следует воспринимать как архитектурный snapshot, а не как автоматическую спецификацию
 
 ## 1. Что это за проект
 
@@ -622,6 +622,8 @@ Fingerprint включает:
 - экспорт из БД
 - очистка
 - архив лички
+- retry orchestration
+- read-only reporting
 - файловый writer
 - scheduler
 - alias setup
@@ -665,6 +667,7 @@ Telemetry:
 - raw terminal input
 - `ESC` как back/cancel
 - интерактивное меню
+- отдельные hotkeys `R` / `P` для `retry` / `report`
 - event-driven progress rendering
 - локализация `ru/en`
 
@@ -748,12 +751,17 @@ AliasManager ставит:
 - `tge`
 - `tgu`
 - `tgpm`
+- `tgrt`
+- `tgrp`
 
 Unix-путь:
 - редактирует `.zshrc` или `.bashrc`
 
 Windows-путь:
 - генерирует `.bat` wrappers
+
+Нюанс:
+- Unix и Windows alias-installation теперь строятся из одного canonical spec, чтобы не было дрейфа между платформами
 
 ## 20. Скрипты вокруг основного приложения
 
@@ -783,12 +791,13 @@ Windows-путь:
 - i18n
 
 Фактический статус на момент анализа:
-- `122` теста проходят
+- `144` теста проходят
 
 Но важно понимать характер покрытия:
 - это в основном unit и mock-heavy tests
 - реальных end-to-end прогонов против Telegram немного
-- проект хорошо покрыт на уровне контрактов и orchestration semantics, но не как full integration system
+- при этом в репо уже есть offline fixture-based E2E harness без сети для `sync/context/export/retry/report`
+- проект хорошо покрыт на уровне контрактов, orchestration semantics и автономных fixture-backed сценариев, но не как full live integration system
 
 ## 22. Ключевые сильные стороны архитектуры
 
