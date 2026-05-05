@@ -2,7 +2,6 @@ import asyncio
 import logging
 import sqlite3
 import threading
-from contextlib import contextmanager
 from typing import Any, Optional
 
 from .interface import BaseStorage
@@ -11,6 +10,8 @@ from ._sqlite_read_path import SQLiteReadPathMixin
 from ._sqlite_schema import SQLiteSchemaMixin
 from ._sqlite_sync_state import SQLiteSyncStateMixin
 from ._sqlite_write_path import SQLiteWritePathMixin
+from .write.connection import create_sqlite_connection
+from .write.transaction import StorageTransactionCoordinator
 from ...core.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
@@ -35,17 +36,18 @@ class SQLiteStorage(
         self._pm = process_manager
         self._lock = threading.Lock()
         self._conn = self._create_connection()
+        self._transaction_coordinator = StorageTransactionCoordinator(
+            connection=self._conn,
+            lock=self._lock,
+        )
         self._init_db()
 
         self._write_queue = asyncio.Queue()
         self._worker_task = None
         self._shutdown_event = asyncio.Event()
 
-    def _create_connection(self) -> sqlite3.Connection:
-        conn = sqlite3.connect(self.db_path, check_same_thread=False)
-        conn.execute("PRAGMA journal_mode=WAL;")
-        conn.row_factory = sqlite3.Row
-        return conn
+    def _create_connection(self):
+        return create_sqlite_connection(self.db_path)
 
     def _get_connection(self) -> sqlite3.Connection:
         return self._create_connection()
@@ -53,11 +55,8 @@ class SQLiteStorage(
     def _read_connection(self) -> sqlite3.Connection:
         return self._get_connection()
 
-    @contextmanager
     def _write_transaction(self):
-        with self._lock:
-            with self._conn:
-                yield self._conn
+        return self._transaction_coordinator.write_transaction()
 
     def should_stop(self) -> bool:
         """Returns True if a shutdown has been requested internally or via ProcessManager."""

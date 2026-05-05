@@ -1,92 +1,43 @@
 import logging
-import json
-import time
-from typing import Optional
-from typing import List, Optional, Union
+from typing import List, Optional
 
-from .records import DeleteUserDataResult, TerminalRepairCandidate
-from ...core.models.retry import RetryTaskStatus
+from .write import (
+    checkpoint_writer,
+    message_writer,
+    report_writer,
+    retry_writer,
+    user_writer,
+)
 
 logger = logging.getLogger(__name__)
 
 
 class SQLiteSyncStateMixin:
+    """
+    DEPRECATED compatibility wrapper over the split SQLite state/write modules.
+    """
+
     _EXPORT_RUN_ACTIVE = "running"
 
-    def repair_terminal_incomplete_targets(
-        self, tail_threshold: int = 1
-    ) -> List[TerminalRepairCandidate]:
-        """
-        Reconcile sync targets that are logically complete at the bottom of history
-        but still carry a stale `is_complete = 0` flag from older interrupted flows.
-
-        Safe scope:
-        - only targets with `last_msg_id > 0`
-        - only targets with `is_complete = 0`
-        - only targets with `tail_msg_id <= tail_threshold`
-
-        The repair intentionally preserves `last_sync_at`; this is metadata cleanup,
-        not a new successful sync.
-        """
-        with self._write_transaction() as conn:
-            rows = conn.execute(
-                """
-                SELECT user_id, chat_id, author_name, last_msg_id, tail_msg_id, is_complete, last_sync_at
-                FROM sync_targets
-                WHERE is_complete = 0
-                  AND last_msg_id > 0
-                  AND tail_msg_id <= ?
-                ORDER BY chat_id, user_id
-                """,
-                (tail_threshold,),
-            ).fetchall()
-            repaired = [TerminalRepairCandidate.coerce(dict(row)) for row in rows]
-            if repaired:
-                conn.execute(
-                    """
-                    UPDATE sync_targets
-                    SET tail_msg_id = 0, is_complete = 1
-                    WHERE is_complete = 0
-                      AND last_msg_id > 0
-                      AND tail_msg_id <= ?
-                    """,
-                    (tail_threshold,),
-                )
-            return repaired
+    def repair_terminal_incomplete_targets(self, tail_threshold: int = 1):
+        return checkpoint_writer.repair_terminal_incomplete_targets(
+            self, tail_threshold
+        )
 
     def update_sync_tail(
         self, chat_id: int, user_id: int, tail_id: int, is_complete: bool = False
     ):
-        with self._write_transaction() as conn:
-            conn.execute(
-                """
-                UPDATE sync_targets
-                SET tail_msg_id = ?, is_complete = ?
-                WHERE user_id = ? AND chat_id = ?
-            """,
-                (tail_id, 1 if is_complete else 0, user_id, chat_id),
-            )
+        return checkpoint_writer.update_sync_tail(
+            self, chat_id, user_id, tail_id, is_complete
+        )
 
     def update_last_msg_id(self, chat_id: int, user_id: int, last_msg_id: int):
-        with self._write_transaction() as conn:
-            conn.execute(
-                """
-                UPDATE sync_targets
-                SET last_msg_id = MAX(last_msg_id, ?)
-                WHERE user_id = ? AND chat_id = ?
-            """,
-                (last_msg_id, user_id, chat_id),
-            )
+        return checkpoint_writer.update_last_msg_id(
+            self, chat_id, user_id, last_msg_id
+        )
 
     def update_last_sync_at(self, chat_id: int, user_id: int):
-        with self._write_transaction() as conn:
-            conn.execute(
-                """
-                UPDATE sync_targets SET last_sync_at = ?
-                WHERE user_id = ? AND chat_id = ?
-            """,
-                (int(time.time()), user_id, chat_id),
-            )
+        return checkpoint_writer.update_last_sync_at(self, chat_id, user_id)
 
     def get_last_target_msg_id(self, chat_id: int, user_id: int) -> int:
         status = self.get_sync_status(chat_id, user_id)
@@ -101,16 +52,15 @@ class SQLiteSyncStateMixin:
         phone: Optional[str] = None,
         author_name: Optional[str] = None,
     ):
-        with self._write_transaction() as conn:
-            self._upsert_user_in_conn(
-                conn, user_id, first_name, last_name, username, phone, author_name
-            )
-            self._record_user_identity_in_conn(
-                conn,
-                user_id=user_id,
-                author_name=author_name,
-                username=username,
-            )
+        return user_writer.upsert_user(
+            self,
+            user_id,
+            first_name,
+            last_name,
+            username,
+            phone,
+            author_name,
+        )
 
     def _upsert_user_in_conn(
         self,
@@ -122,21 +72,16 @@ class SQLiteSyncStateMixin:
         phone: Optional[str] = None,
         author_name: Optional[str] = None,
     ):
-        normalized_author_name = self._normalize_identity_text(author_name)
-        conn.execute(
-            """
-            INSERT INTO users (user_id, first_name, last_name, username, phone, current_author_name)
-            VALUES (?, ?, ?, ?, ?, ?)
-            ON CONFLICT(user_id) DO UPDATE SET
-                first_name = COALESCE(excluded.first_name, users.first_name),
-                last_name = COALESCE(excluded.last_name, users.last_name),
-                username = COALESCE(excluded.username, users.username),
-                phone = COALESCE(excluded.phone, users.phone),
-                current_author_name = COALESCE(excluded.current_author_name, users.current_author_name)
-        """,
-            (user_id, first_name, last_name, username, phone, normalized_author_name),
+        return user_writer.upsert_user_in_conn(
+            self,
+            conn,
+            user_id,
+            first_name,
+            last_name,
+            username,
+            phone,
+            author_name,
         )
-        self._refresh_target_author_name_in_conn(conn, user_id, normalized_author_name)
 
     def register_target(
         self,
@@ -149,48 +94,20 @@ class SQLiteSyncStateMixin:
         deep_mode: bool = False,
         recursive_depth: int = 0,
     ):
-        now = int(time.time())
-        with self._write_transaction() as conn:
-            conn.execute(
-                """
-                INSERT INTO sync_targets (user_id, chat_id, author_name, added_at, last_sync_at, deep_mode, recursive_depth)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(user_id, chat_id) DO UPDATE SET
-                    author_name = excluded.author_name,
-                    deep_mode = MAX(sync_targets.deep_mode, excluded.deep_mode),
-                    recursive_depth = MAX(sync_targets.recursive_depth, excluded.recursive_depth)
-            """,
-                (
-                    user_id,
-                    chat_id,
-                    author_name,
-                    now,
-                    now,
-                    1 if deep_mode else 0,
-                    recursive_depth,
-                ),
-            )
-            self._upsert_user_in_conn(
-                conn,
-                user_id,
-                first_name,
-                last_name,
-                username,
-                author_name=author_name,
-            )
-            self._record_user_identity_in_conn(
-                conn,
-                user_id=user_id,
-                author_name=author_name,
-                username=username,
-                observed_at=now,
-                chat_id=chat_id,
-                source_message_id=None,
-            )
+        return user_writer.register_target(
+            self,
+            user_id,
+            author_name,
+            chat_id,
+            first_name,
+            last_name,
+            username,
+            deep_mode,
+            recursive_depth,
+        )
 
     def upsert_chat(self, chat_id: int, title: str, chat_type: Optional[str] = None):
-        with self._write_transaction() as conn:
-            self._upsert_chat_in_conn(conn, chat_id, title, chat_type)
+        return user_writer.upsert_chat(self, chat_id, title, chat_type)
 
     def upsert_export_target(
         self,
@@ -212,155 +129,28 @@ class SQLiteSyncStateMixin:
         last_known_author_name: Optional[str] = None,
         last_known_username: Optional[str] = None,
     ):
-        now = int(time.time())
-        with self._write_transaction() as conn:
-            conn.execute(
-                """
-                INSERT INTO export_targets (
-                    target_user_id,
-                    export_filename,
-                    export_dir,
-                    last_exported_message_ts,
-                    last_exported_message_id,
-                    export_part_count,
-                    artifact_message_count,
-                    artifact_first_message_id,
-                    artifact_last_message_id,
-                    artifact_first_timestamp,
-                    artifact_last_timestamp,
-                    artifact_as_json,
-                    artifact_include_date,
-                    artifact_json_profile,
-                    last_known_author_name,
-                    last_known_username,
-                    created_at,
-                    updated_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                ON CONFLICT(target_user_id) DO UPDATE SET
-                    export_filename = COALESCE(excluded.export_filename, export_targets.export_filename),
-                    export_dir = COALESCE(excluded.export_dir, export_targets.export_dir),
-                    last_exported_message_ts = COALESCE(
-                        excluded.last_exported_message_ts,
-                        export_targets.last_exported_message_ts
-                    ),
-                    last_exported_message_id = COALESCE(
-                        excluded.last_exported_message_id,
-                        export_targets.last_exported_message_id
-                    ),
-                    export_part_count = COALESCE(
-                        excluded.export_part_count,
-                        export_targets.export_part_count
-                    ),
-                    artifact_message_count = COALESCE(
-                        excluded.artifact_message_count,
-                        export_targets.artifact_message_count
-                    ),
-                    artifact_first_message_id = COALESCE(
-                        excluded.artifact_first_message_id,
-                        export_targets.artifact_first_message_id
-                    ),
-                    artifact_last_message_id = COALESCE(
-                        excluded.artifact_last_message_id,
-                        export_targets.artifact_last_message_id
-                    ),
-                    artifact_first_timestamp = COALESCE(
-                        excluded.artifact_first_timestamp,
-                        export_targets.artifact_first_timestamp
-                    ),
-                    artifact_last_timestamp = COALESCE(
-                        excluded.artifact_last_timestamp,
-                        export_targets.artifact_last_timestamp
-                    ),
-                    artifact_as_json = COALESCE(
-                        excluded.artifact_as_json,
-                        export_targets.artifact_as_json
-                    ),
-                    artifact_include_date = COALESCE(
-                        excluded.artifact_include_date,
-                        export_targets.artifact_include_date
-                    ),
-                    artifact_json_profile = COALESCE(
-                        excluded.artifact_json_profile,
-                        export_targets.artifact_json_profile
-                    ),
-                    last_known_author_name = COALESCE(
-                        excluded.last_known_author_name,
-                        export_targets.last_known_author_name
-                    ),
-                    last_known_username = COALESCE(
-                        excluded.last_known_username,
-                        export_targets.last_known_username
-                    ),
-                    updated_at = excluded.updated_at
-            """,
-                (
-                    target_user_id,
-                    export_filename,
-                    export_dir,
-                    last_exported_message_ts,
-                    last_exported_message_id,
-                    export_part_count,
-                    artifact_message_count,
-                    artifact_first_message_id,
-                    artifact_last_message_id,
-                    artifact_first_timestamp,
-                    artifact_last_timestamp,
-                    1 if artifact_as_json else 0 if artifact_as_json is not None else None,
-                    1 if artifact_include_date else 0 if artifact_include_date is not None else None,
-                    str(artifact_json_profile) if artifact_json_profile else None,
-                    self._normalize_identity_text(last_known_author_name),
-                    self._normalize_identity_text(last_known_username),
-                    now,
-                    now,
-                ),
-            )
+        return report_writer.upsert_export_target(
+            self,
+            target_user_id=target_user_id,
+            export_filename=export_filename,
+            export_dir=export_dir,
+            last_exported_message_ts=last_exported_message_ts,
+            last_exported_message_id=last_exported_message_id,
+            export_part_count=export_part_count,
+            artifact_message_count=artifact_message_count,
+            artifact_first_message_id=artifact_first_message_id,
+            artifact_last_message_id=artifact_last_message_id,
+            artifact_first_timestamp=artifact_first_timestamp,
+            artifact_last_timestamp=artifact_last_timestamp,
+            artifact_as_json=artifact_as_json,
+            artifact_include_date=artifact_include_date,
+            artifact_json_profile=artifact_json_profile,
+            last_known_author_name=last_known_author_name,
+            last_known_username=last_known_username,
+        )
 
     def start_export_run(self, *, target_user_id: int) -> int:
-        now = int(time.time())
-        with self._write_transaction() as conn:
-            conn.execute(
-                """
-                INSERT OR IGNORE INTO export_targets (
-                    target_user_id,
-                    export_filename,
-                    export_dir,
-                    last_exported_message_ts,
-                    last_exported_message_id,
-                    export_part_count,
-                    artifact_message_count,
-                    artifact_first_message_id,
-                    artifact_last_message_id,
-                    artifact_first_timestamp,
-                    artifact_last_timestamp,
-                    artifact_as_json,
-                    artifact_include_date,
-                    artifact_json_profile,
-                    last_known_author_name,
-                    last_known_username,
-                    created_at,
-                    updated_at
-                )
-                VALUES (?, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, ?, ?)
-            """,
-                (target_user_id, now, now),
-            )
-            cursor = conn.execute(
-                """
-                INSERT INTO export_runs (
-                    target_user_id,
-                    started_at,
-                    finished_at,
-                    new_messages_count,
-                    last_new_message_ts,
-                    status,
-                    error
-                )
-                VALUES (?, ?, NULL, 0, NULL, ?, NULL)
-            """,
-                (target_user_id, now, self._EXPORT_RUN_ACTIVE),
-            )
-            return int(cursor.lastrowid)
+        return report_writer.start_export_run(self, target_user_id=target_user_id)
 
     def finish_export_run(
         self,
@@ -371,79 +161,25 @@ class SQLiteSyncStateMixin:
         last_new_message_ts: Optional[int] = None,
         error: Optional[str] = None,
     ) -> None:
-        finished_at = int(time.time())
-        with self._write_transaction() as conn:
-            conn.execute(
-                """
-                UPDATE export_runs
-                SET
-                    finished_at = ?,
-                    new_messages_count = ?,
-                    last_new_message_ts = ?,
-                    status = ?,
-                    error = ?
-                WHERE id = ?
-            """,
-                (
-                    finished_at,
-                    int(new_messages_count),
-                    last_new_message_ts,
-                    str(status),
-                    str(error) if error else None,
-                    run_id,
-                ),
-            )
+        return report_writer.finish_export_run(
+            self,
+            run_id,
+            status=status,
+            new_messages_count=new_messages_count,
+            last_new_message_ts=last_new_message_ts,
+            error=error,
+        )
 
     def _upsert_chat_in_conn(
         self, conn, chat_id: int, title: str, chat_type: Optional[str] = None
     ):
-        conn.execute(
-            """
-            INSERT INTO chats (chat_id, title, type)
-            VALUES (?, ?, ?)
-            ON CONFLICT(chat_id) DO UPDATE SET
-                title = COALESCE(NULLIF(excluded.title, ''), chats.title),
-                type = COALESCE(excluded.type, chats.type)
-        """,
-            (chat_id, title, chat_type),
-        )
+        return user_writer.upsert_chat_in_conn(self, conn, chat_id, title, chat_type)
 
     def delete_messages(self, chat_id: int, message_ids: List[int]) -> int:
-        if not message_ids:
-            return 0
-        placeholders = ", ".join(["?"] * len(message_ids))
-        with self._write_transaction() as conn:
-            conn.execute(
-                f"DELETE FROM message_target_links WHERE chat_id = ? AND message_id IN ({placeholders})",
-                (chat_id, *message_ids),
-            )
-            res = conn.execute(
-                f"DELETE FROM messages WHERE chat_id = ? AND message_id IN ({placeholders})",
-                (chat_id, *message_ids),
-            )
-            return res.rowcount
+        return message_writer.delete_messages(self, chat_id, message_ids)
 
-    def delete_user_data(self, user_id: int) -> DeleteUserDataResult:
-        with self._write_transaction() as conn:
-            conn.execute(
-                "DELETE FROM message_target_links WHERE target_user_id = ?", (user_id,)
-            )
-            res = conn.execute("""
-                DELETE FROM messages
-                WHERE NOT EXISTS (
-                    SELECT 1 FROM message_target_links
-                    WHERE message_target_links.chat_id = messages.chat_id
-                    AND message_target_links.message_id = messages.message_id
-                )
-            """)
-            deleted_msgs = res.rowcount
-            target_res = conn.execute(
-                "DELETE FROM sync_targets WHERE user_id = ?", (user_id,)
-            )
-            return DeleteUserDataResult(
-                deleted_messages=deleted_msgs,
-                deleted_targets=target_res.rowcount,
-            )
+    def delete_user_data(self, user_id: int):
+        return message_writer.delete_user_data(self, user_id)
 
     def enqueue_retry_task(
         self,
@@ -456,179 +192,51 @@ class SQLiteSyncStateMixin:
         payload: Optional[dict] = None,
         next_retry_timestamp: Optional[int] = None,
         max_attempts: int = 5,
-        status: str = RetryTaskStatus.PENDING.value,
+        status: str = "pending",
     ):
-        now = int(time.time())
-        next_retry = (
-            int(next_retry_timestamp) if next_retry_timestamp is not None else now + 300
+        return retry_writer.enqueue_retry_task(
+            self,
+            task_id,
+            chat_id,
+            task_type,
+            error,
+            target_user_id=target_user_id,
+            payload=payload,
+            next_retry_timestamp=next_retry_timestamp,
+            max_attempts=max_attempts,
+            status=status,
         )
-        payload_json = json.dumps(payload or {}, sort_keys=True)
-        resolved_target_user_id = chat_id if target_user_id is None else target_user_id
-        with self._write_transaction() as conn:
-            conn.execute(
-                """
-                INSERT INTO retry_queue (
-                    task_id,
-                    chat_id,
-                    target_user_id,
-                    task_type,
-                    status,
-                    payload_json,
-                    retry_count,
-                    max_attempts,
-                    last_error,
-                    next_retry_timestamp,
-                    created_at,
-                    updated_at,
-                    last_attempt_timestamp,
-                    completed_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, 0, ?, ?, ?, ?, ?, 0, 0)
-                ON CONFLICT(task_id) DO UPDATE SET
-                    chat_id = excluded.chat_id,
-                    target_user_id = excluded.target_user_id,
-                    task_type = excluded.task_type,
-                    status = excluded.status,
-                    payload_json = excluded.payload_json,
-                    max_attempts = excluded.max_attempts,
-                    last_error = excluded.last_error,
-                    next_retry_timestamp = excluded.next_retry_timestamp,
-                    updated_at = excluded.updated_at,
-                    completed_at = 0
-            """,
-                (
-                    task_id,
-                    chat_id,
-                    resolved_target_user_id,
-                    task_type,
-                    status,
-                    payload_json,
-                    max_attempts,
-                    error,
-                    next_retry,
-                    now,
-                    now,
-                ),
-            )
 
     def remove_retry_task(self, task_id: str):
-        with self._write_transaction() as conn:
-            conn.execute("DELETE FROM retry_queue WHERE task_id = ?", (task_id,))
+        return retry_writer.remove_retry_task(self, task_id)
 
     def mark_retry_task_completed(self, task_id: str):
-        now = int(time.time())
-        with self._write_transaction() as conn:
-            conn.execute(
-                """
-                UPDATE retry_queue
-                SET status = ?, updated_at = ?, completed_at = ?, last_error = NULL
-                WHERE task_id = ?
-            """,
-                (RetryTaskStatus.COMPLETED.value, now, now, task_id),
-            )
+        return retry_writer.mark_retry_task_completed(self, task_id)
 
     def mark_retry_task_rescheduled(
         self, task_id: str, error: str, next_retry_timestamp: int
     ) -> str:
-        now = int(time.time())
-        with self._write_transaction() as conn:
-            row = conn.execute(
-                "SELECT retry_count, max_attempts FROM retry_queue WHERE task_id = ?",
-                (task_id,),
-            ).fetchone()
-            if row is None:
-                return RetryTaskStatus.FAILED.value
-
-            retry_count = int(row["retry_count"] or 0) + 1
-            max_attempts = int(row["max_attempts"] or 5)
-            next_status = (
-                RetryTaskStatus.FAILED.value
-                if retry_count >= max_attempts
-                else RetryTaskStatus.RETRYING.value
-            )
-            completed_at = now if next_status == RetryTaskStatus.FAILED.value else 0
-            next_retry = (
-                0
-                if next_status == RetryTaskStatus.FAILED.value
-                else next_retry_timestamp
-            )
-            conn.execute(
-                """
-                UPDATE retry_queue
-                SET
-                    retry_count = ?,
-                    status = ?,
-                    last_error = ?,
-                    next_retry_timestamp = ?,
-                    updated_at = ?,
-                    last_attempt_timestamp = ?,
-                    completed_at = ?
-                WHERE task_id = ?
-            """,
-                (
-                    retry_count,
-                    next_status,
-                    error,
-                    next_retry,
-                    now,
-                    now,
-                    completed_at,
-                    task_id,
-                ),
-            )
-            return next_status
+        return retry_writer.mark_retry_task_rescheduled(
+            self, task_id, error, next_retry_timestamp
+        )
 
     def mark_retry_task_failed(
         self, task_id: str, error: str, increment_retry_count: bool = False
     ) -> None:
-        now = int(time.time())
-        with self._write_transaction() as conn:
-            row = conn.execute(
-                "SELECT retry_count FROM retry_queue WHERE task_id = ?",
-                (task_id,),
-            ).fetchone()
-            retry_count = int(row["retry_count"] or 0) if row else 0
-            if increment_retry_count:
-                retry_count += 1
-            conn.execute(
-                """
-                UPDATE retry_queue
-                SET
-                    retry_count = ?,
-                    status = ?,
-                    last_error = ?,
-                    next_retry_timestamp = 0,
-                    updated_at = ?,
-                    last_attempt_timestamp = ?,
-                    completed_at = ?
-                WHERE task_id = ?
-            """,
-                (
-                    retry_count,
-                    RetryTaskStatus.FAILED.value,
-                    error,
-                    now,
-                    now,
-                    now,
-                    task_id,
-                ),
-            )
+        return retry_writer.mark_retry_task_failed(
+            self,
+            task_id,
+            error,
+            increment_retry_count=increment_retry_count,
+        )
 
     def cleanup_retry_tasks(
         self,
         statuses: Optional[List[str]] = None,
         older_than_timestamp: Optional[int] = None,
     ) -> int:
-        terminal_statuses = statuses or [
-            RetryTaskStatus.COMPLETED.value,
-            RetryTaskStatus.FAILED.value,
-        ]
-        placeholders = ", ".join(["?"] * len(terminal_statuses))
-        params: List[Union[int, str]] = list(terminal_statuses)
-        query = f"DELETE FROM retry_queue WHERE status IN ({placeholders})"
-        if older_than_timestamp is not None:
-            query += " AND updated_at <= ?"
-            params.append(int(older_than_timestamp))
-        with self._write_transaction() as conn:
-            res = conn.execute(query, tuple(params))
-            return res.rowcount
+        return retry_writer.cleanup_retry_tasks(
+            self,
+            statuses=statuses,
+            older_than_timestamp=older_than_timestamp,
+        )

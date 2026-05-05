@@ -7,18 +7,16 @@ from typing import List, Optional
 
 from ...core.models.message import MessageData, SCHEMA_VERSION
 from ...core.telemetry import telemetry
-from .link_types import (
-    CONTEXT_ALGO_REPLY_CONTEXT_V1,
-    CONTEXT_LINK_REPLY_PARENT,
-    TARGET_LINK_LEGACY,
-    TARGET_LINK_REPLY_CONTEXT,
-    TARGET_LINK_TARGET_AUTHOR,
-)
+from .write import checkpoint_writer, context_writer, message_writer, target_link_writer, user_writer
 
 logger = logging.getLogger(__name__)
 
 
 class SQLiteWritePathMixin:
+    """
+    DEPRECATED compatibility aggregator for the split SQLite write-side modules.
+    """
+
     async def save_message(
         self, msg: MessageData, target_id: Optional[int] = None, flush: bool = True
     ) -> bool:
@@ -103,90 +101,18 @@ class SQLiteWritePathMixin:
     def _save_batches_by_target(
         self, items: List[tuple[MessageData, Optional[int]]]
     ) -> int:
-        """Saves queued items efficiently in one transaction."""
-        try:
-            saved_count = 0
-            with self._write_transaction() as conn:
-                for msg, target_id in items:
-                    self._save_msg_internal(conn, msg, target_id)
-                    saved_count += 1
-            return saved_count
-        except Exception as e:
-            logger.error(f"Error saving batch of messages with attribution: {e}")
-            return 0
+        return message_writer.save_batches_by_target(self, items)
 
     def _save_msg_internal(
         self, conn, msg: MessageData, target_id: Optional[int] = None
     ):
-        """Executes normalized UPSERTs for a message and sync state."""
-        payload_hash = msg.get_payload_hash()
-        existing_hash_row = conn.execute(
-            "SELECT payload_hash FROM messages WHERE chat_id = ? AND message_id = ?",
-            (msg.chat_id, msg.message_id),
-        ).fetchone()
-
-        if target_id is not None:
-            self._ensure_target_link_in_conn(
-                conn,
-                msg.chat_id,
-                msg.message_id,
-                target_id,
-                source_user_id=msg.user_id,
-                reply_to_id=msg.reply_to_id,
-            )
-
-        if existing_hash_row and existing_hash_row["payload_hash"] == payload_hash:
-            return
-
-        data = msg.to_dict()
-        raw = self._normalize_raw_payload(data.get("raw_payload", {}))
-
-        if data["user_id"]:
-            self._upsert_user_from_payload_in_conn(
-                conn,
-                data["user_id"],
-                raw,
-                author_name=data.get("author_name"),
-                observed_at=data.get("timestamp"),
-                chat_id=data.get("chat_id"),
-                source_message_id=data.get("message_id"),
-            )
-            self._refresh_target_author_name_in_conn(
-                conn, data["user_id"], data.get("author_name")
-            )
-
-        self._upsert_chat_from_payload_in_conn(conn, data["chat_id"], raw)
-        self._upsert_context_link_in_conn(
-            conn, data["chat_id"], data["message_id"], data.get("reply_to_id")
-        )
-        self._upsert_message_row_in_conn(conn, data, payload_hash)
-        self._refresh_missing_reply_state_in_conn(
-            conn,
-            data["chat_id"],
-            data["message_id"],
-            data.get("reply_to_id"),
-        )
-        self._resolve_missing_reply_refs_for_parent_in_conn(
-            conn, data["chat_id"], data["message_id"]
-        )
-        self._update_sync_state_for_message_in_conn(
-            conn, data["chat_id"], data["message_id"], target_id
-        )
+        return message_writer.save_msg_internal(self, conn, msg, target_id)
 
     def _normalize_raw_payload(self, raw):
-        if isinstance(raw, str):
-            try:
-                return json.loads(raw)
-            except Exception:
-                return {}
-        return raw
+        return message_writer.normalize_raw_payload(self, raw)
 
     def _json_serial(self, obj):
-        if isinstance(obj, datetime):
-            return obj.isoformat()
-        if isinstance(obj, bytes):
-            return obj.hex()
-        return f"<<Unserializable: {type(obj)}>>"
+        return message_writer.json_serial(self, obj)
 
     def _ensure_target_link_in_conn(
         self,
@@ -198,31 +124,14 @@ class SQLiteWritePathMixin:
         source_user_id: Optional[int] = None,
         reply_to_id: Optional[int] = None,
     ):
-        link_type = TARGET_LINK_LEGACY
-        if source_user_id is not None and source_user_id == target_id:
-            link_type = TARGET_LINK_TARGET_AUTHOR
-        elif reply_to_id is not None:
-            link_type = TARGET_LINK_REPLY_CONTEXT
-        conn.execute(
-            """
-            INSERT INTO message_target_links (
-                chat_id,
-                message_id,
-                target_user_id,
-                link_type,
-                created_at
-            )
-            VALUES (?, ?, ?, ?, ?)
-            ON CONFLICT(chat_id, message_id, target_user_id) DO UPDATE SET
-                link_type = CASE
-                    WHEN message_target_links.link_type = 'legacy' AND excluded.link_type != 'legacy'
-                        THEN excluded.link_type
-                    WHEN message_target_links.link_type = 'reply_context' AND excluded.link_type = 'target_author'
-                        THEN excluded.link_type
-                    ELSE message_target_links.link_type
-                END
-        """,
-            (chat_id, message_id, target_id, link_type, int(time.time())),
+        return target_link_writer.ensure_target_link_in_conn(
+            self,
+            conn,
+            chat_id,
+            message_id,
+            target_id,
+            source_user_id=source_user_id,
+            reply_to_id=reply_to_id,
         )
 
     def _upsert_user_from_payload_in_conn(
@@ -236,41 +145,25 @@ class SQLiteWritePathMixin:
         chat_id: Optional[int] = None,
         source_message_id: Optional[int] = None,
     ):
-        first_name = raw.get("first_name") or ""
-        last_name = raw.get("last_name") or ""
-        username = raw.get("username") or ""
-        phone = raw.get("phone") or ""
-
-        sender = raw.get("sender") or raw.get("_sender") or {}
-        if isinstance(sender, dict):
-            first_name = first_name or sender.get("first_name", "")
-            last_name = last_name or sender.get("last_name", "")
-            username = username or sender.get("username", "")
-            phone = phone or sender.get("phone", "")
-
-        self._upsert_user_in_conn(
+        return user_writer.upsert_user_from_payload_in_conn(
+            self,
             conn,
             user_id,
-            first_name,
-            last_name,
-            username,
-            phone,
-            author_name,
-        )
-        self._record_user_identity_in_conn(
-            conn,
-            user_id=user_id,
+            raw,
             author_name=author_name,
-            username=username,
             observed_at=observed_at,
             chat_id=chat_id,
             source_message_id=source_message_id,
         )
 
     def _upsert_chat_from_payload_in_conn(self, conn, chat_id: int, raw: dict):
-        chat_title = raw.get("chat_title") or raw.get("title") or ""
-        chat_type = raw.get("chat_type") or raw.get("_") or "Channel/Group"
-        self._upsert_chat_in_conn(conn, chat_id, chat_title, chat_type)
+        return user_writer.upsert_chat_in_conn(
+            self,
+            conn,
+            chat_id,
+            raw.get("chat_title") or raw.get("title") or "",
+            raw.get("chat_type") or raw.get("_") or "Channel/Group",
+        )
 
     def _upsert_context_link_in_conn(
         self,
@@ -279,30 +172,9 @@ class SQLiteWritePathMixin:
         message_id: int,
         reply_to_id: Optional[int],
     ):
-        if reply_to_id:
-            conn.execute(
-                """
-                INSERT OR REPLACE INTO message_context_links (
-                    chat_id,
-                    message_id,
-                    context_message_id,
-                    link_type,
-                    distance,
-                    algorithm_version,
-                    created_at
-                )
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            """,
-                (
-                    chat_id,
-                    message_id,
-                    reply_to_id,
-                    CONTEXT_LINK_REPLY_PARENT,
-                    None,
-                    CONTEXT_ALGO_REPLY_CONTEXT_V1,
-                    int(time.time()),
-                ),
-            )
+        return context_writer.upsert_context_link_in_conn(
+            self, conn, chat_id, message_id, reply_to_id
+        )
 
     def _upsert_message_row_in_conn(self, conn, data: dict, payload_hash: str):
         conn.execute(
@@ -339,45 +211,12 @@ class SQLiteWritePathMixin:
         message_id: int,
         reply_to_id: Optional[int],
     ) -> None:
-        if not reply_to_id:
-            return
-        now = int(time.time())
-        parent_exists = conn.execute(
-            """
-            SELECT 1
-            FROM messages
-            WHERE chat_id = ? AND message_id = ?
-        """,
-            (chat_id, reply_to_id),
-        ).fetchone()
-        if parent_exists:
-            conn.execute(
-                """
-                UPDATE missing_reply_refs
-                SET status = 'resolved'
-                WHERE chat_id = ?
-                  AND message_id = ?
-                  AND missing_reply_to_id = ?
-            """,
-                (chat_id, message_id, reply_to_id),
-            )
-            return
-
-        conn.execute(
-            """
-            INSERT INTO missing_reply_refs (
-                chat_id,
-                message_id,
-                missing_reply_to_id,
-                detected_at,
-                status
-            )
-            VALUES (?, ?, ?, ?, 'missing')
-            ON CONFLICT(chat_id, message_id, missing_reply_to_id) DO UPDATE SET
-                detected_at = excluded.detected_at,
-                status = 'missing'
-        """,
-            (chat_id, message_id, reply_to_id, now),
+        return context_writer.refresh_missing_reply_state_in_conn(
+            self,
+            conn,
+            chat_id,
+            message_id,
+            reply_to_id,
         )
 
     def _resolve_missing_reply_refs_for_parent_in_conn(
@@ -386,38 +225,13 @@ class SQLiteWritePathMixin:
         chat_id: int,
         message_id: int,
     ) -> None:
-        conn.execute(
-            """
-            UPDATE missing_reply_refs
-            SET status = 'resolved'
-            WHERE chat_id = ?
-              AND missing_reply_to_id = ?
-              AND status != 'resolved'
-        """,
-            (chat_id, message_id),
+        return context_writer.resolve_missing_reply_refs_for_parent_in_conn(
+            self, conn, chat_id, message_id
         )
 
     def _update_sync_state_for_message_in_conn(
         self, conn, chat_id: int, message_id: int, target_id: Optional[int]
     ):
-        now = int(time.time())
-        conn.execute(
-            """
-            INSERT INTO sync_state (chat_id, last_msg_id, last_sync_timestamp)
-            VALUES (?, ?, ?)
-            ON CONFLICT(chat_id) DO UPDATE SET
-                last_msg_id = MAX(last_msg_id, excluded.last_msg_id),
-                last_sync_timestamp = excluded.last_sync_timestamp
-        """,
-            (chat_id, message_id, now),
+        return checkpoint_writer.update_sync_state_for_message_in_conn(
+            self, conn, chat_id, message_id, target_id
         )
-
-        if target_id is not None:
-            conn.execute(
-                """
-                UPDATE sync_targets
-                SET last_msg_id = MAX(last_msg_id, ?)
-                WHERE user_id = ? AND chat_id = ?
-            """,
-                (message_id, target_id, chat_id),
-            )

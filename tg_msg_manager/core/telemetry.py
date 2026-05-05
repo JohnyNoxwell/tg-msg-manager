@@ -3,6 +3,7 @@ import json
 import os
 from contextlib import contextmanager
 from dataclasses import dataclass, field
+from numbers import Real
 from time import perf_counter
 from typing import Dict
 
@@ -46,9 +47,17 @@ class TelemetryTracker:
         self.data.flood_wait_seconds_total += seconds
 
     def track_counter(self, name: str, amount: int = 1):
+        if not isinstance(amount, Real):
+            logger.debug("Ignoring non-numeric telemetry counter %s=%r", name, amount)
+            return
         self.data.counters[name] = self.data.counters.get(name, 0) + amount
 
     def track_duration(self, name: str, seconds: float):
+        if not isinstance(seconds, Real):
+            logger.debug(
+                "Ignoring non-numeric telemetry duration %s=%r", name, seconds
+            )
+            return
         self.data.timings_total_seconds[name] = (
             self.data.timings_total_seconds.get(name, 0.0) + seconds
         )
@@ -68,6 +77,8 @@ class TelemetryTracker:
     def get_summary(self) -> Dict:
         avg_timings_ms = {}
         for name, total_seconds in self.data.timings_total_seconds.items():
+            if not isinstance(total_seconds, Real):
+                continue
             samples = self.data.timings_samples.get(name, 0)
             avg_timings_ms[name] = (
                 round((total_seconds * 1000.0 / samples), 3) if samples else 0.0
@@ -78,12 +89,21 @@ class TelemetryTracker:
             "messages_processed": self.data.messages_processed_total,
             "errors": self.data.errors_total,
             "flood_wait_seconds": round(self.data.flood_wait_seconds_total, 3),
-            "counters": dict(sorted(self.data.counters.items())),
+            "counters": {
+                name: value
+                for name, value in sorted(self.data.counters.items())
+                if isinstance(value, Real)
+            },
             "timings_seconds": {
                 name: round(total, 6)
                 for name, total in sorted(self.data.timings_total_seconds.items())
+                if isinstance(total, Real)
             },
-            "timing_samples": dict(sorted(self.data.timings_samples.items())),
+            "timing_samples": {
+                name: count
+                for name, count in sorted(self.data.timings_samples.items())
+                if isinstance(count, Real)
+            },
             "timing_avg_ms": dict(sorted(avg_timings_ms.items())),
         }
 

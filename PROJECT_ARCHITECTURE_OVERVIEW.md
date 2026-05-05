@@ -1,11 +1,11 @@
 # TG_CLEANER / TG_MSG_MNGR: архитектурный обзор проекта
 
-Документ собран по текущему состоянию workspace на 2026-05-04.
+Документ собран по текущему состоянию workspace на 2026-05-05.
 
 Источник анализа:
 - фактический код в `tg_msg_manager/`, `scripts/`, `tests/`
 - текущие docs: `README.md`, `COMMANDS.md`, `ROADMAP.md`, `TODO.md`, `CHANGELOG.md`, `docs/ARCHITECTURE_RULES.md`, `docs/refactor/*`
-- локальная проверка тестов: `python3 -m unittest discover -s tests -q` -> `177 tests`, `OK`
+- локальная проверка тестов: `python3 -m unittest discover -s tests -q` -> `178 tests`, `OK`
 
 Важно:
 - документ описывает текущее рабочее дерево, а не только последнюю зафиксированную версию
@@ -29,24 +29,35 @@
 ## 2. Масштаб текущего codebase
 
 Приблизительные метрики по текущему состоянию:
-- `tg_msg_manager`: `83` Python-файла, около `14 171` строк
-- `tests`: `18` файлов, около `4 955` строк
-- `scripts`: `4` файла, около `578` строк
+- `tg_msg_manager`: `114` Python-файлов, около `17 300` строк
+- `tests`: `18` файлов, около `6 737` строк
+- `scripts`: `4` файла, около `869` строк
 
 Крупнейшие файлы:
-- `tg_msg_manager/services/exporter.py` -> `772` строк
-- `tg_msg_manager/services/context_engine.py` -> `721` строк
+- `tg_msg_manager/services/db_exporter.py` -> `921` строка
 - `tg_msg_manager/i18n.py` -> `564` строки
 - `tg_msg_manager/infrastructure/storage/interface.py` -> `505` строк
 - `tg_msg_manager/core/models/service_payloads.py` -> `501` строка
-- `tg_msg_manager/services/db_exporter.py` -> `450` строк
+- `tg_msg_manager/cli_menu.py` -> `479` строк
 
 Для Stage 0 hot-path сравнения отдельно важно:
-- `tg_msg_manager/cli.py` -> `248` строк
-- `tg_msg_manager/services/db_exporter.py` -> `450` строк
+- `tg_msg_manager/cli.py` -> `256` строк
+- `tg_msg_manager/services/exporter.py` -> `6` строк
+- `tg_msg_manager/services/export/service.py` -> `192` строки
+- `tg_msg_manager/services/context_engine.py` -> `6` строк
+- `tg_msg_manager/services/context/engine.py` -> `209` строк
+- `tg_msg_manager/services/db_exporter.py` -> `921` строка
 - `tg_msg_manager/infrastructure/storage/_sqlite_read_path.py` -> `17` строк
 
-Практический вывод: после Stage 0 CLI и SQLite read-side уже заметно ужаты, а основной оставшийся complexity pressure сместился в orchestration-heavy сервисы и write-path.
+После финального Stage 0 pass:
+- `tg_msg_manager/services/exporter.py` -> compatibility wrapper
+- `tg_msg_manager/services/export/service.py` -> sync orchestration implementation
+- `tg_msg_manager/services/context_engine.py` -> compatibility wrapper
+- `tg_msg_manager/services/context/engine.py` -> deep-context implementation
+- `tg_msg_manager/infrastructure/storage/write/` -> split write-side modules
+- `tg_msg_manager/infrastructure/storage/read/analytics/` -> reserved analytics boundary
+
+Практический вывод: после Stage 0 CLI, export/context wrappers и SQLite read-side уже заметно ужаты, а основной оставшийся complexity pressure сместился в `db_exporter.py`, `private_archive.py` и отдельные инфраструктурные контракты.
 
 ## 3. Технологии и стек
 
@@ -185,6 +196,7 @@ Telethon + SQLite + filesystem
 
 Файлы:
 - `tg_msg_manager/services/exporter.py`
+- `tg_msg_manager/services/export/`
 - `tg_msg_manager/services/context_engine.py`
 - `tg_msg_manager/services/context/`
 - `tg_msg_manager/services/db_exporter.py`
@@ -208,12 +220,14 @@ Telethon + SQLite + filesystem
 - `tg_msg_manager/infrastructure/storage/_sqlite_schema.py`
 - `tg_msg_manager/infrastructure/storage/_sqlite_write_path.py`
 - `tg_msg_manager/infrastructure/storage/_sqlite_read_path.py`
+- `tg_msg_manager/infrastructure/storage/write/`
 - `tg_msg_manager/infrastructure/storage/read/`
 - `tg_msg_manager/infrastructure/storage/_sqlite_sync_state.py`
 
 Ответственность:
 - схема БД
 - write path
+- split write-side modules
 - compatibility read-path aggregator + grouped read modules
 - sync state
 - миграции
@@ -838,14 +852,14 @@ Windows-путь:
 ### 23.1 Крупные hot-path файлы
 
 Главные зоны сложности:
-- `services/exporter.py`
-- `services/context_engine.py`
-- `infrastructure/storage/_sqlite_write_path.py`
+- `services/db_exporter.py`
 - `services/private_archive.py`
+- `infrastructure/storage/interface.py`
+- `core/models/service_payloads.py`
 
 При этом важно различать:
-- `services/db_exporter.py`, `cli.py` и `_sqlite_read_path.py` уже заметно уменьшены после Stage 0;
-- главные следующие кандидаты на дальнейшее дробление теперь лежат скорее в orchestration/write-path зоне.
+- `services/exporter.py`, `services/context_engine.py`, `_sqlite_write_path.py` и `_sqlite_sync_state.py` уже переведены в compatibility/facade режим;
+- главные следующие кандидаты на дальнейшее дробление теперь лежат скорее в `db_exporter` / archive / broader infrastructure surface.
 
 ### 23.2 SQLite write path остается центральным bottleneck
 

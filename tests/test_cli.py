@@ -539,6 +539,22 @@ class TestCLIParser(unittest.TestCase):
         self.assertFalse(retry.list)
         self.assertFalse(retry.cleanup)
 
+    def test_help_lists_stage0_commands_and_export_args(self):
+        parser = build_cli_parser()
+        root_help = parser.format_help()
+        export_help = parser._subparsers._group_actions[0].choices["export"].format_help()
+
+        self.assertIn("export", root_help)
+        self.assertIn("update", root_help)
+        self.assertIn("retry", root_help)
+        self.assertIn("report", root_help)
+        self.assertIn("--user-id", export_help)
+        self.assertIn("--chat-id", export_help)
+        self.assertIn("--depth", export_help)
+        self.assertIn("--context-window", export_help)
+        self.assertIn("--max-cluster", export_help)
+        self.assertIn("--json", export_help)
+
 
 if __name__ == "__main__":
     unittest.main()

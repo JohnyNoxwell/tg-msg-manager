@@ -1,10 +1,6 @@
 # Stage 0 Final Report
 
-Date: 2026-05-04
-
-Historical note:
-
-- this report captures the Stage 0 completion point on 2026-05-04 and should not be read as the current full-project status snapshot.
+Date: 2026-05-05
 
 ## Scope
 
@@ -47,45 +43,53 @@ No new product feature was added.
 - Stage 0 baseline/smoke/audit/storage docs were added;
 - architecture rules for future contributors were added.
 
-## What Was Already In Acceptable Stage 0 Shape And Was Preserved
+## Export And Context Hot Paths
 
-- `ExportService` already delegated scan/checkpoint/planning logic into `services/sync/`.
-- `DeepModeEngine` already delegated context traversal/fallback logic into `services/context/`.
-
-Those boundaries were preserved and documented rather than rewritten again.
+- `tg_msg_manager/services/exporter.py` is now a 6-line compatibility wrapper.
+- `tg_msg_manager/services/export/service.py` is a 192-line facade backed by:
+  - `planner.py`
+  - `target_resolver.py`
+  - `fetch_orchestrator.py`
+  - `checkpoint_manager.py`
+  - `chat_sync.py`
+  - `dialog_sync.py`
+  - `event_emitter.py`
+- `tg_msg_manager/services/context_engine.py` is now a 6-line compatibility wrapper.
+- `tg_msg_manager/services/context/engine.py` is a 209-line facade backed by:
+  - `reply_chain_resolver.py`
+  - `neighbor_window_resolver.py`
+  - `cluster_builder.py`
+  - `deduplicator.py`
+  - `scope_policy.py`
+  - `rounds.py`
+  - existing `fetchers.py` / `fallback.py`
 
 ## Hot-Path File Size Review
 
-Before Stage 0 work in this turn:
+Current post-Stage-0 snapshot:
 
-- `tg_msg_manager/cli.py` -> `835`
-- `tg_msg_manager/services/exporter.py` -> `772`
-- `tg_msg_manager/services/context_engine.py` -> `721`
-- `tg_msg_manager/services/db_exporter.py` -> `718`
-- `tg_msg_manager/infrastructure/storage/_sqlite_read_path.py` -> `676`
-
-After Stage 0 completion:
-
-- `tg_msg_manager/cli.py` -> `248`
-- `tg_msg_manager/services/exporter.py` -> `772`
-- `tg_msg_manager/services/context_engine.py` -> `721`
-- `tg_msg_manager/services/db_exporter.py` -> `450`
+- `tg_msg_manager/cli.py` -> `256`
+- `tg_msg_manager/services/exporter.py` -> `6`
+- `tg_msg_manager/services/export/service.py` -> `192`
+- `tg_msg_manager/services/context_engine.py` -> `6`
+- `tg_msg_manager/services/context/engine.py` -> `209`
+- `tg_msg_manager/services/db_exporter.py` -> `921`
 - `tg_msg_manager/infrastructure/storage/_sqlite_read_path.py` -> `17`
 
 Interpretation:
 
-- `cli.py`, `db_exporter.py`, and `_sqlite_read_path.py` were materially reduced.
-- `exporter.py` and `context_engine.py` remain large, but their detailed responsibilities were already split into focused submodules before this pass.
+- `exporter.py` and `context_engine.py` no longer act as hot-path monoliths.
+- export/context orchestration now sits behind dedicated namespace modules with explicit responsibility boundaries.
+- the main remaining large service file is `db_exporter.py`, which was outside the strict Stage 0 target list.
 
 ## Verification
 
-Final verification was run serially on 2026-05-04.
+Final verification was run serially on 2026-05-05.
 
 Results:
 
-- `python3 -m unittest discover -s tests -q` -> `Ran 148 tests`, `OK`
-- `make test` -> `OK`
-- `make verify` -> `OK`
+- `python3 -m unittest discover -s tests -q` -> `Ran 178 tests in 23.548s`, `OK`
+- `python3 -m unittest tests.test_services tests.test_sync_system tests.test_cli tests.test_storage_sqlite -q` -> `Ran 111 tests in 17.569s`, `OK`
 - `python3 -m unittest tests.test_fixture_e2e -q` -> `Ran 4 tests`, `OK`
 - CLI help smoke commands for top-level and Stage 0 subcommands exit successfully
 
@@ -101,7 +105,7 @@ Confirmed unchanged in Stage 0:
 
 ## Remaining Known Hotspots
 
-- `tg_msg_manager/services/exporter.py`
-- `tg_msg_manager/services/context_engine.py`
+- `tg_msg_manager/services/db_exporter.py`
+- `tg_msg_manager/services/private_archive.py`
 
-These remain orchestration-heavy files. Stage 0 completion is still valid because their subordinate sync/context logic already lives in dedicated modules and no new feature logic was added back into them during this pass.
+These are outside the completed Stage 0 export/context/write-path split and are the main candidates for any future architecture pass.
