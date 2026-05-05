@@ -99,6 +99,18 @@ Package-level re-export entrypoints are also compatibility surfaces:
 
 New code must not add business logic to these files.
 
+## Facade Growth Protection
+
+The following modules are orchestration facades:
+
+- `tg_msg_manager/services/export/service.py`
+- `tg_msg_manager/services/context/engine.py`
+- `tg_msg_manager/services/db_export/service.py`
+- `tg_msg_manager/services/private_archive/service.py`
+
+New business logic must not be added directly to these files.
+If a facade grows because of a new concern, extract a dedicated component first.
+
 ## 8. Telegram And Filesystem Boundaries
 
 - no raw Telegram calls outside adapters/fetch layers (`core/telegram/`, sync/context fetch helpers);
@@ -108,6 +120,7 @@ New code must not add business logic to these files.
 
 - DB export logic must not be added back to `tg_msg_manager/services/db_export/service.py`.
 - Private archive must reuse shared pipeline pieces where possible and stay out of the sync/export monoliths.
+- New business logic must not be added directly to `tg_msg_manager/services/export/service.py` or `tg_msg_manager/services/context/engine.py`.
 - Services should depend on narrow storage contracts from `tg_msg_manager/infrastructure/storage/contracts/`.
 - New services must not depend on the compatibility storage interface aggregator when a narrow contract exists.
 - New payload models belong in `tg_msg_manager/core/models/payloads/`, not `service_payloads.py`.

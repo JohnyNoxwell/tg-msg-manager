@@ -1,6 +1,26 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.20] - 2026-05-05
+
+### Changed (EN)
+- **Stage 2 Readiness / Hardening**: Updated the architecture overview to match the post-Stage-1 package structure, compatibility-wrapper status, storage-contract split, payload-module split, analytics boundary, and current verification state.
+- **Facade Protection**: Added explicit facade-growth guardrails to the architecture docs and PR checklist so orchestration modules stay orchestration-only.
+- **Live Smoke Hardening**: Expanded the manual smoke checklist with concrete `retry`, `clean --dry-run`, and delete-safety guidance.
+
+### Added (EN)
+- Added wrapper guard coverage in `tests/test_architecture_wrappers.py`.
+- Added `docs/refactor/STAGE_2_READINESS_BASELINE.md`, `docs/refactor/PRIVATE_ARCHIVE_IMPORT_RESOLUTION.md`, `docs/refactor/FACADE_SIZE_BASELINE.md`, and `docs/refactor/STAGE_2_READINESS_REPORT.md`.
+
+### Изменения (RU)
+- **Stage 2 Readiness / Hardening**: Архитектурный overview обновлён под post-Stage-1 структуру пакетов, статус compatibility wrappers, split storage contracts, split payload modules, analytics boundary и текущее verification-состояние.
+- **Защита фасадов**: В architecture docs и PR checklist добавлены явные guardrails против роста orchestration-модулей в сторону бизнес-логики.
+- **Усиление live smoke**: Manual smoke checklist расширен конкретными сценариями для `retry`, `clean --dry-run` и безопасного использования `delete`.
+
+### Добавлено (RU)
+- Добавлено wrapper guard-покрытие в `tests/test_architecture_wrappers.py`.
+- Добавлены `docs/refactor/STAGE_2_READINESS_BASELINE.md`, `docs/refactor/PRIVATE_ARCHIVE_IMPORT_RESOLUTION.md`, `docs/refactor/FACADE_SIZE_BASELINE.md` и `docs/refactor/STAGE_2_READINESS_REPORT.md`.
+
 ## [4.2.19] - 2026-05-05
 
 ### Changed (EN)

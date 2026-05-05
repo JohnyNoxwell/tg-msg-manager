@@ -6,6 +6,7 @@ Use real local values:
 
 - `TEST_USER_ID`: target Telegram user ID for export/archive checks
 - `TEST_CHAT_ID`: chat/dialog ID that contains known messages from `TEST_USER_ID`
+- `TEST_DELETE_USER_ID`: disposable local target ID used only for destructive delete validation in a copied test DB
 
 ## Preconditions
 
@@ -152,6 +153,7 @@ Command:
 
 ```bash
 python3 -m tg_msg_manager.cli retry --list
+python3 -m tg_msg_manager.cli retry --limit 1
 python3 -m tg_msg_manager.cli report
 ```
 
@@ -160,12 +162,81 @@ Expected:
 - commands exit `0`
 - report contains expected sections
 - retry listing renders without traceback
+- retry run either processes due tasks or reports a zero-work summary without traceback
 
 Failure:
 
 - non-zero exit code
 - missing retry/report sections
 - traceback in either command
+
+### 8. Clean dry-run
+
+Command:
+
+```bash
+python3 -m tg_msg_manager.cli clean --dry-run
+```
+
+Expected:
+
+- exit code `0`
+- command does not delete Telegram messages
+- summary is printed
+- dry-run warning/info is shown
+
+Failure:
+
+- non-zero exit code
+- destructive behavior during dry-run
+- traceback or missing summary
+
+### 9. Delete safety note
+
+Command:
+
+```bash
+python3 -m tg_msg_manager.cli delete --user-id "$TEST_DELETE_USER_ID"
+```
+
+Expected:
+
+- run only against a disposable copied database and disposable export/archive directories
+- local DB rows and local export/archive artifacts for the disposable user are removed
+- no Telegram-side deletion happens
+- rollback path is restoring the copied DB/files from backup
+
+Failure:
+
+- command is run against the primary working database
+- unrelated targets are removed
+- local filesystem cleanup diverges from the target user scope
+
+Notes:
+
+- `delete` has no dry-run/safe-mode flag in the current CLI.
+- Because of that, it is not part of routine live smoke on the primary workspace.
+- Use it only in an isolated copy of the workspace after making a backup.
+
+### 10. Report-only confirmation
+
+Command:
+
+```bash
+python3 -m tg_msg_manager.cli report
+```
+
+Expected:
+
+- exit code `0`
+- report renders database/target/retry/export sections
+- no Telegram access is required
+
+Failure:
+
+- non-zero exit code
+- traceback
+- missing expected report sections
 
 ## Result table
 

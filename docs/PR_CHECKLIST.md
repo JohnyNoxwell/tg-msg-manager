@@ -3,17 +3,24 @@
 - [ ] CLI behavior unchanged
 - [ ] Tests pass
 - [ ] Smoke scenario checked
+- [ ] Wrapper guard tests still pass
 - [ ] No raw SQL in service layer
+- [ ] No business logic added to compatibility wrappers
 - [ ] No new feature added to hot-path files
 - [ ] New module has single responsibility
 - [ ] No new logic added to DBExportService facade
 - [ ] No new logic added to PrivateArchiveService facade
+- [ ] No new business logic added to orchestration facades
 - [ ] No duplicate active service implementation introduced
 - [ ] Compatibility wrappers still point to the new implementation
 - [ ] Service depends on narrow storage contract
+- [ ] Storage contracts remain narrow
 - [ ] New payload models placed in domain payload module
+- [ ] New feature logic lives in a dedicated component
+- [ ] Facade size increase is justified or avoided
 - [ ] Analytics logic not added to export/context/db_export services
 - [ ] Context relation table decision respected
+- [ ] Export output regression checked if export touched
 - [ ] Live smoke checklist updated if Telegram behavior changed
 - [ ] Import smoke test passes
 - [ ] Architecture docs match actual code

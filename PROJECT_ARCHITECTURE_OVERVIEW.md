@@ -5,7 +5,7 @@
 Источник анализа:
 - фактический код в `tg_msg_manager/`, `scripts/`, `tests/`
 - текущие docs: `README.md`, `COMMANDS.md`, `ROADMAP.md`, `backlog/archive/TODO.md`, `CHANGELOG.md`, `docs/ARCHITECTURE_RULES.md`, `docs/refactor/*`
-- локальная проверка тестов: `make test` -> `Ran 193 tests`, `OK`
+- локальная проверка тестов: `make test` -> `Ran 201 tests`, `OK`
 
 Важно:
 - документ описывает текущее рабочее дерево, а не только последнюю зафиксированную версию
@@ -29,16 +29,17 @@
 ## 2. Масштаб текущего codebase
 
 Приблизительные метрики по текущему состоянию:
-- `tg_msg_manager`: `162` Python-файлов, около `18 275` строк
-- `tests`: `21` файлов, около `7 423` строк
+- `tg_msg_manager`: `162` Python-файлов, около `18 272` строк
+- `tests`: `22` файлов, около `7 502` строк
 - `scripts`: `4` файла, около `873` строк
 
 Крупнейшие файлы:
-- `tg_msg_manager/services/db_exporter.py` -> compatibility wrapper
+- `tg_msg_manager/infrastructure/storage/_sqlite_schema.py` -> `1161` строк
 - `tg_msg_manager/i18n.py` -> `564` строки
+- `tg_msg_manager/services/db_export/service.py` -> `533` строки
+- `tg_msg_manager/infrastructure/storage/records.py` -> `520` строк
 - `tg_msg_manager/infrastructure/storage/interface.py` -> compatibility aggregator
-- `tg_msg_manager/core/models/service_payloads.py` -> compatibility aggregator
-- `tg_msg_manager/cli_menu.py` -> `479` строк
+- `tg_msg_manager/services/context/resolvers.py` -> `448` строк
 
 Для Stage 0 hot-path сравнения отдельно важно:
 - `tg_msg_manager/cli.py` -> `256` строк
@@ -59,6 +60,29 @@
 
 Практический вывод: после Stage 1 `db_exporter.py`, `private_archive.py`, `service_payloads.py` и `storage/interface.py` сведены к compatibility-слою, а основная логика разнесена по пакетам `services/db_export/`, `services/private_archive/`, `core/models/payloads/` и `infrastructure/storage/contracts/`.
 Публичный import path для private archive теперь фактически обслуживается пакетом `services/private_archive/__init__.py`; одноимённый файл `services/private_archive.py` оставлен как shadow compatibility shim и не должен становиться местом для новой логики.
+
+## Current post-Stage-2 architecture status
+
+- DB export active implementation: `tg_msg_manager/services/db_export/service.py`
+- Private archive active implementation: `tg_msg_manager/services/private_archive/service.py`
+- Compatibility wrappers:
+  - `tg_msg_manager/services/exporter.py`
+  - `tg_msg_manager/services/context_engine.py`
+  - `tg_msg_manager/services/db_exporter.py`
+  - `tg_msg_manager/services/private_archive.py`
+  - `tg_msg_manager/core/models/service_payloads.py`
+  - `tg_msg_manager/infrastructure/storage/interface.py`
+- Storage contracts: active service-facing protocols live in `tg_msg_manager/infrastructure/storage/contracts/`
+- Payload modules: primary service payload models live in `tg_msg_manager/core/models/payloads/`
+- Analytics boundary: reserved as read-only under `services/analytics/` and `infrastructure/storage/read/analytics/`
+- Context relation decision: `message_context_links` is documented as legacy compatibility, while `reply_to_id`, `context_group_id`, and `message_target_links` remain first-class hot-path relations
+- Test status on `2026-05-05`:
+  - `make test` -> passed (`Ran 201 tests`)
+  - `make verify` -> passed
+  - `python3 -m compileall tg_msg_manager` -> passed
+  - `ruff check tg_msg_manager tests` -> passed
+  - `ruff format --check tg_msg_manager tests` -> passed
+  - import smoke -> passed
 
 ## 3. Технологии и стек
 
@@ -918,13 +942,19 @@ Windows-путь:
 
 Для внешнего аналитика это важно: operational docs стали заметно точнее, но сам обзор остаётся "снимком текущего дерева" и требует обновления после крупных refactor waves.
 
-### 23.6 Scheduler привязан к macOS
+### 23.6 Live smoke остаётся сознательно ручным и частично ограниченным
+
+- `clean` имеет безопасный `--dry-run` путь и подходит для routine smoke.
+- `delete` в текущем CLI не имеет dry-run/safe-mode и должен запускаться только на disposable copy локальной БД и файлов.
+- `report` и `db-export` остаются самыми безопасными post-sync smoke surfaces, потому что не требуют Telegram write-side поведения.
+
+### 23.7 Scheduler привязан к macOS
 
 `schedule` в текущем виде:
 - ориентирован на `launchd`
 - не является кроссплатформенным orchestration layer
 
-### 23.7 Single-account design
+### 23.8 Single-account design
 
 Система строится вокруг одной активной Telegram-сессии.
 
@@ -932,7 +962,7 @@ Windows-путь:
 - упоминается в roadmap
 - в текущем runtime не является встроенным first-class capability
 
-### 23.8 `clean` и `export-pm` функционально отдельны от общего sync-пайплайна
+### 23.9 `clean` и `export-pm` функционально отдельны от общего sync-пайплайна
 
 Они хорошо интегрированы в runtime и storage, но:
 - логика удаления живет отдельно
@@ -940,7 +970,7 @@ Windows-путь:
 
 Это нормально, но это не "единый универсальный pipeline".
 
-### 23.9 Типовая аккуратность выше, чем абсолютная типовая строгость
+### 23.10 Типовая аккуратность выше, чем абсолютная типовая строгость
 
 В проекте много typed DTO, protocol-контрактов и record-моделей.
 После recent refactor stages заметная часть старого type drift уже убрана:
