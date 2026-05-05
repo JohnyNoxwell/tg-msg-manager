@@ -1,6 +1,26 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.19] - 2026-05-05
+
+### Changed (EN)
+- **Stage 1 Consistency Pass**: Closed the remaining post-refactor drift by migrating stale internal imports to the new DB export package entrypoint and finishing narrow-contract usage in private archive state management.
+- **Private Archive Facade Tightening**: Extracted PM archive media download and message-stream processing into dedicated `media_downloader.py` and `stream_processor.py` components so `PrivateArchiveService` stays an orchestration facade.
+- **Entrypoint Verification**: Audited DB export and private archive entrypoints, verified compatibility imports, and documented the package-vs-file import resolution for `services/private_archive`.
+
+### Added (EN)
+- Added compatibility import regression coverage in `tests/test_compat_imports.py`.
+- Added `docs/refactor/STAGE_1_CONSISTENCY_BASELINE.md`, `docs/refactor/DB_EXPORT_ENTRYPOINT_AUDIT.md`, `docs/refactor/PRIVATE_ARCHIVE_ENTRYPOINT_AUDIT.md`, and `docs/refactor/STAGE_1_CONSISTENCY_REPORT.md`.
+
+### Изменения (RU)
+- **Stage 1 Consistency Pass**: Закрыт оставшийся post-refactor drift: stale internal imports переведены на новый package entrypoint DB export, а private archive state path доведён до narrow-contract схемы.
+- **Ужесточение private archive facade**: PM archive media download и message-stream processing вынесены в отдельные `media_downloader.py` и `stream_processor.py`, чтобы `PrivateArchiveService` оставался orchestration facade.
+- **Проверка entrypoint’ов**: Проведён аудит DB export и private archive entrypoint’ов, проверены compatibility imports и задокументировано package-vs-file import resolution для `services/private_archive`.
+
+### Добавлено (RU)
+- Добавлено regression-покрытие compatibility imports в `tests/test_compat_imports.py`.
+- Добавлены `docs/refactor/STAGE_1_CONSISTENCY_BASELINE.md`, `docs/refactor/DB_EXPORT_ENTRYPOINT_AUDIT.md`, `docs/refactor/PRIVATE_ARCHIVE_ENTRYPOINT_AUDIT.md` и `docs/refactor/STAGE_1_CONSISTENCY_REPORT.md`.
+
 ## [4.2.18] - 2026-05-05
 
 ### Changed (EN)

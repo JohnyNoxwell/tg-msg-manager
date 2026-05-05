@@ -41,7 +41,7 @@ from .i18n import _, use_lang
 from .infrastructure.storage.sqlite import SQLiteStorage
 from .services.alias_manager import AliasManager
 from .services.cleaner import CleanerService
-from .services.db_exporter import DBExportService
+from .services.db_export import DBExportService
 from .services.exporter import ExportService
 from .services.private_archive import PrivateArchiveService
 from .services.retry_worker import RetryWorker

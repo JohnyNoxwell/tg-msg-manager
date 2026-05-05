@@ -81,6 +81,24 @@ Allowed changes there:
 - dependency wiring;
 - compatibility-only bug fixes.
 
+## Compatibility Wrappers
+
+The following files are compatibility wrappers or aggregators only:
+
+- `tg_msg_manager/services/exporter.py`
+- `tg_msg_manager/services/context_engine.py`
+- `tg_msg_manager/services/db_exporter.py`
+- `tg_msg_manager/services/private_archive.py`
+- `tg_msg_manager/core/models/service_payloads.py`
+- `tg_msg_manager/infrastructure/storage/interface.py`
+
+Package-level re-export entrypoints are also compatibility surfaces:
+
+- `tg_msg_manager/services/db_export/__init__.py`
+- `tg_msg_manager/services/private_archive/__init__.py`
+
+New code must not add business logic to these files.
+
 ## 8. Telegram And Filesystem Boundaries
 
 - no raw Telegram calls outside adapters/fetch layers (`core/telegram/`, sync/context fetch helpers);
@@ -91,6 +109,7 @@ Allowed changes there:
 - DB export logic must not be added back to `tg_msg_manager/services/db_export/service.py`.
 - Private archive must reuse shared pipeline pieces where possible and stay out of the sync/export monoliths.
 - Services should depend on narrow storage contracts from `tg_msg_manager/infrastructure/storage/contracts/`.
+- New services must not depend on the compatibility storage interface aggregator when a narrow contract exists.
 - New payload models belong in `tg_msg_manager/core/models/payloads/`, not `service_payloads.py`.
 - Context relation tables must follow the documented decision in `docs/refactor/CONTEXT_RELATION_TABLES_DECISION.md`.
 

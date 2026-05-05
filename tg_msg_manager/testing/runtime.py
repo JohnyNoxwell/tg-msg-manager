@@ -4,7 +4,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from ..infrastructure.storage.sqlite import SQLiteStorage
-from ..services.db_exporter import DBExportService
+from ..services.db_export import DBExportService
 from ..services.exporter import ExportService
 from ..services.private_archive import PrivateArchiveService
 from ..services.reporting import ReportCollector

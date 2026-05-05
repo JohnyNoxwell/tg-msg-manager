@@ -5,7 +5,7 @@
 Источник анализа:
 - фактический код в `tg_msg_manager/`, `scripts/`, `tests/`
 - текущие docs: `README.md`, `COMMANDS.md`, `ROADMAP.md`, `backlog/archive/TODO.md`, `CHANGELOG.md`, `docs/ARCHITECTURE_RULES.md`, `docs/refactor/*`
-- локальная проверка тестов: `python3 -m unittest discover -s tests -q` -> `178 tests`, `OK`
+- локальная проверка тестов: `make test` -> `Ran 193 tests`, `OK`
 
 Важно:
 - документ описывает текущее рабочее дерево, а не только последнюю зафиксированную версию
@@ -29,9 +29,9 @@
 ## 2. Масштаб текущего codebase
 
 Приблизительные метрики по текущему состоянию:
-- `tg_msg_manager`: `114` Python-файлов, около `17 300` строк
-- `tests`: `18` файлов, около `6 737` строк
-- `scripts`: `4` файла, около `869` строк
+- `tg_msg_manager`: `162` Python-файлов, около `18 275` строк
+- `tests`: `21` файлов, около `7 423` строк
+- `scripts`: `4` файла, около `873` строк
 
 Крупнейшие файлы:
 - `tg_msg_manager/services/db_exporter.py` -> compatibility wrapper
@@ -58,6 +58,7 @@
 - `tg_msg_manager/infrastructure/storage/read/analytics/` -> reserved analytics boundary
 
 Практический вывод: после Stage 1 `db_exporter.py`, `private_archive.py`, `service_payloads.py` и `storage/interface.py` сведены к compatibility-слою, а основная логика разнесена по пакетам `services/db_export/`, `services/private_archive/`, `core/models/payloads/` и `infrastructure/storage/contracts/`.
+Публичный import path для private archive теперь фактически обслуживается пакетом `services/private_archive/__init__.py`; одноимённый файл `services/private_archive.py` оставлен как shadow compatibility shim и не должен становиться местом для новой логики.
 
 ## 3. Технологии и стек
 
@@ -215,6 +216,11 @@ Telethon + SQLite + filesystem
 - `tg_msg_manager/services/alias_manager.py`
 
 Это главный "бизнес-слой" проекта.
+
+После Stage 1 consistency pass здесь важно разделять статусы:
+- `services/db_export/service.py` и `services/private_archive/service.py` остаются orchestration facades
+- `services/db_exporter.py` и `services/private_archive.py` не являются active implementations
+- operational DB export и PM archive logic должна продолжать дробиться внутри соответствующих пакетов, а не возвращаться в старые entrypoint-файлы
 
 ### 5.6 Storage / infrastructure
 
@@ -865,6 +871,7 @@ Windows-путь:
 
 При этом важно различать:
 - `services/exporter.py`, `services/context_engine.py`, `services/db_exporter.py`, `services/private_archive.py`, `core/models/service_payloads.py` и `infrastructure/storage/interface.py` уже переведены в compatibility/facade режим;
+- package entrypoints `services/db_export/__init__.py` и `services/private_archive/__init__.py` являются реальными публичными re-export surface для новых service packages;
 - дальнейшее дробление теперь должно происходить внутри выделенных пакетов, а не через возврат логики в старые compatibility-файлы.
 
 ### 23.2 SQLite write path остается центральным bottleneck

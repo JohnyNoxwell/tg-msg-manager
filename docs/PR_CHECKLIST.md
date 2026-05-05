@@ -8,10 +8,15 @@
 - [ ] New module has single responsibility
 - [ ] No new logic added to DBExportService facade
 - [ ] No new logic added to PrivateArchiveService facade
+- [ ] No duplicate active service implementation introduced
+- [ ] Compatibility wrappers still point to the new implementation
 - [ ] Service depends on narrow storage contract
 - [ ] New payload models placed in domain payload module
 - [ ] Analytics logic not added to export/context/db_export services
 - [ ] Context relation table decision respected
 - [ ] Live smoke checklist updated if Telegram behavior changed
+- [ ] Import smoke test passes
+- [ ] Architecture docs match actual code
+- [ ] Stage report updated if the change is refactor-related
 - [ ] Docs updated if architecture changed
 - [ ] Legacy path marked if retained

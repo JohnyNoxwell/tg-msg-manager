@@ -44,6 +44,8 @@ Main outcomes:
 | `_prepare_archive_context`, folder naming | `services/private_archive/planner.py` | archive scope and output paths |
 | user/entity field extraction | `services/private_archive/source_resolver.py` | source descriptor building |
 | `_media_category`, media decisions | `services/private_archive/media_policy.py` | media policy |
+| `_download_media` | `services/private_archive/media_downloader.py` | isolated media download delegation |
+| `_archive_message`, `_archive_message_stream`, media progress flow | `services/private_archive/stream_processor.py` | message stream processing and progress emission |
 | `_ensure_archive_dirs`, `_format_pm_log` | `services/private_archive/archive_writer.py` | archive file writing |
 | `get_last_msg_id`, `register_target`, `update_last_sync_at` coordination | `services/private_archive/state_manager.py` | archive state/checkpoint flow |
 | `_emit_event`, start/progress/complete payloads | `services/private_archive/event_emitter.py` | archive events |

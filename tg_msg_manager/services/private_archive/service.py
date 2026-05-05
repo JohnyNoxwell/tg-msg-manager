@@ -1,25 +1,19 @@
 import asyncio
 import logging
-import os
 from typing import Any, Optional
 
-from ...core.models.message import MessageData
-from ...core.models.payloads.private_archive import (
-    PrivateArchiveMediaStats,
-    PrivateArchiveTransferStats,
-)
 from ...core.telegram.interface import TelegramClientInterface
-from ...core.telemetry import telemetry
 from ...infrastructure.storage.contracts.private_archive_storage import (
     PrivateArchiveStorage,
 )
-from ..file_writer import FileRotateWriter
 from .archive_writer import PrivateArchiveWriter
 from .event_emitter import PrivateArchiveEventEmitter
+from .media_downloader import PrivateArchiveMediaDownloader
 from .media_policy import PrivateArchiveMediaPolicy
 from .planner import PrivateArchivePlanner
 from .source_resolver import PrivateArchiveSourceResolver
 from .state_manager import PrivateArchiveStateManager
+from .stream_processor import PrivateArchiveStreamProcessor
 
 logger = logging.getLogger(__name__)
 
@@ -42,6 +36,8 @@ class PrivateArchiveService:
         archive_writer: Optional[PrivateArchiveWriter] = None,
         state_manager: Optional[PrivateArchiveStateManager] = None,
         event_emitter: Optional[PrivateArchiveEventEmitter] = None,
+        media_downloader: Optional[PrivateArchiveMediaDownloader] = None,
+        stream_processor: Optional[PrivateArchiveStreamProcessor] = None,
     ):
         self.client = client
         self.storage = storage
@@ -54,104 +50,19 @@ class PrivateArchiveService:
         self.archive_writer = archive_writer or PrivateArchiveWriter()
         self.state_manager = state_manager or PrivateArchiveStateManager(storage)
         self.event_emitter = event_emitter or PrivateArchiveEventEmitter(event_sink)
-
-    @staticmethod
-    def _initial_media_stats() -> PrivateArchiveMediaStats:
-        return PrivateArchiveMediaStats()
-
-    @staticmethod
-    def _initial_archive_stats() -> PrivateArchiveTransferStats:
-        return PrivateArchiveTransferStats()
-
-    async def _download_media(
-        self, message: MessageData, media_dir: str
-    ) -> Optional[str]:
-        if not self.media_policy.should_download(message):
-            return None
-        target_path = self.media_policy.target_path(
-            media_dir=media_dir, message=message
+        self.media_downloader = media_downloader or PrivateArchiveMediaDownloader(
+            client,
+            media_policy=self.media_policy,
+            download_semaphore=self.download_semaphore,
         )
-        async with self.download_semaphore:
-            return await self.client.download_media(message.media_ref, file=target_path)
-
-    async def _process_archive_media(
-        self,
-        message: MessageData,
-        *,
-        media_dir: str,
-        stats: PrivateArchiveMediaStats,
-        archive_stats: PrivateArchiveTransferStats,
-    ) -> None:
-        if not message.media_type:
-            return
-
-        self.media_policy.track_media_stats(stats, message.media_type)
-        telemetry.track_messages(1)
-        downloaded_path = await self._download_media(message, media_dir)
-        if downloaded_path:
-            archive_stats.downloaded += 1
-            self.event_emitter.emit_media_saved(
-                filename=os.path.basename(downloaded_path),
-                path=downloaded_path,
-            )
-        else:
-            archive_stats.skipped += 1
-
-    async def _archive_message(
-        self,
-        message: MessageData,
-        *,
-        user_id: int,
-        media_dir: str,
-        writer: FileRotateWriter,
-        stats: PrivateArchiveMediaStats,
-        archive_stats: PrivateArchiveTransferStats,
-    ) -> None:
-        await self.storage.save_message(message, target_id=user_id)
-        await self._process_archive_media(
-            message,
-            media_dir=media_dir,
-            stats=stats,
-            archive_stats=archive_stats,
+        self.stream_processor = stream_processor or PrivateArchiveStreamProcessor(
+            client=client,
+            storage=storage,
+            archive_writer=self.archive_writer,
+            event_emitter=self.event_emitter,
+            media_policy=self.media_policy,
+            media_downloader=self.media_downloader,
         )
-        await self.archive_writer.append_message(writer, message)
-
-    async def _archive_message_stream(
-        self,
-        user_entity: Any,
-        *,
-        user_id: int,
-        last_id: int,
-        media_dir: str,
-        writer: FileRotateWriter,
-    ) -> tuple[int, PrivateArchiveMediaStats, PrivateArchiveTransferStats]:
-        count = 0
-        stats = self._initial_media_stats()
-        archive_stats = self._initial_archive_stats()
-
-        async for message in self.client.iter_messages(
-            user_entity, limit=None, offset_id=0
-        ):
-            if message.message_id <= last_id:
-                break
-
-            await self._archive_message(
-                message,
-                user_id=user_id,
-                media_dir=media_dir,
-                writer=writer,
-                stats=stats,
-                archive_stats=archive_stats,
-            )
-            count += 1
-            if count % 5 == 0:
-                self.event_emitter.emit_progress(
-                    count=count,
-                    stats=stats,
-                    archive_stats=archive_stats,
-                )
-
-        return count, stats, archive_stats
 
     async def archive_pm(self, user_entity: Any):
         descriptor = self.source_resolver.resolve(user_entity)
@@ -173,7 +84,7 @@ class PrivateArchiveService:
         logger.info(
             "PM Archive start for %s. Last ID: %s", archive_context.user_id, last_id
         )
-        count, stats, archive_stats = await self._archive_message_stream(
+        count, stats, archive_stats = await self.stream_processor.process_stream(
             user_entity,
             user_id=archive_context.user_id,
             last_id=last_id,

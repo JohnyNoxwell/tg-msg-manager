@@ -1,4 +1,6 @@
-from ...infrastructure.storage.interface import PrivateArchiveStorage
+from ...infrastructure.storage.contracts.private_archive_storage import (
+    PrivateArchiveStorage,
+)
 
 
 class PrivateArchiveStateManager:
