@@ -1,6 +1,8 @@
 import sys
 import os
 import unittest
+from contextlib import redirect_stdout
+from io import StringIO
 from argparse import Namespace
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -14,10 +16,12 @@ from tg_msg_manager.cli import (
     get_dirty_target_ids,
     run_cli,
 )
+from tg_msg_manager.cli_io import print_update_summary
 from tg_msg_manager.core.models.sync_report import TrackedSyncRunReport
 from tg_msg_manager.core.config import Settings
 from tg_msg_manager.core.runtime import AppPaths, AppRuntime
 from tg_msg_manager.core.models.setup import SchedulerSetupResult
+from tg_msg_manager.i18n import _
 from tg_msg_manager.i18n import get_lang
 
 
@@ -118,6 +122,40 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
 
             await ctx.shutdown()
             mock_client.disconnect.assert_awaited_once()
+
+    def test_print_update_summary_renders_per_user_breakdown(self):
+        stats = TrackedSyncRunReport.coerce(
+            {
+                2: {
+                    "name": "Tracked User",
+                    "count": 3,
+                    "dirty": True,
+                    "own_messages": 2,
+                    "with_context": 5,
+                },
+                3: {
+                    "name": "Unchanged User",
+                    "count": 0,
+                    "dirty": False,
+                    "own_messages": 10,
+                    "with_context": 14,
+                },
+            }
+        )
+
+        output = StringIO()
+        with (
+            patch.object(sys.stdout, "isatty", return_value=False),
+            redirect_stdout(output),
+        ):
+            print_update_summary(stats, title="Update")
+
+        rendered = output.getvalue()
+        self.assertIn("Tracked User - 2", rendered)
+        self.assertIn("5", rendered)
+        self.assertIn(_("label_without_context"), rendered)
+        self.assertIn(_("label_with_context"), rendered)
+        self.assertNotIn("Unchanged User", rendered)
 
     def test_get_dirty_target_ids_filters_unchanged_users(self):
         stats = TrackedSyncRunReport.coerce(

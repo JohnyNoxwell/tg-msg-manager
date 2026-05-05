@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.21] - 2026-05-05
+
+### Changed (EN)
+- **Update Summary Output**: Changed the `update` CLI summary from one aggregate `processed/targets` block to per-user lines that show the target name plus message totals without context and with context.
+
+### Added (EN)
+- Added regression coverage for tracked-update summary rendering and per-user tracked-sync breakdown aggregation.
+
+### Изменения (RU)
+- **Вывод summary для update**: Итог `update` переведён с одного агрегатного блока `processed/targets` на построчный вывод по пользователям: имя цели, число сообщений без контекста и число сообщений с контекстом.
+
+### Добавлено (RU)
+- Добавлено regression-покрытие для рендера tracked-update summary и агрегации per-user breakdown в tracked sync.
+
 ## [4.2.20] - 2026-05-05
 
 ### Changed (EN)

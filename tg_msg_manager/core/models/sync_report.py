@@ -7,6 +7,8 @@ class TrackedSyncUserStat:
     name: str
     count: int = 0
     dirty: bool = False
+    own_messages: int = 0
+    with_context: int = 0
 
     @classmethod
     def coerce(cls, value: Any) -> "TrackedSyncUserStat":
@@ -17,6 +19,8 @@ class TrackedSyncUserStat:
                 name=str(value.get("name") or ""),
                 count=int(value.get("count", 0) or 0),
                 dirty=bool(value.get("dirty", False)),
+                own_messages=int(value.get("own_messages", 0) or 0),
+                with_context=int(value.get("with_context", 0) or 0),
             )
         raise TypeError(f"Unsupported tracked sync stat payload: {type(value)!r}")
 

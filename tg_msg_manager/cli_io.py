@@ -335,18 +335,22 @@ def print_update_summary(stats: Any, *, title: str) -> None:
     except TypeError:
         report = TrackedSyncRunReport()
 
-    UI.print_final_summary(
-        "sync_summary_title",
-        [
-            {
-                "title": title,
-                "lines": [
-                    ("processed", report.total_processed),
-                    ("targets", len(report)),
-                ],
-            }
-        ],
-    )
+    changed_stats = [stat for stat in report.values() if stat.dirty or stat.count > 0]
+
+    print(f"\n{UI.section(_('sync_summary_title'), icon='◆')}")
+    if not changed_stats:
+        print(
+            f" {UI.paint(title, UI.CLR_TEXT, bold=True)} - {UI.muted(_('update_complete', total=0))}"
+        )
+        return
+
+    for stat in changed_stats:
+        display_name = UI.paint(stat.name, UI.CLR_USER, bold=True)
+        own_messages = UI.paint(stat.own_messages, UI.CLR_STATS, bold=True)
+        with_context = UI.paint(stat.with_context, UI.CLR_STATS, bold=True)
+        print(
+            f" {display_name} - {own_messages} {_('label_without_context')}, {with_context} {_('label_with_context')}"
+        )
 
 
 def pause_for_enter() -> None:

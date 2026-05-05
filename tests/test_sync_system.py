@@ -116,13 +116,31 @@ class TestSyncSystem(unittest.IsolatedAsyncioTestCase):
         )
         self.storage.get_sync_status = MagicMock(
             side_effect=[
-                {"author_name": "Whole Chat"},
-                {"author_name": "Tracked User"},
+                {"author_name": "Whole Chat", "last_msg_id": 0, "is_complete": 0},
+                {"author_name": "Tracked User", "last_msg_id": 0, "is_complete": 0},
             ]
         )
         self.storage.get_user = MagicMock(return_value=None)
         self.mock_client.get_entity = AsyncMock(
             side_effect=[MagicMock(id=200), MagicMock(id=300)]
+        )
+        self.storage.get_primary_targets = MagicMock(
+            return_value=[
+                {
+                    "chat_id": 200,
+                    "user_id": 200,
+                    "author_name": "Whole Chat",
+                    "user_msg_count": 0,
+                    "context_msg_count": 0,
+                },
+                {
+                    "chat_id": 300,
+                    "user_id": 999,
+                    "author_name": "Tracked User",
+                    "user_msg_count": 2,
+                    "context_msg_count": 3,
+                },
+            ]
         )
 
         service = ExportService(self.mock_client, self.storage)
@@ -135,6 +153,8 @@ class TestSyncSystem(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(stats[200]["count"], 0)
         self.assertTrue(stats[999]["dirty"])
         self.assertEqual(stats[999]["count"], 4)
+        self.assertEqual(stats[999]["own_messages"], 2)
+        self.assertEqual(stats[999]["with_context"], 5)
 
     async def test_sync_all_tracked_reuses_chat_entity_for_same_chat(self):
         shared_entity = MagicMock(id=200)

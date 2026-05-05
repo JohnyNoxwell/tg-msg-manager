@@ -3,7 +3,8 @@ from time import perf_counter
 from typing import Any, Awaitable, Callable, Optional
 
 from ...core.models.payloads.export import ExportTrackedUpdateStartedPayload
-from ...core.models.sync_report import TrackedSyncRunReport
+from ...core.models.sync_report import TrackedSyncRunReport, TrackedSyncUserStat
+from ...infrastructure.storage.records import PrimaryTarget
 from ...core.service_events import ExportEvents
 from ...core.telemetry import telemetry
 from .tracked_targets import TrackedSyncPlanner
@@ -30,6 +31,27 @@ class TrackedSyncRunner:
         self.ensure_user_stats_entry = ensure_user_stats_entry
         self.prefetch_chat_head_messages = prefetch_chat_head_messages
         self.enqueue_retry_task = enqueue_retry_task
+
+    def _apply_user_message_breakdowns(
+        self,
+        *,
+        user_stats: TrackedSyncRunReport,
+    ) -> None:
+        dirty_user_ids = set(user_stats.dirty_user_ids())
+        if not dirty_user_ids:
+            return
+
+        for raw_target in self.storage.get_primary_targets():
+            target = PrimaryTarget.coerce(raw_target)
+            stat = user_stats.get(target.user_id)
+            if stat is None or target.user_id not in dirty_user_ids:
+                continue
+            if stat.own_messages or stat.with_context:
+                continue
+
+            own_messages = int(target.user_msg_count)
+            stat.own_messages = own_messages
+            stat.with_context = own_messages + int(target.context_msg_count)
 
     async def run(self, items: list[Any]) -> TrackedSyncRunReport:
         user_stats = TrackedSyncRunReport()
@@ -126,11 +148,14 @@ class TrackedSyncRunner:
                 from_user_id=plan.from_user_id,
                 target_status=plan.target_status,
             )
-            user_stats[plan.from_user_id].count += processed
+            stat = TrackedSyncUserStat.coerce(user_stats[plan.from_user_id])
+            stat.count += processed
             if processed > 0:
-                user_stats[plan.from_user_id].dirty = True
+                stat.dirty = True
                 telemetry.track_counter("sync.tracked_items.changed", 1)
+            user_stats[plan.from_user_id] = stat
 
         telemetry.track_duration("sync.all_tracked.total", perf_counter() - started_at)
+        self._apply_user_message_breakdowns(user_stats=user_stats)
         telemetry.log_summary("Tracked sync telemetry summary")
         return user_stats

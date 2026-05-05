@@ -170,7 +170,28 @@ Failure:
 - missing retry/report sections
 - traceback in either command
 
-### 8. Clean dry-run
+### 8. Update summary
+
+Command:
+
+```bash
+python3 -m tg_msg_manager.cli update
+```
+
+Expected:
+
+- exit code `0`
+- command prints per-user summary lines for changed targets
+- each changed line uses the current format: `<target name> - <own count> without context, <linked count> with context`
+- unchanged targets are not printed in the final update summary block
+
+Failure:
+
+- non-zero exit code
+- summary falls back to the old aggregate `processed/targets` block
+- traceback during tracked update finalization
+
+### 9. Clean dry-run
 
 Command:
 
@@ -191,7 +212,7 @@ Failure:
 - destructive behavior during dry-run
 - traceback or missing summary
 
-### 9. Delete safety note
+### 10. Delete safety note
 
 Command:
 
@@ -218,7 +239,7 @@ Notes:
 - Because of that, it is not part of routine live smoke on the primary workspace.
 - Use it only in an isolated copy of the workspace after making a backup.
 
-### 10. Report-only confirmation
+### 11. Report-only confirmation
 
 Command:
 

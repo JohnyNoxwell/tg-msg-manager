@@ -5,7 +5,7 @@
 Источник анализа:
 - фактический код в `tg_msg_manager/`, `scripts/`, `tests/`
 - текущие docs: `README.md`, `COMMANDS.md`, `ROADMAP.md`, `backlog/archive/TODO.md`, `CHANGELOG.md`, `docs/ARCHITECTURE_RULES.md`, `docs/refactor/*`
-- локальная проверка тестов: `make test` -> `Ran 201 tests`, `OK`
+- локальная проверка тестов: `make test` -> `Ran 202 tests`, `OK`
 
 Важно:
 - документ описывает текущее рабочее дерево, а не только последнюю зафиксированную версию
@@ -29,8 +29,8 @@
 ## 2. Масштаб текущего codebase
 
 Приблизительные метрики по текущему состоянию:
-- `tg_msg_manager`: `162` Python-файлов, около `18 272` строк
-- `tests`: `22` файлов, около `7 502` строк
+- `tg_msg_manager`: `162` Python-файлов, около `18 307` строк
+- `tests`: `22` файлов, около `7 560` строк
 - `scripts`: `4` файла, около `873` строк
 
 Крупнейшие файлы:
@@ -77,7 +77,7 @@
 - Analytics boundary: reserved as read-only under `services/analytics/` and `infrastructure/storage/read/analytics/`
 - Context relation decision: `message_context_links` is documented as legacy compatibility, while `reply_to_id`, `context_group_id`, and `message_target_links` remain first-class hot-path relations
 - Test status on `2026-05-05`:
-  - `make test` -> passed (`Ran 201 tests`)
+  - `make test` -> passed (`Ran 202 tests`)
   - `make verify` -> passed
   - `python3 -m compileall tg_msg_manager` -> passed
   - `ruff check tg_msg_manager tests` -> passed
@@ -113,7 +113,7 @@
 
 Ключевой функционал:
 - `export` -> синк сообщений пользователя из одного чата или из всех релевантных чатов
-- `update` -> обновление всех зарегистрированных целей
+- `update` -> обновление всех зарегистрированных целей с per-user итогом вида `имя - без контекста X, с контекстом Y`
 - `db-export` -> выгрузка накопленной локальной истории в TXT/JSONL
 - `export-pm` -> архив личной переписки с медиа-папками
 - `retry` -> повтор recoverable sync/archive задач из локальной retry queue
