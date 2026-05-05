@@ -4,7 +4,7 @@
 
 Источник анализа:
 - фактический код в `tg_msg_manager/`, `scripts/`, `tests/`
-- текущие docs: `README.md`, `COMMANDS.md`, `ROADMAP.md`, `TODO.md`, `CHANGELOG.md`, `docs/ARCHITECTURE_RULES.md`, `docs/refactor/*`
+- текущие docs: `README.md`, `COMMANDS.md`, `ROADMAP.md`, `backlog/archive/TODO.md`, `CHANGELOG.md`, `docs/ARCHITECTURE_RULES.md`, `docs/refactor/*`
 - локальная проверка тестов: `python3 -m unittest discover -s tests -q` -> `178 tests`, `OK`
 
 Важно:
@@ -976,7 +976,7 @@ Windows-путь:
 22. `tests/test_storage_sqlite.py`
 23. `docs/refactor/STAGE_0_FINAL_REPORT.md`
 24. `CHANGELOG.md`
-25. `TODO.md`
+25. `backlog/archive/TODO.md`
 
 Такой порядок даст:
 - сначала картину продукта

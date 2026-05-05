@@ -1,5 +1,11 @@
 # TG_CLEANER TODO
 
+Archived note:
+
+- moved from the repository root to `backlog/archive/TODO.md` on `2026-05-05`;
+- kept for historical planning context only;
+- not treated as an active execution backlog.
+
 ## Operating Notes
 
 - Live Telegram session from the project root may be used for validation.
