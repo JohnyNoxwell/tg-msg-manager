@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from typing import Any, Optional
 
-from ...core.models.service_payloads import ExportSyncStartedPayload
+from ...core.models.payloads.export import ExportSyncStartedPayload
 from ...infrastructure.storage.records import SyncStatus
 
 

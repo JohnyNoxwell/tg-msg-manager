@@ -2,7 +2,7 @@ import logging
 from time import perf_counter
 from typing import Any, Awaitable, Callable, Optional
 
-from ...core.models.service_payloads import ExportTrackedUpdateStartedPayload
+from ...core.models.payloads.export import ExportTrackedUpdateStartedPayload
 from ...core.models.sync_report import TrackedSyncRunReport
 from ...core.service_events import ExportEvents
 from ...core.telemetry import telemetry

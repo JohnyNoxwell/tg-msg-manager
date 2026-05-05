@@ -32,9 +32,7 @@ class SQLiteSyncStateMixin:
         )
 
     def update_last_msg_id(self, chat_id: int, user_id: int, last_msg_id: int):
-        return checkpoint_writer.update_last_msg_id(
-            self, chat_id, user_id, last_msg_id
-        )
+        return checkpoint_writer.update_last_msg_id(self, chat_id, user_id, last_msg_id)
 
     def update_last_sync_at(self, chat_id: int, user_id: int):
         return checkpoint_writer.update_last_sync_at(self, chat_id, user_id)

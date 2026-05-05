@@ -1,12 +1,12 @@
 import os
 import logging
 from typing import List, Set, Any, Optional, Tuple, Sequence
-from ..core.models.service_payloads import (
+from ..core.models.payloads.cleaner import (
     CleanerDialogMessagesFoundPayload,
     CleanerDialogScanStartedPayload,
 )
 from ..core.telegram.interface import TelegramClientInterface
-from ..infrastructure.storage.interface import CleanerStorage
+from ..infrastructure.storage.contracts.cleaner_storage import CleanerStorage
 from ..infrastructure.storage.records import DeleteUserDataResult
 from ..core.service_events import (
     CleanerEvents,

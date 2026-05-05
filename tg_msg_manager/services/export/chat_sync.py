@@ -2,7 +2,7 @@ import logging
 from time import perf_counter
 from typing import Any, Optional
 
-from ...core.models.service_payloads import (
+from ...core.models.payloads.export import (
     ExportSyncFinishedPayload,
     ExportSyncSummaryPayload,
 )

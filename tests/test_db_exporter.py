@@ -498,7 +498,9 @@ class TestDBExporter(unittest.TestCase):
             "last_name": "User",
             "username": "stable",
         }
-        self.service._write_export_payloads = AsyncMock(side_effect=RuntimeError("disk full"))
+        self.service._write_export_payloads = AsyncMock(
+            side_effect=RuntimeError("disk full")
+        )
 
         with self.assertRaisesRegex(RuntimeError, "disk full"):
             asyncio.run(

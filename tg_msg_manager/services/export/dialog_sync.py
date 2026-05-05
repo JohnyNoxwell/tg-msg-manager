@@ -3,7 +3,7 @@ import logging
 from time import perf_counter
 from typing import Any, Optional, Set
 
-from ...core.models.service_payloads import (
+from ...core.models.payloads.export import (
     ExportDialogScanStartedPayload,
     ExportDialogSearchScanningPayload,
     ExportDialogSearchStartedPayload,
@@ -56,9 +56,7 @@ class DialogSyncCoordinator:
             started_at = perf_counter()
             self.emit_event(
                 ExportEvents.DIALOG_SEARCH_STARTED,
-                **ExportDialogSearchStartedPayload(
-                    from_user_id=from_user_id
-                ).as_dict(),
+                **ExportDialogSearchStartedPayload(from_user_id=from_user_id).as_dict(),
             )
             targets = filter_group_dialog_entities(await self.client.get_dialogs())
 

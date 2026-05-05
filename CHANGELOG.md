@@ -1,6 +1,32 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.18] - 2026-05-05
+
+### Changed (EN)
+- **Stage 1 Refactor**: Split `DBExportService` into a thin facade plus dedicated source-loading, planning, skip-policy, state, payload-writing, rendering, and event modules under `tg_msg_manager/services/db_export/`.
+- **Private Archive Boundaries**: Split PM archive orchestration into a dedicated `tg_msg_manager/services/private_archive/` package with planner, source-resolver, media-policy, archive-writer, state-manager, and event-emitter components.
+- **Narrow Storage Contracts**: Moved service-facing storage protocols into `tg_msg_manager/infrastructure/storage/contracts/` and kept `interface.py` as a compatibility aggregator.
+- **Payload Domain Split**: Moved service/event payload models into `tg_msg_manager/core/models/payloads/` and kept `service_payloads.py` as a compatibility aggregator.
+- **Architecture Guardrails**: Formalized the analytics boundary, documented the context relation table decision, and added a live/manual Telegram smoke checklist.
+
+### Added (EN)
+- Added `docs/refactor/STAGE_1_BASELINE.md`, service split maps, storage/payload split maps, and the context-relation decision document.
+- Added `docs/testing/LIVE_SMOKE_CHECKLIST.md`.
+- Added analytics placeholder packages under `tg_msg_manager/services/analytics/` and `tg_msg_manager/infrastructure/storage/read/analytics/`.
+
+### Изменения (RU)
+- **Stage 1 Refactor**: `DBExportService` разделён на thin facade и выделенные модули source loading, planning, skip policy, state, payload writing, rendering и events в `tg_msg_manager/services/db_export/`.
+- **Границы private archive**: Оркестрация PM archive вынесена в пакет `tg_msg_manager/services/private_archive/` с planner, source resolver, media policy, archive writer, state manager и event emitter.
+- **Узкие storage contracts**: Сервисные storage protocols перенесены в `tg_msg_manager/infrastructure/storage/contracts/`, а `interface.py` оставлен compatibility aggregator.
+- **Payload split по доменам**: Service/event payload models перенесены в `tg_msg_manager/core/models/payloads/`, а `service_payloads.py` оставлен compatibility aggregator.
+- **Архитектурные guardrails**: Формализована analytics boundary, задокументировано решение по context relation tables и добавлен live/manual Telegram smoke checklist.
+
+### Добавлено (RU)
+- Добавлены `docs/refactor/STAGE_1_BASELINE.md`, split maps сервисов, storage/payload split maps и документ с решением по context relation tables.
+- Добавлен `docs/testing/LIVE_SMOKE_CHECKLIST.md`.
+- Добавлены analytics placeholder packages в `tg_msg_manager/services/analytics/` и `tg_msg_manager/infrastructure/storage/read/analytics/`.
+
 ## [4.2.17] - 2026-05-04
 
 ### Changed (EN)

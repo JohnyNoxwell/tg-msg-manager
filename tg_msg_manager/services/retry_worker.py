@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from typing import Any, Optional, Union
 
 from ..core.models.retry import RetryRunStats, RetryTaskStatus, RetryTaskType
-from ..infrastructure.storage.interface import RetryStorage
+from ..infrastructure.storage.contracts.retry_storage import RetryStorage
 from ..infrastructure.storage.records import RetryTaskRecord, SyncStatus
 
 logger = logging.getLogger(__name__)

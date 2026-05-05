@@ -35,7 +35,9 @@ def json_serial(storage, obj):
     return f"<<Unserializable: {type(obj)}>>"
 
 
-def save_batches_by_target(storage, items: list[tuple[MessageData, Optional[int]]]) -> int:
+def save_batches_by_target(
+    storage, items: list[tuple[MessageData, Optional[int]]]
+) -> int:
     try:
         saved_count = 0
         with storage._write_transaction() as conn:
@@ -173,7 +175,9 @@ def delete_user_data(storage, user_id: int):
     from ..records import DeleteUserDataResult
 
     with storage._write_transaction() as conn:
-        conn.execute("DELETE FROM message_target_links WHERE target_user_id = ?", (user_id,))
+        conn.execute(
+            "DELETE FROM message_target_links WHERE target_user_id = ?", (user_id,)
+        )
         res = conn.execute(
             """
             DELETE FROM messages

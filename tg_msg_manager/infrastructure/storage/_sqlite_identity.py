@@ -89,7 +89,11 @@ class SQLiteIdentityMixin:
         """,
             (user_id,),
         ).fetchone()
-        if latest and latest["author_name"] == normalized_author and latest["username"] == normalized_username:
+        if (
+            latest
+            and latest["author_name"] == normalized_author
+            and latest["username"] == normalized_username
+        ):
             return
 
         resolved_observed_at = int(observed_at or time.time())

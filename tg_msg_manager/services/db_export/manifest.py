@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Optional
 
 from ...core.models.message import MessageData
 
+
 def manifest_dir(output_dir: str) -> str:
     return os.path.join(output_dir, ".export_state")
 

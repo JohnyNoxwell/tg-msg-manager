@@ -2,7 +2,7 @@ import asyncio
 from dataclasses import dataclass
 from typing import Any, Callable, Optional
 
-from ...core.models.service_payloads import ExportSyncProgressPayload
+from ...core.models.payloads.export import ExportSyncProgressPayload
 
 
 @dataclass

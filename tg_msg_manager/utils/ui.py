@@ -111,8 +111,10 @@ class UI:
             name = f"{first} {last}".strip()
             if not name:
                 name = (
-                    getattr(entity, "current_author_name", "") or ""
-                ).strip() or getattr(entity, "username", "") or f"ID:{entity.id}"
+                    (getattr(entity, "current_author_name", "") or "").strip()
+                    or getattr(entity, "username", "")
+                    or f"ID:{entity.id}"
+                )
         elif hasattr(entity, "title"):
             name = getattr(entity, "title", f"ID:{entity.id}")
         elif isinstance(entity, dict):

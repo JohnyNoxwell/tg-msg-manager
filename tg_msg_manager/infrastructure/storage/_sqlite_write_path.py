@@ -2,12 +2,17 @@ import asyncio
 import json
 import logging
 import time
-from datetime import datetime
 from typing import List, Optional
 
 from ...core.models.message import MessageData, SCHEMA_VERSION
 from ...core.telemetry import telemetry
-from .write import checkpoint_writer, context_writer, message_writer, target_link_writer, user_writer
+from .write import (
+    checkpoint_writer,
+    context_writer,
+    message_writer,
+    target_link_writer,
+    user_writer,
+)
 
 logger = logging.getLogger(__name__)
 

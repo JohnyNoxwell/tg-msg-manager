@@ -1,10 +1,10 @@
 import asyncio
 import uuid
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
+from typing import Any, Dict, List, Optional, Set
 
 from ...core.models.message import MessageData
 from ...core.telegram.interface import TelegramClientInterface
-from ...infrastructure.storage.interface import ContextStorage
+from ...infrastructure.storage.contracts.context_storage import ContextStorage
 from .cluster_builder import ContextClusterBuilder
 from .deduplicator import ProcessedMessageDeduplicator
 from .fetchers import LiveContextResolver, StorageContextResolver
@@ -18,7 +18,6 @@ from .models import (
 from .neighbor_window_resolver import NeighborWindowResolver
 from .reply_chain_resolver import ReplyChainResolver
 from .rounds import DeepContextRoundRunner
-from .scope_policy import ContextScopePolicy
 from .fallback import TimeFallbackResolver
 
 

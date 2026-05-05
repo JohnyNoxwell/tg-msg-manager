@@ -266,7 +266,9 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(row["algorithm_version"], CONTEXT_ALGO_REPLY_CONTEXT_V1)
         self.assertGreater(row["created_at"], 0)
 
-    async def test_validate_context_link_type_helper_accepts_only_canonical_values(self):
+    async def test_validate_context_link_type_helper_accepts_only_canonical_values(
+        self,
+    ):
         self.assertTrue(validate_context_link_type(CONTEXT_LINK_REPLY_PARENT))
         self.assertTrue(validate_context_link_type("legacy"))
         self.assertFalse(validate_context_link_type("reply"))
@@ -366,7 +368,10 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         history = self.storage.get_user_identity_history(999)
 
         self.assertEqual(user.current_author_name, "Target User Renamed")
-        self.assertEqual([item.author_name for item in history], ["Target User", "Target User Renamed"])
+        self.assertEqual(
+            [item.author_name for item in history],
+            ["Target User", "Target User Renamed"],
+        )
 
     async def test_save_message_refreshes_target_current_author_name_and_history(self):
         self.storage.register_target(999, "Target User", 321)
@@ -414,7 +419,9 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(status.author_name, "Renamed User")
         self.assertEqual(targets[0].author_name, "Renamed User")
         self.assertTrue(all(isinstance(item, UserIdentityRecord) for item in history))
-        self.assertEqual([item.author_name for item in history], ["Target User", "Renamed User"])
+        self.assertEqual(
+            [item.author_name for item in history], ["Target User", "Renamed User"]
+        )
         self.assertEqual(history[-1].chat_id, 321)
         self.assertEqual(history[-1].source_message_id, 11)
 
@@ -565,7 +572,9 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         history = self.storage.get_user_identity_history(999)
 
         self.assertEqual(user.current_author_name, "New Name")
-        self.assertEqual([item.author_name for item in history], ["Old Name", "New Name"])
+        self.assertEqual(
+            [item.author_name for item in history], ["Old Name", "New Name"]
+        )
 
     async def test_upsert_and_get_export_target(self):
         self.storage.upsert_export_target(
@@ -765,7 +774,21 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
                 reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-            (321, 2, 999, "Child", 1700000010, "child", None, 1, None, None, "{}", "p2", 1),
+            (
+                321,
+                2,
+                999,
+                "Child",
+                1700000010,
+                "child",
+                None,
+                1,
+                None,
+                None,
+                "{}",
+                "p2",
+                1,
+            ),
         )
         conn.execute("PRAGMA user_version = 10")
         conn.commit()
@@ -907,7 +930,9 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertGreater(record.created_at, 0)
         self.assertGreater(record.updated_at, 0)
 
-    async def test_context_link_migration_backfills_chat_safe_rows_and_keeps_backup(self):
+    async def test_context_link_migration_backfills_chat_safe_rows_and_keeps_backup(
+        self,
+    ):
         await self.storage.close()
         for suffix in ("", "-wal", "-shm"):
             path = f"{self.db_path}{suffix}"
@@ -952,7 +977,21 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
                 reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-            (321, 1, 999, "Parent", 1700000000, "parent", None, None, None, None, "{}", "p1", 1),
+            (
+                321,
+                1,
+                999,
+                "Parent",
+                1700000000,
+                "parent",
+                None,
+                None,
+                None,
+                None,
+                "{}",
+                "p1",
+                1,
+            ),
         )
         conn.execute(
             """
@@ -961,7 +1000,21 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
                 reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-            (321, 2, 999, "Child", 1700000010, "child", None, 1, None, None, "{}", "p2", 1),
+            (
+                321,
+                2,
+                999,
+                "Child",
+                1700000010,
+                "child",
+                None,
+                1,
+                None,
+                None,
+                "{}",
+                "p2",
+                1,
+            ),
         )
         conn.execute(
             """
@@ -1047,7 +1100,21 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
                     reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-                (chat_id, 1, 999, "Parent", 1700000000, "parent", None, None, None, None, "{}", f"p1-{chat_id}", 1),
+                (
+                    chat_id,
+                    1,
+                    999,
+                    "Parent",
+                    1700000000,
+                    "parent",
+                    None,
+                    None,
+                    None,
+                    None,
+                    "{}",
+                    f"p1-{chat_id}",
+                    1,
+                ),
             )
             conn.execute(
                 """
@@ -1056,7 +1123,21 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
                     reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-                (chat_id, 2, 999, "Child", 1700000010, "child", None, 1, None, None, "{}", f"p2-{chat_id}", 1),
+                (
+                    chat_id,
+                    2,
+                    999,
+                    "Child",
+                    1700000010,
+                    "child",
+                    None,
+                    1,
+                    None,
+                    None,
+                    "{}",
+                    f"p2-{chat_id}",
+                    1,
+                ),
             )
         conn.execute(
             """
@@ -1121,7 +1202,21 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
                 reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-            (321, 1, 111, "Parent", 1700000000, "parent", None, None, None, None, "{}", "p1", 1),
+            (
+                321,
+                1,
+                111,
+                "Parent",
+                1700000000,
+                "parent",
+                None,
+                None,
+                None,
+                None,
+                "{}",
+                "p1",
+                1,
+            ),
         )
         conn.execute(
             """
@@ -1130,7 +1225,21 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
                 reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-            (321, 2, 222, "Child", 1700000010, "child", None, 1, None, None, "{}", "p2", 1),
+            (
+                321,
+                2,
+                222,
+                "Child",
+                1700000010,
+                "child",
+                None,
+                1,
+                None,
+                None,
+                "{}",
+                "p2",
+                1,
+            ),
         )
         conn.execute(
             """
@@ -1174,7 +1283,9 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertIsNotNone(index_row)
         self.assertEqual(version, 14)
 
-    async def test_context_link_migration_skips_dangling_legacy_rows_but_keeps_backup(self):
+    async def test_context_link_migration_skips_dangling_legacy_rows_but_keeps_backup(
+        self,
+    ):
         await self.storage.close()
         for suffix in ("", "-wal", "-shm"):
             path = f"{self.db_path}{suffix}"
@@ -1219,7 +1330,21 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
                 reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-            (321, 2, 222, "Child", 1700000010, "child", None, 1, None, None, "{}", "p2", 1),
+            (
+                321,
+                2,
+                222,
+                "Child",
+                1700000010,
+                "child",
+                None,
+                1,
+                None,
+                None,
+                "{}",
+                "p2",
+                1,
+            ),
         )
         conn.execute(
             """
@@ -1491,7 +1616,21 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
                 reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-            (777, 1, 1, "Target User", 1700000000, "mine", None, None, None, None, "{}", "h1", 1),
+            (
+                777,
+                1,
+                1,
+                "Target User",
+                1700000000,
+                "mine",
+                None,
+                None,
+                None,
+                None,
+                "{}",
+                "h1",
+                1,
+            ),
         )
         conn.execute(
             """
@@ -1529,7 +1668,9 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(backup_row["message_id"], 1)
         self.assertEqual(backup_row["target_user_id"], 1)
 
-    async def test_target_link_migration_recovers_missing_chat_id_when_unambiguous(self):
+    async def test_target_link_migration_recovers_missing_chat_id_when_unambiguous(
+        self,
+    ):
         await self.storage.close()
         for suffix in ("", "-wal", "-shm"):
             path = f"{self.db_path}{suffix}"
@@ -1573,7 +1714,21 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
                 reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
-            (777, 5, 1, "Target User", 1700000000, "mine", None, None, None, None, "{}", "h5", 1),
+            (
+                777,
+                5,
+                1,
+                "Target User",
+                1700000000,
+                "mine",
+                None,
+                None,
+                None,
+                None,
+                "{}",
+                "h5",
+                1,
+            ),
         )
         conn.execute(
             """
@@ -1646,7 +1801,21 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
                     reply_to_id, fwd_from_id, context_group_id, raw_payload, payload_hash, schema_version
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
-                (chat_id, 5, 1, "Target User", 1700000000, "mine", None, None, None, None, "{}", f"h5-{chat_id}", 1),
+                (
+                    chat_id,
+                    5,
+                    1,
+                    "Target User",
+                    1700000000,
+                    "mine",
+                    None,
+                    None,
+                    None,
+                    None,
+                    "{}",
+                    f"h5-{chat_id}",
+                    1,
+                ),
             )
         conn.execute(
             """
@@ -1662,7 +1831,9 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         with self.assertRaises(RuntimeError):
             self.storage = SQLiteStorage(self.db_path)
 
-    async def test_target_link_migration_skips_dangling_legacy_rows_but_keeps_backup(self):
+    async def test_target_link_migration_skips_dangling_legacy_rows_but_keeps_backup(
+        self,
+    ):
         await self.storage.close()
         for suffix in ("", "-wal", "-shm"):
             path = f"{self.db_path}{suffix}"
@@ -1773,9 +1944,51 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
             ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """,
             [
-                (777, 1, 42, "Target User", 1700000000, "own", None, None, None, None, "{}", "h1", 1),
-                (777, 2, 99, "Other User", 1700000001, "reply", None, 1, None, None, "{}", "h2", 1),
-                (777, 3, 99, "Other User", 1700000002, "plain", None, None, None, None, "{}", "h3", 1),
+                (
+                    777,
+                    1,
+                    42,
+                    "Target User",
+                    1700000000,
+                    "own",
+                    None,
+                    None,
+                    None,
+                    None,
+                    "{}",
+                    "h1",
+                    1,
+                ),
+                (
+                    777,
+                    2,
+                    99,
+                    "Other User",
+                    1700000001,
+                    "reply",
+                    None,
+                    1,
+                    None,
+                    None,
+                    "{}",
+                    "h2",
+                    1,
+                ),
+                (
+                    777,
+                    3,
+                    99,
+                    "Other User",
+                    1700000002,
+                    "plain",
+                    None,
+                    None,
+                    None,
+                    None,
+                    "{}",
+                    "h3",
+                    1,
+                ),
             ],
         )
         conn.executemany(

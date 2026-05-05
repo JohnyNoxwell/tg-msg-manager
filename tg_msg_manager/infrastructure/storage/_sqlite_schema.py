@@ -69,6 +69,8 @@ class SQLiteSchemaMixin:
                 type TEXT
             )
         """)
+        # Legacy compatibility relation table. Active hot paths currently rely on
+        # messages.reply_to_id, messages.context_group_id, and message_target_links.
         conn.execute("""
             CREATE TABLE IF NOT EXISTS message_context_links (
                 chat_id INTEGER NOT NULL,
@@ -478,26 +480,30 @@ class SQLiteSchemaMixin:
     def _context_links_has_chat_scope(self, conn: sqlite3.Connection) -> bool:
         columns = {
             row["name"]
-            for row in conn.execute("PRAGMA table_info(message_context_links)").fetchall()
+            for row in conn.execute(
+                "PRAGMA table_info(message_context_links)"
+            ).fetchall()
         }
         return "chat_id" in columns and "algorithm_version" in columns
 
     def _target_links_has_chat_scope(self, conn: sqlite3.Connection) -> bool:
         columns = {
             row["name"]
-            for row in conn.execute("PRAGMA table_info(message_target_links)").fetchall()
+            for row in conn.execute(
+                "PRAGMA table_info(message_target_links)"
+            ).fetchall()
         }
         return "chat_id" in columns
 
     def _target_links_has_metadata(self, conn: sqlite3.Connection) -> bool:
         columns = {
             row["name"]
-            for row in conn.execute("PRAGMA table_info(message_target_links)").fetchall()
+            for row in conn.execute(
+                "PRAGMA table_info(message_target_links)"
+            ).fetchall()
         }
         return (
-            "chat_id" in columns
-            and "link_type" in columns
-            and "created_at" in columns
+            "chat_id" in columns and "link_type" in columns and "created_at" in columns
         )
 
     def _migrate_message_context_links_to_chat_safe(self, conn: sqlite3.Connection):
@@ -718,11 +724,13 @@ class SQLiteSchemaMixin:
 
         columns = {
             row["name"]
-            for row in conn.execute("PRAGMA table_info(message_target_links)").fetchall()
+            for row in conn.execute(
+                "PRAGMA table_info(message_target_links)"
+            ).fetchall()
         }
         if "chat_id" in columns:
             ambiguous_rows = conn.execute(
-                f"""
+                """
                 SELECT
                     l.message_id,
                     l.target_user_id,
@@ -1094,10 +1102,13 @@ class SQLiteSchemaMixin:
         with self._write_transaction() as conn:
             columns = {
                 row["name"]
-                for row in conn.execute("PRAGMA table_info(message_target_links)").fetchall()
+                for row in conn.execute(
+                    "PRAGMA table_info(message_target_links)"
+                ).fetchall()
             }
             if "link_type" in columns and "created_at" in columns:
-                conn.execute("""
+                conn.execute(
+                    """
                     INSERT OR IGNORE INTO message_target_links (
                         chat_id,
                         message_id,
@@ -1107,8 +1118,11 @@ class SQLiteSchemaMixin:
                     )
                     SELECT chat_id, message_id, user_id, 'legacy', ? FROM messages
                     WHERE user_id IN (SELECT user_id FROM sync_targets)
-                """, (now,))
-                conn.execute("""
+                """,
+                    (now,),
+                )
+                conn.execute(
+                    """
                     INSERT OR IGNORE INTO message_target_links (
                         chat_id,
                         message_id,
@@ -1124,7 +1138,9 @@ class SQLiteSchemaMixin:
                         JOIN messages m1 ON l.chat_id = m1.chat_id AND l.message_id = m1.message_id
                         WHERE m1.context_group_id IS NOT NULL
                     ) t ON m.chat_id = t.chat_id AND m.context_group_id = t.context_group_id
-                """, (now,))
+                """,
+                    (now,),
+                )
             else:
                 conn.execute("""
                     INSERT OR IGNORE INTO message_target_links (chat_id, message_id, target_user_id)

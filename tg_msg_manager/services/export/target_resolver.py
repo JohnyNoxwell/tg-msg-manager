@@ -1,7 +1,7 @@
 from typing import Any, Optional
 
 from ...core.context import set_chat_id
-from ...core.models.service_payloads import ExportSyncStartedPayload
+from ...core.models.payloads.export import ExportSyncStartedPayload
 from ...core.models.sync_report import TrackedSyncRunReport, TrackedSyncUserStat
 from ...infrastructure.storage.records import SyncStatus
 from ...utils.ui import UI

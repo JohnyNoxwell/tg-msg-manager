@@ -54,9 +54,7 @@ class TelemetryTracker:
 
     def track_duration(self, name: str, seconds: float):
         if not isinstance(seconds, Real):
-            logger.debug(
-                "Ignoring non-numeric telemetry duration %s=%r", name, seconds
-            )
+            logger.debug("Ignoring non-numeric telemetry duration %s=%r", name, seconds)
             return
         self.data.timings_total_seconds[name] = (
             self.data.timings_total_seconds.get(name, 0.0) + seconds

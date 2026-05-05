@@ -123,7 +123,7 @@ class CLIContext:
                 self.settings.api_id,
                 self.settings.api_hash,
                 max_rps=self.settings.max_rps,
-                )
+            )
             await self.client.connect()
             sys.stdout.write("Telegram connection established.\n")
             sys.stdout.flush()

@@ -78,7 +78,11 @@ def upsert_export_target(
                 artifact_first_timestamp,
                 artifact_last_timestamp,
                 1 if artifact_as_json else 0 if artifact_as_json is not None else None,
-                1 if artifact_include_date else 0 if artifact_include_date is not None else None,
+                1
+                if artifact_include_date
+                else 0
+                if artifact_include_date is not None
+                else None,
                 str(artifact_json_profile) if artifact_json_profile else None,
                 storage._normalize_identity_text(last_known_author_name),
                 storage._normalize_identity_text(last_known_username),

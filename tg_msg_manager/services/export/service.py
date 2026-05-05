@@ -2,7 +2,7 @@ from typing import Any, List, Optional, Set
 
 from ...core.telegram.interface import TelegramClientInterface
 from ...core.service_events import ServiceEventSink
-from ...infrastructure.storage.interface import ExportStorage
+from ...infrastructure.storage.contracts.export_storage import ExportStorage
 from ...infrastructure.storage.records import PrimaryTarget, SyncStatus
 from ..context.engine import DeepModeEngine
 from ..retry_worker import enqueue_sync_target_retry_task

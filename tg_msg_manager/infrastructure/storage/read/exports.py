@@ -288,7 +288,9 @@ class SQLiteExportReadMixin(SQLiteReadCommonMixin):
                         yield UserExportRow.coerce(dict(row))
             finally:
                 telemetry.track_counter("storage.iter_user_export_rows_since.calls", 1)
-                telemetry.track_counter("storage.iter_user_export_rows_since.rows", yielded)
+                telemetry.track_counter(
+                    "storage.iter_user_export_rows_since.rows", yielded
+                )
                 telemetry.track_duration(
                     "storage.iter_user_export_rows_since.total",
                     perf_counter() - started_at,

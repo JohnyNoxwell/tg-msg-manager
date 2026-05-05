@@ -145,7 +145,9 @@ class DeepContextRoundRunner:
         max_cluster: int,
         on_progress: Optional[Any],
     ) -> int:
-        parents = await self.engine._fetch_parent_messages(entity, chat_id, anchors_by_cluster)
+        parents = await self.engine._fetch_parent_messages(
+            entity, chat_id, anchors_by_cluster
+        )
         parent_additions = self.engine.cluster_assembler.associate_parents(
             clusters=clusters,
             anchors_by_cluster=anchors_by_cluster,

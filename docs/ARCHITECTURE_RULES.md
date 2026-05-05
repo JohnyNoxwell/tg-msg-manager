@@ -40,7 +40,8 @@ CLI modules must not:
 ## 5. Export Logic Is Orchestration Only
 
 - `tg_msg_manager/services/export/service.py` orchestrates sync flow.
-- export artifact formatting/writing stays in `services/db_exporter.py` and `services/db_export/`.
+- `tg_msg_manager/services/db_export/service.py` is a facade only.
+- export artifact formatting/writing stays in dedicated `services/db_export/` components.
 - sync orchestration must not grow raw SQL branches.
 
 ## 6. Analytics Read Boundary
@@ -49,12 +50,25 @@ CLI modules must not:
 - analytics reads normalized local data only.
 - no new analytics feature should grow export/context hot-path services.
 
+## Analytics Boundary
+
+Future analytics must be implemented as read-only services over normalized storage projections.
+
+Forbidden:
+
+- adding analytics to `ExportService`
+- adding analytics to `DBExportService`
+- adding analytics to `ContextEngine`
+- adding analytics SQL to the service layer
+- adding Telegram fetches to analytics
+
 ## 7. No New Features In Hot-Path Compatibility Files
 
 Do not add new product logic directly into:
 
 - `tg_msg_manager/services/exporter.py`
 - `tg_msg_manager/services/context_engine.py`
+- `tg_msg_manager/services/db_exporter.py`
 - `tg_msg_manager/services/private_archive.py`
 - `tg_msg_manager/infrastructure/storage/_sqlite_write_path.py`
 - `tg_msg_manager/infrastructure/storage/_sqlite_sync_state.py`
@@ -72,16 +86,24 @@ Allowed changes there:
 - no raw Telegram calls outside adapters/fetch layers (`core/telegram/`, sync/context fetch helpers);
 - no direct filesystem writes outside writer/export modules.
 
-## 9. Message Identity Rule
+## 9. Service Boundaries
+
+- DB export logic must not be added back to `tg_msg_manager/services/db_export/service.py`.
+- Private archive must reuse shared pipeline pieces where possible and stay out of the sync/export monoliths.
+- Services should depend on narrow storage contracts from `tg_msg_manager/infrastructure/storage/contracts/`.
+- New payload models belong in `tg_msg_manager/core/models/payloads/`, not `service_payloads.py`.
+- Context relation tables must follow the documented decision in `docs/refactor/CONTEXT_RELATION_TABLES_DECISION.md`.
+
+## 10. Message Identity Rule
 
 - Telegram message identity is `(chat_id, message_id)`.
 - cross-table links must not rely on bare `message_id` when chat scope matters.
 
-## 10. Schema Rule
+## 11. Schema Rule
 
 - no schema change without an explicit migration note/documentation update.
 
-## 11. Test Rule
+## 12. Test Rule
 
 Every architecture change needs:
 

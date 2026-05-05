@@ -19,7 +19,9 @@ def enqueue_retry_task(
     status: str = RetryTaskStatus.PENDING.value,
 ):
     now = int(time.time())
-    next_retry = int(next_retry_timestamp) if next_retry_timestamp is not None else now + 300
+    next_retry = (
+        int(next_retry_timestamp) if next_retry_timestamp is not None else now + 300
+    )
     payload_json = json.dumps(payload or {}, sort_keys=True)
     resolved_target_user_id = chat_id if target_user_id is None else target_user_id
     with storage._write_transaction() as conn:
@@ -107,7 +109,9 @@ def mark_retry_task_rescheduled(
             else RetryTaskStatus.RETRYING.value
         )
         completed_at = now if next_status == RetryTaskStatus.FAILED.value else 0
-        next_retry = 0 if next_status == RetryTaskStatus.FAILED.value else next_retry_timestamp
+        next_retry = (
+            0 if next_status == RetryTaskStatus.FAILED.value else next_retry_timestamp
+        )
         conn.execute(
             """
             UPDATE retry_queue

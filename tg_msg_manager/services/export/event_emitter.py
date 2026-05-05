@@ -1,7 +1,7 @@
 from typing import Any, Optional
 
 from ...core.service_events import ExportEvents
-from ...core.models.service_payloads import ExportSyncProgressPayload
+from ...core.models.payloads.export import ExportSyncProgressPayload
 from ...core.service_events import ServiceEventSink, emit_service_event
 
 

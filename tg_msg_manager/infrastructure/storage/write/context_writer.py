@@ -11,6 +11,8 @@ def upsert_context_link_in_conn(
     message_id: int,
     reply_to_id: Optional[int],
 ):
+    # Legacy compatibility relation table: current hot-path context reconstruction
+    # relies on reply_to_id/context_group_id, not message_context_links reads.
     del storage
     if reply_to_id:
         conn.execute(

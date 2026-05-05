@@ -542,7 +542,9 @@ class TestCLIParser(unittest.TestCase):
     def test_help_lists_stage0_commands_and_export_args(self):
         parser = build_cli_parser()
         root_help = parser.format_help()
-        export_help = parser._subparsers._group_actions[0].choices["export"].format_help()
+        export_help = (
+            parser._subparsers._group_actions[0].choices["export"].format_help()
+        )
 
         self.assertIn("export", root_help)
         self.assertIn("update", root_help)
