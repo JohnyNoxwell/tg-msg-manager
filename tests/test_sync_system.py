@@ -137,9 +137,16 @@ class TestSyncSystem(unittest.IsolatedAsyncioTestCase):
                     "chat_id": 300,
                     "user_id": 999,
                     "author_name": "Tracked User",
-                    "user_msg_count": 2,
-                    "context_msg_count": 3,
+                    "user_msg_count": 2484,
+                    "context_msg_count": 7913,
                 },
+            ]
+        )
+        self.storage.get_target_message_breakdown = MagicMock(
+            side_effect=[
+                {"own_messages": 0, "with_context": 0},
+                {"own_messages": 120, "with_context": 340},
+                {"own_messages": 124, "with_context": 347},
             ]
         )
 
@@ -153,8 +160,8 @@ class TestSyncSystem(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(stats[200]["count"], 0)
         self.assertTrue(stats[999]["dirty"])
         self.assertEqual(stats[999]["count"], 4)
-        self.assertEqual(stats[999]["own_messages"], 2)
-        self.assertEqual(stats[999]["with_context"], 5)
+        self.assertEqual(stats[999]["own_messages"], 4)
+        self.assertEqual(stats[999]["with_context"], 7)
 
     async def test_sync_all_tracked_reuses_chat_entity_for_same_chat(self):
         shared_entity = MagicMock(id=200)

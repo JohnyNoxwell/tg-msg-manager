@@ -183,6 +183,7 @@ Expected:
 - exit code `0`
 - command prints per-user summary lines for changed targets
 - each changed line uses the current format: `<target name> - <own count> without context, <linked count> with context`
+- counts reflect messages newly synced in the current `update` run, not historical per-target totals from the local DB
 - unchanged targets are not printed in the final update summary block
 
 Failure:

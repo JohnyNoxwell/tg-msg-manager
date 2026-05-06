@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.22] - 2026-05-06
+
+### Fixed (EN)
+- **Update Summary Counters**: Fixed tracked `update` per-user summary lines so `without context` / `with context` show messages newly synced in the current run instead of cumulative historical totals already stored for that target.
+
+### Added (EN)
+- Added regression coverage for tracked-update breakdown deltas so large historical target totals no longer leak into the current-run summary.
+
+### Исправлено (RU)
+- **Счётчики summary для update**: Исправлен per-user итог команды `update`: значения `without context` / `with context` теперь показывают сообщения, досинхронизированные в текущем запуске, а не накопительные historical totals цели из локальной БД.
+
+### Добавлено (RU)
+- Добавлено regression-покрытие для delta-breakdown в tracked update, чтобы большие исторические totals цели больше не попадали в summary текущего запуска.
+
 ## [4.2.21] - 2026-05-05
 
 ### Changed (EN)

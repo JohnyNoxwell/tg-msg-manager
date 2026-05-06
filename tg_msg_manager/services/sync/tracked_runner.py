@@ -4,9 +4,9 @@ from typing import Any, Awaitable, Callable, Optional
 
 from ...core.models.payloads.export import ExportTrackedUpdateStartedPayload
 from ...core.models.sync_report import TrackedSyncRunReport, TrackedSyncUserStat
-from ...infrastructure.storage.records import PrimaryTarget
 from ...core.service_events import ExportEvents
 from ...core.telemetry import telemetry
+from ...infrastructure.storage.records import TargetMessageBreakdown
 from .tracked_targets import TrackedSyncPlanner
 
 logger = logging.getLogger(__name__)
@@ -32,26 +32,39 @@ class TrackedSyncRunner:
         self.prefetch_chat_head_messages = prefetch_chat_head_messages
         self.enqueue_retry_task = enqueue_retry_task
 
-    def _apply_user_message_breakdowns(
+    def _load_target_message_breakdown(
         self,
+        *,
+        chat_id: int,
+        user_id: int,
+    ) -> TargetMessageBreakdown:
+        getter = getattr(self.storage, "get_target_message_breakdown", None)
+        if not callable(getter):
+            return TargetMessageBreakdown()
+        return TargetMessageBreakdown.coerce(getter(chat_id, user_id))
+
+    @staticmethod
+    def _apply_breakdown_delta(
+        *,
+        stat: TrackedSyncUserStat,
+        before: TargetMessageBreakdown,
+        after: TargetMessageBreakdown,
+    ) -> None:
+        stat.own_messages = max(0, after.own_messages - before.own_messages)
+        stat.with_context = max(0, after.with_context - before.with_context)
+
+    @staticmethod
+    def _finalize_user_message_breakdowns(
         *,
         user_stats: TrackedSyncRunReport,
     ) -> None:
-        dirty_user_ids = set(user_stats.dirty_user_ids())
-        if not dirty_user_ids:
-            return
-
-        for raw_target in self.storage.get_primary_targets():
-            target = PrimaryTarget.coerce(raw_target)
-            stat = user_stats.get(target.user_id)
-            if stat is None or target.user_id not in dirty_user_ids:
+        for stat in user_stats.values():
+            if not stat.dirty and stat.count <= 0:
                 continue
-            if stat.own_messages or stat.with_context:
-                continue
-
-            own_messages = int(target.user_msg_count)
-            stat.own_messages = own_messages
-            stat.with_context = own_messages + int(target.context_msg_count)
+            if stat.own_messages <= 0:
+                stat.own_messages = stat.count
+            if stat.with_context < stat.own_messages:
+                stat.with_context = stat.own_messages
 
     async def run(self, items: list[Any]) -> TrackedSyncRunReport:
         user_stats = TrackedSyncRunReport()
@@ -116,6 +129,10 @@ class TrackedSyncRunner:
                 )
                 continue
 
+            breakdown_before = self._load_target_message_breakdown(
+                chat_id=plan.chat_id,
+                user_id=plan.from_user_id,
+            )
             try:
                 processed = await self.sync_chat(
                     plan.entity,
@@ -151,11 +168,20 @@ class TrackedSyncRunner:
             stat = TrackedSyncUserStat.coerce(user_stats[plan.from_user_id])
             stat.count += processed
             if processed > 0:
+                breakdown_after = self._load_target_message_breakdown(
+                    chat_id=plan.chat_id,
+                    user_id=plan.from_user_id,
+                )
+                self._apply_breakdown_delta(
+                    stat=stat,
+                    before=breakdown_before,
+                    after=breakdown_after,
+                )
                 stat.dirty = True
                 telemetry.track_counter("sync.tracked_items.changed", 1)
             user_stats[plan.from_user_id] = stat
 
         telemetry.track_duration("sync.all_tracked.total", perf_counter() - started_at)
-        self._apply_user_message_breakdowns(user_stats=user_stats)
+        self._finalize_user_message_breakdowns(user_stats=user_stats)
         telemetry.log_summary("Tracked sync telemetry summary")
         return user_stats
