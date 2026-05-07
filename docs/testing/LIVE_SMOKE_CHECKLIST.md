@@ -7,6 +7,7 @@ Use real local values:
 - `TEST_USER_ID`: target Telegram user ID for export/archive checks
 - `TEST_CHAT_ID`: chat/dialog ID that contains known messages from `TEST_USER_ID`
 - `TEST_DELETE_USER_ID`: disposable local target ID used only for destructive delete validation in a copied test DB
+- `TEST_CHANNEL`: Telegram channel username or ID for direct channel export checks
 
 ## Preconditions
 
@@ -36,7 +37,7 @@ Failure:
 
 - non-zero exit code
 - traceback
-- missing `export`, `db-export`, `export-pm`, `retry`, or `report` commands
+- missing `export`, `db-export`, `export-pm`, `export-channel`, `retry`, or `report` commands
 
 ### 2. Minimal sync
 
@@ -258,6 +259,54 @@ Failure:
 
 - non-zero exit code
 - traceback
+
+### 12. Direct channel export
+
+Command:
+
+```bash
+python3 -m tg_msg_manager.cli export-channel --channel "$TEST_CHANNEL" --limit 3 --media metadata
+```
+
+Expected:
+
+- exit code `0`
+- output directory created under `exports/channels/`
+- `manifest.json` exists
+- `messages.jsonl` exists
+- `messages.txt` exists
+- `media_manifest.jsonl` exists
+- `media/` directory exists
+- full media files are not downloaded in metadata mode
+- source is a broadcast channel, not a group/supergroup
+
+Failure:
+
+- non-zero exit code
+- traceback
+- required dataset files missing
+- metadata mode downloads full media unexpectedly
+- command is pointed at a group/supergroup and is treated as a valid broadcast-channel export
+
+### 13. Direct channel export with full media
+
+Non-routine test. In Stage 3A this command is expected to fail clearly because full media download is not implemented yet.
+
+Command:
+
+```bash
+python3 -m tg_msg_manager.cli export-channel --channel "$TEST_CHANNEL" --limit 1 --media full
+```
+
+Expected:
+
+- explicit `not implemented yet` failure in Stage 3A
+- no silent fallback pretending media was downloaded
+
+Failure:
+
+- silent success without full media download behavior
+- ambiguous or missing error output
 - missing expected report sections
 
 ## Result table

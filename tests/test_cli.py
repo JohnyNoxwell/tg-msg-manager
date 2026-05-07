@@ -16,7 +16,7 @@ from tg_msg_manager.cli import (
     get_dirty_target_ids,
     run_cli,
 )
-from tg_msg_manager.cli_io import print_update_summary
+from tg_msg_manager.cli_io import print_update_summary, render_main_menu
 from tg_msg_manager.core.models.sync_report import TrackedSyncRunReport
 from tg_msg_manager.core.config import Settings
 from tg_msg_manager.core.runtime import AppPaths, AppRuntime
@@ -38,6 +38,7 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
                 db_exports_dir="/tmp/tg-msg-manager/DB_EXPORTS",
                 private_dialogs_dir="/tmp/tg-msg-manager/PRIVAT_DIALOGS",
                 public_groups_dir="/tmp/tg-msg-manager/PUBLIC_GROUPS",
+                channel_exports_dir="/tmp/tg-msg-manager/exports/channels",
             ),
             python_executable="/usr/bin/python3",
         )
@@ -77,6 +78,7 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
 
     @patch("tg_msg_manager.cli.setup_logging")
     @patch("tg_msg_manager.cli.PrivateArchiveService")
+    @patch("tg_msg_manager.cli.ChannelExportService")
     @patch("tg_msg_manager.cli.DBExportService")
     @patch("tg_msg_manager.cli.CleanerService")
     @patch("tg_msg_manager.cli.ExportService")
@@ -89,6 +91,7 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         mock_exporter_cls,
         mock_cleaner_cls,
         mock_db_exporter_cls,
+        mock_channel_export_cls,
         mock_private_archive_cls,
         mock_setup_logging,
     ):
@@ -99,6 +102,7 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         mock_db_exporter_cls.return_value = MagicMock()
         mock_exporter_cls.return_value = MagicMock()
         mock_cleaner_cls.return_value = MagicMock()
+        mock_channel_export_cls.return_value = MagicMock()
         mock_private_archive_cls.return_value = MagicMock()
 
         mock_client = MagicMock()
@@ -118,6 +122,9 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(callable(mock_cleaner_cls.call_args.kwargs["event_sink"]))
             self.assertTrue(
                 callable(mock_private_archive_cls.call_args.kwargs["event_sink"])
+            )
+            self.assertTrue(
+                callable(mock_channel_export_cls.call_args.kwargs["event_sink"])
             )
 
             await ctx.shutdown()
@@ -286,6 +293,40 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(keep_running)
         mock_report_menu.assert_awaited_once_with(ctx)
+
+    @patch(
+        "tg_msg_manager.cli_menu._handle_menu_export_channel", new_callable=AsyncMock
+    )
+    async def test_dispatch_main_menu_choice_routes_channel_export_menu_item(
+        self,
+        mock_export_channel_menu,
+    ):
+        ctx = MagicMock()
+
+        keep_running = await _dispatch_main_menu_choice(ctx, "10")
+
+        self.assertTrue(keep_running)
+        mock_export_channel_menu.assert_awaited_once_with(ctx)
+
+    @patch("tg_msg_manager.cli_menu.set_lang")
+    async def test_dispatch_main_menu_choice_routes_two_digit_language_toggle(
+        self,
+        mock_set_lang,
+    ):
+        ctx = MagicMock()
+
+        with patch("tg_msg_manager.cli_menu.get_lang", return_value="ru"):
+            keep_running = await _dispatch_main_menu_choice(ctx, "98")
+
+        self.assertTrue(keep_running)
+        mock_set_lang.assert_called_once_with("en")
+
+    async def test_dispatch_main_menu_choice_routes_two_digit_exit(self):
+        ctx = MagicMock()
+
+        keep_running = await _dispatch_main_menu_choice(ctx, "00")
+
+        self.assertFalse(keep_running)
 
     @patch("builtins.print")
     @patch("tg_msg_manager.cli_commands.render_report_json", return_value="{}")
@@ -558,6 +599,7 @@ class TestCLIParser(unittest.TestCase):
                 "report",
                 "clean",
                 "export-pm",
+                "export-channel",
                 "delete",
                 "schedule",
                 "setup",
@@ -588,12 +630,33 @@ class TestCLIParser(unittest.TestCase):
         self.assertIn("update", root_help)
         self.assertIn("retry", root_help)
         self.assertIn("report", root_help)
+        self.assertIn("export-channel", root_help)
         self.assertIn("--user-id", export_help)
         self.assertIn("--chat-id", export_help)
         self.assertIn("--depth", export_help)
         self.assertIn("--context-window", export_help)
         self.assertIn("--max-cluster", export_help)
         self.assertIn("--json", export_help)
+
+
+class TestMainMenuRendering(unittest.TestCase):
+    def test_render_main_menu_uses_two_digit_labels(self):
+        output = StringIO()
+
+        with (
+            patch.object(sys.stdout, "isatty", return_value=False),
+            redirect_stdout(output),
+        ):
+            render_main_menu(12345)
+
+        rendered = output.getvalue()
+        self.assertIn("[01]", rendered)
+        self.assertIn("[09]", rendered)
+        self.assertIn("[10]", rendered)
+        self.assertIn("[11]", rendered)
+        self.assertIn("[12]", rendered)
+        self.assertIn("[98]", rendered)
+        self.assertIn("[00]", rendered)
 
 
 if __name__ == "__main__":

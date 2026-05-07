@@ -1,321 +1,58 @@
-# 📖 Commands Guide / Руководство по командам
+# Commands
 
-[🇷🇺 Русская версия](#русский) | [🇬🇧 English Version](#english)
+## `export-channel`
 
----
+Export posts directly from a Telegram channel into a filesystem dataset.
 
-<a id="русский"></a>
-## 🇷🇺 Русский: Интерактивный режим и CLI
-
-Начиная с версии 4.0, основным способом взаимодействия является **Интерактивное меню**. 
-
-### 🖥️ 1. Интерактивное меню (Основной режим)
-Запускается командой `tg` (если установлены алиасы) или `tg-msg-manager` без аргументов из интерактивного терминала.
-
-**Особенности управления:**
-*   **Выбор**: Просто нажмите цифру (напр. `1`), нажимать Enter не нужно.
-*   **Дополнительные hotkeys**: Нажмите `R` для Retry Queue и `P` для Audit Report.
-*   **Отмена/Назад**: Нажмите клавишу **ESC** в любой момент.
-*   **Выход**: Нажмите `0` в главном меню.
-
-**Разделы меню:**
-1.  **Экспорт**: Синхронизация истории с контекстом.
-2.  **Обновление**: Инкрементальная докачка всех активных целей.
-3.  **Очистка**: Удаление своих сообщений из групп.
-4.  **Архив лички**: Текстовый бэкап приватного чата с подготовленными папками под медиа.
-5.  **Удалить данные**: Полная очистка локальной БД по конкретному ID.
-6.  **Расписание**: Интерактивная настройка `macOS launchd`.
-7.  **Настройка**: Установка терминальных алиасов.
-8.  **О программе**: Техническая информация.
-9.  **Экспорт из БД**: Выгрузка из SQLite в JSON/Text.
-R.  **Retry Queue**: Просмотр, повтор и cleanup retry-задач.
-P.  **Audit Report**: Read-only диагностика локального состояния.
-
----
-
-### ⌨️ 2. CLI Команды (Для автоматизации)
-Для использования в скриптах или планировщике доступны прямые команды.
-
-#### `export` — Сбор истории
-```bash
-tg-msg-manager export --user-id <ID> [--chat-id <ID>] [--flat]
-```
-*   `--deep`: Явно включить Deep Mode. Поведение по умолчанию.
-*   `--flat`: Только сообщения автора, без контекста.
-*   `--depth`: Глубина рекурсивного контекста. По умолчанию `2`.
-*   `--context-window`: Размер локального окна кандидатов для Deep Mode.
-*   `--max-cluster`: Лимит сообщений в одном context cluster.
-*   `--json`: После синка собрать итоговый JSONL-файл. Без `--json` итоговый файл будет TXT.
-*   `--force-resync`: Начать заново, игнорируя прогресс в БД.
-*   `--limit`: Ограничить число обрабатываемых сообщений в рамках одного sync чата.
-
-**Примеры**
-```bash
-tg-msg-manager export --user-id 123456789 --chat-id 987654321 --depth 3 --json
-tg-msg-manager export --user-id 123456789 --chat-id 987654321 --flat
-tg-msg-manager export --user-id 123456789 --depth 5 --json
-```
-
-#### `update` — Массовое обновление
-```bash
-tg-msg-manager update
-```
-Обновляет все цели, используя настройки (depth, window), сохраненные в базе данных.
-После прерванного большого экспорта перед первым видимым прогрессом может быть заметная пауза: сервис готовит shared head prefetch для чата.
-
-#### `clean` — Глобальная очистка
-```bash
-tg-msg-manager clean [--dry-run] [--apply] [--yes]
-```
-*   По умолчанию команда работает как безопасный dry-run.
-*   `--apply`: Включить реальное удаление.
-*   `--yes` / `-y`: Подтвердить боевой режим без дополнительного запроса.
-
-**Примеры**
-```bash
-tg-msg-manager clean --dry-run
-tg-msg-manager clean --apply --yes
-```
-
-#### `delete` — Полный purge локальных данных
-```bash
-tg-msg-manager delete --user-id <ID>
-```
-Удаляет локальные данные цели из SQLite и связанные export-артефакты.
-
-**Пример**
-```bash
-tg-msg-manager delete --user-id 123456789
-```
-
-#### `db-export` — Выгрузка из базы
-```bash
-tg-msg-manager db-export --user-id <ID> [--json]
-```
-Без `--json` команда пишет TXT-файл. С `--json` используется компактный AI-friendly JSONL-профиль без полного `raw_payload`.
-
-**Примеры**
-```bash
-tg-msg-manager db-export --user-id 123456789 --json
-tg-msg-manager db-export --user-id 123456789
-```
-
-#### `export-pm` — Архив лички
-```bash
-tg-msg-manager export-pm --user-id <ID>
-```
-**Пример**
-```bash
-tg-msg-manager export-pm --user-id 123456789
-```
-
-#### `schedule` — Планировщик
-```bash
-tg-msg-manager schedule
-```
-Интерактивная настройка фонового `update` через `macOS launchd`.
-
-#### `retry` — Очередь повторов
-```bash
-tg-msg-manager retry [--limit <N>] [--list] [--cleanup]
-```
-*   Без флагов команда исполняет due retry tasks.
-*   `--limit`: Ограничить число задач за один проход.
-*   `--list`: Показать текущую локальную retry queue без исполнения.
-*   `--cleanup`: Удалить terminal retry rows (`completed` / `failed`) из локальной БД.
-
-**Примеры**
-```bash
-tg-msg-manager retry --list
-tg-msg-manager retry --limit 5
-tg-msg-manager retry --cleanup
-```
-
-#### `report` — Диагностический отчёт
-```bash
-tg-msg-manager report [--json]
-```
-Команда строит read-only сводку по SQLite и локальным export artifacts, не подключаясь к Telegram.
-
-**Примеры**
-```bash
-tg-msg-manager report
-tg-msg-manager report --json
-```
-
-#### `setup` — Установка алиасов
-```bash
-tg-msg-manager setup
-```
-Устанавливает алиасы `tg`, `tgr`, `tgd`, `tge`, `tgu`, `tgpm`, `tgrt`, `tgrp`.
-
----
-
-<a id="english"></a>
-## 🇬🇧 English: Interactive Mode & CLI
-
-Since Version 4.0, the **Interactive Menu** is the recommended way to operate.
-
-### 🖥️ 1. Interactive Menu (Primary Mode)
-Launch via the `tg` shortcut or run `tg-msg-manager` without arguments from an interactive terminal.
-
-**Navigation:**
-*   **Selection**: Press any numeric key (e.g., `1`) for instant activation. No Enter key is needed.
-*   **Extra hotkeys**: Press `R` for Retry Queue and `P` for Audit Report.
-*   **Cancel/Back**: Press the **ESC** key at any point to return to the previous screen.
-*   **Exit**: Press `0` from the main menu.
-
-**Menu Map:**
-1.  **Export History**: Sync message history with conversation context.
-2.  **Universal Update**: Incremental sync for all tracked targets.
-3.  **Global Cleanup**: Bulk removal of your messages from groups.
-4.  **PM Archive**: Text backup of direct messages with prepared media folders.
-5.  **Purge Data**: Irreversible removal of a target's history from local storage.
-6.  **Scheduler**: Interactive `macOS launchd` setup.
-7.  **Setup**: Install terminal aliases.
-8.  **About**: System information and versions.
-9.  **DB Export Service**: Convert SQLite records to JSON/Text.
-R.  **Retry Queue**: Inspect, replay, and clean retry tasks.
-P.  **Audit Report**: Read-only local-state diagnostics.
-
----
-
-### ⌨️ 2. CLI Subcommands (For Automation)
-Direct commands are available for scripting, Cron, or advanced usage.
-
-#### `export` — History Synchronization
-```bash
-tg-msg-manager export --user-id <ID> [--chat-id <ID>] [--flat]
-```
-*   `--deep`: Explicitly enable Deep Mode. This is the default behavior.
-*   `--flat`: Fetch only author messages, skipping surrounding context.
-*   `--depth`: Recursive context depth. Defaults to `2`.
-*   `--context-window`: Candidate window size for Deep Mode.
-*   `--max-cluster`: Maximum messages inside one context cluster.
-*   `--json`: Write a final JSONL snapshot after sync. Without `--json`, the final export is TXT.
-*   `--force-resync`: Restart the sync from the beginning.
-*   `--limit`: Cap the number of processed messages inside a single chat sync.
-
-**Examples**
-```bash
-tg-msg-manager export --user-id 123456789 --chat-id 987654321 --depth 3 --json
-tg-msg-manager export --user-id 123456789 --chat-id 987654321 --flat
-tg-msg-manager export --user-id 123456789 --depth 5 --json
-```
-
-#### `update` — Batch Updater
-```bash
-tg-msg-manager update
-```
-The "Smart Sync" engine. It automatically finds all targets in the DB and brings them up to date.
-After a large interrupted export, there may be a noticeable pause before the first visible per-target progress while the service prepares a shared head prefetch slice for the chat.
-
-#### `clean` — Global Cleanup
-```bash
-tg-msg-manager clean [--dry-run] [--apply] [--yes]
-```
-*   The command is safe by default and runs as dry-run unless `--apply` is provided.
-*   `--apply`: Enable real deletion.
-*   `--yes` / `-y`: Confirm apply mode without an extra prompt.
-
-**Examples**
-```bash
-tg-msg-manager clean --dry-run
-tg-msg-manager clean --apply --yes
-```
-
-#### `delete` — Local Data Purge
-```bash
-tg-msg-manager delete --user-id <ID>
-```
-Removes the target's local SQLite state and related export artifacts.
-
-**Example**
-```bash
-tg-msg-manager delete --user-id 123456789
-```
-
-#### `db-export` — Local Data Retrieval
-```bash
-tg-msg-manager db-export --user-id <ID> [--json]
-```
-Without `--json`, the command writes TXT. With `--json`, it writes the compact AI-friendly JSONL profile without the full `raw_payload`.
-
-**Examples**
-```bash
-tg-msg-manager db-export --user-id 123456789 --json
-tg-msg-manager db-export --user-id 123456789
-```
-
-#### `export-pm` — Private Chat Archive
-```bash
-tg-msg-manager export-pm --user-id <ID>
-```
-**Example**
-```bash
-tg-msg-manager export-pm --user-id 123456789
-```
-
-#### `schedule` — Scheduler
-```bash
-tg-msg-manager schedule
-```
-Interactive background `update` setup for `macOS launchd`.
-
-#### `retry` — Retry Queue
-```bash
-tg-msg-manager retry [--limit <N>] [--list] [--cleanup]
-```
-*   Without flags, the command runs due retry tasks.
-*   `--limit`: Cap the number of tasks in one pass.
-*   `--list`: Show the current local retry queue without executing it.
-*   `--cleanup`: Remove terminal retry rows (`completed` / `failed`) from the local DB.
-
-**Examples**
-```bash
-tg-msg-manager retry --list
-tg-msg-manager retry --limit 5
-tg-msg-manager retry --cleanup
-```
-
-#### `report` — Diagnostic Report
-```bash
-tg-msg-manager report [--json]
-```
-Builds a read-only summary from SQLite and local export artifacts without connecting to Telegram.
-
-**Examples**
-```bash
-tg-msg-manager report
-tg-msg-manager report --json
-```
-
-#### `setup` — Alias Installer
-```bash
-tg-msg-manager setup
-```
-Installs the `tg`, `tgr`, `tgd`, `tge`, `tgu`, `tgpm`, `tgrt`, and `tgrp` shortcuts.
-
----
-
-## 🔎 Verification / Проверка
+Example:
 
 ```bash
-pip install -e .[dev]
-make lint
-make format-check
-make test
-make verify
+python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata
 ```
 
-Live smoke-check:
+Arguments:
 
-```bash
-python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --flat --limit 1
+- `--channel` required. Broadcast-channel username, numeric ID, or another value accepted by `get_entity`.
+- `--limit` optional. Maximum number of posts to export.
+- `--media` optional. `none`, `metadata`, or `full`.
+- `--output-dir` optional. Base directory for channel export datasets.
+- `--force` optional. Reserved re-export flag for future overwrite/policy handling.
+
+Dataset layout:
+
+```text
+exports/
+  channels/
+    @channel_name__123456789/
+      manifest.json
+      messages.jsonl
+      messages.txt
+      media_manifest.jsonl
+      media/
 ```
 
-Offline fixture-backed regression:
+Notes:
 
-```bash
-python3 -m unittest tests.test_fixture_e2e -q
-```
+- Stage 3A is dataset projection only. No analytics are performed.
+- Stage 3A accepts broadcast channels only. Groups and supergroups are not supported by `export-channel`.
+- Default media mode is `metadata`.
+- `--media full` is not implemented yet and currently returns a clear CLI error.
+- The command currently performs a full re-export into the dataset directory; it does not implement incremental channel updates yet.
+
+## Interactive Menu
+
+The interactive `tg` menu now uses two-digit item codes:
+
+- `01`..`10` for primary actions
+- `11` for `Retry Queue`
+- `12` for `Audit Report`
+- `98` for language toggle
+- `00` for exit
+
+Legacy short inputs remain accepted for compatibility:
+
+- `1`..`9`
+- `R`
+- `P`
+- `L`
+- `0`

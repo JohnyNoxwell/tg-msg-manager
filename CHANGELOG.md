@@ -1,6 +1,30 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.23] - 2026-05-07
+
+### Added (EN)
+- **Stage 3A Direct Channel Export Surface**: Added the `export-channel` CLI command and wired a dedicated `ChannelExportService` into the CLI runtime without modifying the existing `export`, `db-export`, `export-pm`, or context/export hot-path services.
+- **Filesystem Dataset Layout**: Added the `exports/channels/` runtime root and documented the Stage 3A dataset layout with `manifest.json`, `messages.jsonl`, `messages.txt`, and `media_manifest.jsonl`.
+- **Stage 3A Docs and Smoke Guidance**: Added command/docs coverage, live smoke guidance, and a dedicated Stage 3A report for direct channel export.
+
+### Changed (EN)
+- **Media Mode Safety**: Stage 3A keeps `metadata` as the safe default; `--media full` is exposed but currently fails clearly as not implemented instead of pretending to download media.
+- **Verification Stability**: Final Stage 3A verification now runs green after tightening SQLite migration idempotency, avoiding WAL reconfiguration on read-only connections, and cleaning up test database sidecar files more reliably.
+- **Interactive Menu Surface**: The `tg` control center now exposes `export-channel` and uses two-digit menu numbering with backward-compatible short inputs.
+- **Channel Export Guardrails**: `export-channel` now fails with explicit messages for groups/supergroups, keeps Stage 3A scoped to broadcast channels, and normalizes nested datetime values in JSONL export payloads.
+
+### Добавлено (RU)
+- **CLI surface для Stage 3A Direct Channel Export**: Добавлена команда `export-channel` и wiring отдельного `ChannelExportService` в CLI runtime без изменений существующих hot-path сервисов `export`, `db-export`, `export-pm` и context/export pipeline.
+- **Файловый dataset layout**: Добавлен runtime-root `exports/channels/` и задокументирован Stage 3A dataset layout с `manifest.json`, `messages.jsonl`, `messages.txt` и `media_manifest.jsonl`.
+- **Документация и live smoke для Stage 3A**: Добавлены command/docs coverage, live smoke guidance и отдельный Stage 3A report для прямого экспорта каналов.
+
+### Изменения (RU)
+- **Безопасность media mode**: В Stage 3A безопасным default остаётся `metadata`; `--media full` виден в CLI, но сейчас завершается явной ошибкой `not implemented yet`, а не делает вид, что media были скачаны.
+- **Стабильность verification**: Финальный verification Stage 3A теперь проходит в зелёном статусе после усиления идемпотентности SQLite-миграции, отказа от WAL reconfiguration на read-only connections и более надёжной очистки sidecar-файлов тестовых БД.
+- **Interactive menu surface**: В `tg` control center добавлен `export-channel`, а главное меню переведено на двузначную нумерацию с сохранением backward-compatible коротких вводов.
+- **Guardrails для channel export**: `export-channel` теперь выдаёт явные ошибки для groups/supergroups, сохраняет Stage 3A в пределах broadcast channels и нормализует вложенные `datetime` значения в JSONL payload.
+
 ## [4.2.22] - 2026-05-06
 
 ### Fixed (EN)

@@ -41,6 +41,7 @@ export.txt
 DB_EXPORTS/
 PUBLIC_GROUPS/
 PRIVAT_DIALOGS/
+exports/
 
 # Виртуальные окружения
 venv/

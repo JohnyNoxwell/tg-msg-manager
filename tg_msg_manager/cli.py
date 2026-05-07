@@ -8,6 +8,7 @@ from .cli_commands import (
     _handle_db_export_command,
     _handle_delete_command,
     _handle_export_command,
+    _handle_export_channel_command,
     _handle_export_pm_command,
     _handle_report_command,
     _handle_retry_command,
@@ -40,6 +41,7 @@ from .cli_io import (
 from .i18n import _, use_lang
 from .infrastructure.storage.sqlite import SQLiteStorage
 from .services.alias_manager import AliasManager
+from .services.channel_export import ChannelExportService
 from .services.cleaner import CleanerService
 from .services.db_export import DBExportService
 from .services.exporter import ExportService
@@ -85,6 +87,7 @@ class CLIContext:
         self.cleaner: Optional[CleanerService] = None
         self.db_exporter: Optional[DBExportService] = None
         self.private_archive: Optional[PrivateArchiveService] = None
+        self.channel_exporter: Optional[ChannelExportService] = None
         self.retry_worker: Optional[RetryWorker] = None
         self.alias_manager = AliasManager(
             project_root=self.paths.project_root,
@@ -134,6 +137,11 @@ class CLIContext:
                 self.client,
                 self.storage,
                 base_dir=self.paths.private_dialogs_dir,
+                event_sink=render_service_event,
+            )
+            self.channel_exporter = ChannelExportService(
+                client=self.client,
+                base_dir=self.paths.channel_exports_dir,
                 event_sink=render_service_event,
             )
             self.retry_worker = RetryWorker(
@@ -211,6 +219,7 @@ async def run_cli(runtime: Optional[AppRuntime] = None):
                 "report": _handle_report_command,
                 "clean": _handle_clean_command,
                 "export-pm": _handle_export_pm_command,
+                "export-channel": _handle_export_channel_command,
             }
             handler = handlers.get(args.command)
             if handler is not None:
@@ -232,13 +241,9 @@ async def main_menu(runtime: Optional[AppRuntime] = None):
 
             while True:
                 render_main_menu(me_id)
-                sys.stdout.write(_("choice_prompt") + ": ")
-                sys.stdout.flush()
-                char = TerminalInput.get_char()
-                if char == "\x1b":
+                choice = TerminalInput.prompt_with_esc(_("choice_prompt") + ": ")
+                if choice is None:
                     continue
-                choice = char.upper()
-                print(choice)
                 if not await _dispatch_main_menu_choice(ctx, choice):
                     break
         finally:

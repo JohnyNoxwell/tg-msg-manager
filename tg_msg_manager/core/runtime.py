@@ -22,12 +22,14 @@ class AppPaths:
     db_exports_dir: str
     private_dialogs_dir: str
     public_groups_dir: str
+    channel_exports_dir: str = ""
 
     def artifact_roots(self) -> List[str]:
         return [
             self.public_groups_dir,
             self.private_dialogs_dir,
             self.db_exports_dir,
+            self.channel_exports_dir,
         ]
 
 
@@ -63,6 +65,7 @@ def build_app_runtime(
         db_exports_dir=os.path.join(resolved_project_root, "DB_EXPORTS"),
         private_dialogs_dir=os.path.join(resolved_project_root, "PRIVAT_DIALOGS"),
         public_groups_dir=os.path.join(resolved_project_root, "PUBLIC_GROUPS"),
+        channel_exports_dir=os.path.join(resolved_project_root, "exports", "channels"),
     )
     return AppRuntime(
         settings=settings,

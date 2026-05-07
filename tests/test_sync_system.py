@@ -28,6 +28,13 @@ class TestSyncSystem(unittest.IsolatedAsyncioTestCase):
     def tearDown(self):
         if os.path.exists(self.db_path):
             os.remove(self.db_path)
+        if os.path.exists(f"{self.db_path}-wal"):
+            os.remove(f"{self.db_path}-wal")
+        if os.path.exists(f"{self.db_path}-shm"):
+            os.remove(f"{self.db_path}-shm")
+
+    async def asyncTearDown(self):
+        await self.storage.close()
 
     def test_outdated_filtering(self):
         # 1. Add a chat with an old sync timestamp (48 hours ago)

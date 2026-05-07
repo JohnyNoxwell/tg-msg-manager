@@ -47,10 +47,10 @@ class SQLiteStorage(
         self._shutdown_event = asyncio.Event()
 
     def _create_connection(self):
-        return create_sqlite_connection(self.db_path)
+        return create_sqlite_connection(self.db_path, enable_wal=True)
 
     def _get_connection(self) -> sqlite3.Connection:
-        return self._create_connection()
+        return create_sqlite_connection(self.db_path, enable_wal=False)
 
     def _read_connection(self) -> sqlite3.Connection:
         return self._get_connection()

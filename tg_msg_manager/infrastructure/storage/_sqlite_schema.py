@@ -272,7 +272,8 @@ class SQLiteSchemaMixin:
             logger.info(
                 "Running Database Migration: Version 3 (Composite PK for sync_targets)..."
             )
-            self._migrate_sync_targets_to_composite_pk()
+            if not self._sync_targets_has_composite_primary_key(conn):
+                self._migrate_sync_targets_to_composite_pk()
             conn.execute("PRAGMA user_version = 3")
             logger.info("Database migration to Version 3 successful.")
 
@@ -1052,6 +1053,7 @@ class SQLiteSchemaMixin:
         """Migration helper to move sync_targets to composite PRIMARY KEY."""
         conn = self._conn
         try:
+            conn.execute("DROP TABLE IF EXISTS sync_targets_new")
             cursor = conn.execute("PRAGMA table_info(sync_targets)")
             cols = [row[1] for row in cursor.fetchall()]
 
@@ -1093,6 +1095,18 @@ class SQLiteSchemaMixin:
             except Exception:
                 pass
             raise
+
+    @staticmethod
+    def _sync_targets_has_composite_primary_key(conn: sqlite3.Connection) -> bool:
+        rows = conn.execute("PRAGMA table_info(sync_targets)").fetchall()
+        pk_columns = [
+            row[1]
+            for row in sorted(
+                (item for item in rows if item[5]),
+                key=lambda item: item[5],
+            )
+        ]
+        return pk_columns == ["user_id", "chat_id"]
 
     def migrate_existing_links(self):
         """

@@ -1,5 +1,6 @@
 import argparse
 import logging
+from pathlib import Path
 
 from .cli_io import print_update_summary
 from .cli_support import (
@@ -17,6 +18,7 @@ from .cli_support import (
 )
 from .core.models.retry import RetryRunStats
 from .i18n import _
+from .services.channel_export import ChannelExportError, ChannelExportOptions
 from .services.reporting import (
     ReportCollector,
     render_report_json,
@@ -145,3 +147,36 @@ async def _handle_export_pm_command(ctx, args: argparse.Namespace) -> None:
                 error=exc,
             )
             logger.error(f"Error during PM archive: {exc}")
+
+
+async def _handle_export_channel_command(ctx, args: argparse.Namespace) -> None:
+    if args.media == "full":
+        raise SystemExit(
+            "export-channel: --media full is not implemented yet; use --media metadata or --media none"
+        )
+
+    output_dir = (
+        Path(args.output_dir)
+        if args.output_dir
+        else Path(ctx.paths.channel_exports_dir)
+    )
+    options = ChannelExportOptions(
+        channel=args.channel,
+        limit=args.limit,
+        media_mode=args.media,
+        output_dir=output_dir,
+        force=args.force,
+    )
+    try:
+        result = await ctx.channel_exporter.export_channel(options)
+    except ChannelExportError as exc:
+        raise SystemExit(str(exc)) from exc
+    except Exception as exc:
+        raise SystemExit(f"Channel export failed: {exc}") from exc
+    print("Channel export completed")
+    print(f"Messages: {result.message_count}")
+    print(f"Media records: {result.media_count}")
+    print(f"Manifest: {result.manifest_path}")
+    print(f"JSONL: {result.messages_jsonl_path}")
+    print(f"TXT: {result.messages_txt_path}")
+    print(f"Media manifest: {result.media_manifest_path}")

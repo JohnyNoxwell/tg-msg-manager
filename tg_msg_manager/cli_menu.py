@@ -1,3 +1,6 @@
+from argparse import Namespace
+
+from .cli_commands import _handle_export_channel_command
 from .cli_io import (
     TerminalInput,
     pause_for_enter,
@@ -183,6 +186,51 @@ async def _handle_menu_db_export(ctx) -> None:
     pause_for_enter()
 
 
+async def _handle_menu_export_channel(ctx) -> None:
+    UI.print_header(_("menu_10"), _("menu_10_desc"))
+    channel = TerminalInput.prompt_with_esc(_("prompt_channel") + ": ")
+    if channel is None or not channel.strip():
+        return
+
+    limit_input = TerminalInput.prompt_with_esc(_("prompt_limit_optional") + ": ")
+    if limit_input is None:
+        return
+
+    media = TerminalInput.prompt_with_esc(_("prompt_channel_media_mode") + ": ")
+    if media is None:
+        return
+
+    normalized_media = media.strip().lower() or "metadata"
+    if normalized_media not in {"none", "metadata", "full"}:
+        print(UI.paint(_("text_invalid_selection"), UI.CLR_WARN))
+        pause_for_enter()
+        return
+
+    limit = None
+    normalized_limit = limit_input.strip()
+    if normalized_limit:
+        if not normalized_limit.isdigit():
+            print(UI.paint(_("text_invalid_selection"), UI.CLR_WARN))
+            pause_for_enter()
+            return
+        limit = int(normalized_limit)
+
+    try:
+        await _handle_export_channel_command(
+            ctx,
+            Namespace(
+                channel=channel.strip(),
+                limit=limit,
+                media=normalized_media,
+                output_dir=None,
+                force=False,
+            ),
+        )
+    except SystemExit as exc:
+        print(UI.paint(str(exc), UI.CLR_WARN))
+    pause_for_enter()
+
+
 async def _handle_menu_retry(ctx) -> None:
     UI.print_header(_("menu_retry"), _("sub_retry_info"))
     print(f"  [1] {_('retry_action_run')}")
@@ -228,30 +276,44 @@ async def _handle_menu_report(ctx) -> None:
 
 
 async def _dispatch_main_menu_choice(ctx, choice: str) -> bool:
-    if choice == "L":
+    normalized = choice.strip().upper()
+    if not normalized:
+        return True
+
+    if normalized in {"L", "98"}:
         set_lang("en" if get_lang() == "ru" else "ru")
         return True
-    if choice == "0":
+    if normalized in {"0", "00"}:
         return False
-    if choice == "R":
+    if normalized in {"R", "11"}:
         await _handle_menu_retry(ctx)
         return True
-    if choice == "P":
+    if normalized in {"P", "12"}:
         await _handle_menu_report(ctx)
         return True
 
     handlers = {
         "1": _handle_menu_export,
+        "01": _handle_menu_export,
         "2": _handle_menu_update,
+        "02": _handle_menu_update,
         "3": _handle_menu_clean,
+        "03": _handle_menu_clean,
         "4": _handle_menu_export_pm,
+        "04": _handle_menu_export_pm,
         "5": _handle_menu_delete_data,
+        "05": _handle_menu_delete_data,
         "6": _handle_menu_schedule,
+        "06": _handle_menu_schedule,
         "7": _handle_menu_setup,
+        "07": _handle_menu_setup,
         "8": _handle_menu_about,
+        "08": _handle_menu_about,
         "9": _handle_menu_db_export,
+        "09": _handle_menu_db_export,
+        "10": _handle_menu_export_channel,
     }
-    handler = handlers.get(choice)
+    handler = handlers.get(normalized)
     if handler is not None:
         await handler(ctx)
     return True

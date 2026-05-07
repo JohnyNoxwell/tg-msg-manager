@@ -38,4 +38,15 @@ def build_cli_parser() -> argparse.ArgumentParser:
     db_parser = subparsers.add_parser("db-export")
     db_parser.add_argument("--user-id", required=True)
     db_parser.add_argument("--json", action="store_true", default=False)
+
+    export_channel_parser = subparsers.add_parser("export-channel")
+    export_channel_parser.add_argument("--channel", required=True)
+    export_channel_parser.add_argument("--limit", type=int, default=None)
+    export_channel_parser.add_argument(
+        "--media",
+        choices=("none", "metadata", "full"),
+        default="metadata",
+    )
+    export_channel_parser.add_argument("--output-dir", default=None)
+    export_channel_parser.add_argument("--force", action="store_true", default=False)
     return parser

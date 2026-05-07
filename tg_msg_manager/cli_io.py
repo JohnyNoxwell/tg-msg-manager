@@ -366,28 +366,29 @@ def render_main_menu(me_id: Any) -> None:
     print(
         f" {UI.section(_('section_control_center'), icon='◆')}  {UI.key_value(_('label_account'), me_id, icon='◌')}"
     )
-    print(f" {UI.muted('ESC — back/cancel   ·   0 — exit')}")
+    print(f" {UI.muted('ESC — back/cancel   ·   00 — exit   ·   98 — language')}")
     print(UI.rule(105))
     menu_items = [
-        ("1", "menu_1", "menu_1_desc"),
-        ("2", "menu_2", "menu_2_desc"),
-        ("3", "menu_3", "menu_3_desc"),
-        ("4", "menu_4", "menu_4_desc"),
-        ("5", "menu_5", "menu_5_desc"),
-        ("6", "menu_6", "menu_6_desc"),
-        ("7", "menu_7", "menu_7_desc"),
-        ("8", "menu_8", "menu_8_desc"),
-        ("9", "menu_9", "menu_9_desc"),
-        ("R", "menu_retry", "menu_retry_desc"),
-        ("P", "menu_report", "menu_report_desc"),
+        ("01", "menu_1", "menu_1_desc"),
+        ("02", "menu_2", "menu_2_desc"),
+        ("03", "menu_3", "menu_3_desc"),
+        ("04", "menu_4", "menu_4_desc"),
+        ("05", "menu_5", "menu_5_desc"),
+        ("06", "menu_6", "menu_6_desc"),
+        ("07", "menu_7", "menu_7_desc"),
+        ("08", "menu_8", "menu_8_desc"),
+        ("09", "menu_9", "menu_9_desc"),
+        ("10", "menu_10", "menu_10_desc"),
+        ("11", "menu_retry", "menu_retry_desc"),
+        ("12", "menu_report", "menu_report_desc"),
     ]
     for hotkey, label_key, desc_key in menu_items:
         print(
             f" {UI.paint(f'[{hotkey}]', UI.CLR_ACCENT, bold=True)} {UI.paint(_(label_key), UI.CLR_TEXT)}  {UI.muted(_(desc_key))}"
         )
     print(
-        f" {UI.paint('[L]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_lang'), UI.CLR_TEXT)}"
+        f" {UI.paint('[98]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_lang'), UI.CLR_TEXT)}"
     )
     print(
-        f" {UI.paint('[0]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_exit'), UI.CLR_TEXT)}"
+        f" {UI.paint('[00]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_exit'), UI.CLR_TEXT)}"
     )

@@ -88,6 +88,7 @@ class TestConcurrency(unittest.TestCase):
             ).fetchone()
             self.assertIsNotNone(row)
             self.assertEqual(row["chat_id"], 123)
+        storage._conn.close()
 
 
 if __name__ == "__main__":

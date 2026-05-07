@@ -17,6 +17,7 @@ python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --f
 python3 -m tg_msg_manager.cli db-export --user-id 123456789
 python3 -m tg_msg_manager.cli export-pm --user-id 123456789
 python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json
+python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata
 python3 -m tg_msg_manager.cli update
 python3 -m tg_msg_manager.cli retry --list
 python3 -m tg_msg_manager.cli report
@@ -38,7 +39,7 @@ python3 -m tg_msg_manager.cli report
        ```
    *   **Способ B (После настройки)**: Введите `tg` в любом месте терминала (см. раздел [Алиасы](#алиасы)).
 
-3. **Навигация**: Используйте цифры **1-9** для основных функций, **R** для `retry`, **P** для `report`, **ESC** — для возврата назад, **0** — для выхода.
+3. **Навигация**: Используйте двузначные коды меню: **01-10** для основных функций, **11** для `retry`, **12** для `report`, **98** — переключение языка, **00** — выход, **ESC** — возврат назад. Старые короткие вводы `1-9`, `R`, `P`, `L`, `0` сохранены для совместимости.
 
 ---
 
@@ -51,6 +52,7 @@ python3 -m tg_msg_manager.cli report
 * 💬 **Архив лички (`export-pm`)** — Текстовый бэкап приватного чата с подготовленной структурой папок под медиа.
 * 🗄️ **SQLite База данных** — Все данные хранятся в структурированной базе `messages.db`. Это обеспечивает мгновенный поиск и отсутствие дубликатов.
 * 📤 **Экспорт из БД** — Выгрузка накопленных данных из SQLite в JSON/Text. JSONL по умолчанию теперь компактный и ориентирован на анализ нейросетью.
+* 📡 **Прямой экспорт канала (`export-channel`)** — Файловый dataset export постов Telegram-канала в `manifest.json`, `messages.jsonl`, `messages.txt` и `media_manifest.jsonl`.
 * ♻️ **Retry Queue (`retry`)** — Управление повторными задачами для recoverable sync/archive ошибок без ручного вмешательства в БД.
 * 📋 **Audit Report (`report`)** — Read-only диагностика локальной БД, retry-очереди, export artifacts и состояния tracked targets без доступа к Telegram.
 
@@ -79,6 +81,11 @@ python3 -m tg_msg_manager.cli report
     `python3 -m tg_msg_manager.cli db-export --user-id 123456789`
     `python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json`
     Без `--json` команда пишет TXT; с `--json` — компактный AI-friendly JSONL.
+*   **Прямой экспорт канала**:
+    `python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata`
+    Команда создаёт файловый dataset в `exports/channels/`. Stage 3A не делает analytics и не пишет channel posts в SQLite.
+    Поддерживаются только broadcast-каналы; группы и супергруппы не входят в `export-channel`.
+    `--media full` пока не реализован и завершается явной ошибкой `not implemented yet`.
 *   **Полное удаление локальных данных**:
     `python3 -m tg_msg_manager.cli delete --user-id 123456789`
 *   **Планировщик (macOS)**:
@@ -153,6 +160,9 @@ Legacy aliases still supported:
 
 * `--limit` ограничивает обработку в рамках одного `sync_chat`; при экспорте пользователя по нескольким диалогам лимит применяется к каждому диалогу отдельно.
 * `export-pm` пишет текстовый лог и медиа-структуру, но не восстанавливает Telegram-специфичные сущности как полноценный replay архива.
+* `export-channel` в Stage 3A является filesystem-first dataset projection pipeline: discussion group export, group source extraction и SQLite persistence для channel posts пока не реализованы.
+* `export-channel --media full` пока не реализован; безопасный режим по умолчанию — `--media metadata`.
+* `export-channel` пока делает полный re-export в файловый dataset и не имеет отдельного incremental update режима для channel posts.
 * Фоновая запись в SQLite остаётся чувствительной к очень большим deep-export проходам; основная оптимизация сейчас сделана на уровне пакетных сервисных вызовов.
 * Планировщик `schedule` сейчас ориентирован на macOS `launchd`.
 * `db-export --json` по умолчанию не включает полный `raw_payload`; если когда-нибудь понадобится полный Telethon-слепок, это потребует отдельного full-профиля экспорта.
@@ -197,6 +207,7 @@ python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --f
 python3 -m tg_msg_manager.cli db-export --user-id 123456789
 python3 -m tg_msg_manager.cli export-pm --user-id 123456789
 python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json
+python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata
 python3 -m tg_msg_manager.cli update
 python3 -m tg_msg_manager.cli retry --list
 python3 -m tg_msg_manager.cli report
@@ -218,7 +229,7 @@ python3 -m tg_msg_manager.cli report
        ```
    *   **Method B (After setup)**: Type `tg` anywhere in your terminal (see [Aliases](#aliases)).
 
-3. **Navigation**: Use numbers **1-9** for the main functions, **R** for `retry`, **P** for `report`, **ESC** to go back/cancel, and **0** to exit.
+3. **Navigation**: Use two-digit menu codes: **01-10** for primary actions, **11** for `retry`, **12** for `report`, **98** for language toggle, **00** for exit, and **ESC** to go back/cancel. Legacy short inputs `1-9`, `R`, `P`, `L`, and `0` are still accepted for compatibility.
 
 ---
 
@@ -231,6 +242,7 @@ Core system capabilities:
 * 💬 **PM Archive (`export-pm`)** — Text backup for private conversations with a prepared folder structure for media.
 * 🗄️ **SQLite Storage** — All messages are stored in a structured `messages.db` for instant querying and zero duplicates.
 * 📤 **Database Export** — Export collected SQLite records into JSON or Text. JSONL now defaults to a compact AI-friendly profile.
+* 📡 **Direct Channel Export (`export-channel`)** — Filesystem-first dataset export of Telegram channel posts into `manifest.json`, `messages.jsonl`, `messages.txt`, and `media_manifest.jsonl`.
 * ♻️ **Retry Queue (`retry`)** — Replays recoverable sync/archive failures through typed retry tasks instead of manual DB surgery.
 * 📋 **Audit Report (`report`)** — Read-only diagnostics for local DB state, retry backlog, export artifacts, and tracked-target health without Telegram access.
 
@@ -259,6 +271,11 @@ Subcommands can be executed directly for automation:
     `python3 -m tg_msg_manager.cli db-export --user-id 123456789`
     `python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json`
     Without `--json`, the command writes TXT; with `--json`, it writes compact AI-friendly JSONL.
+*   **Direct Channel Export**:
+    `python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata`
+    The command writes a filesystem dataset under `exports/channels/`. Stage 3A does not perform analytics and does not persist channel posts into SQLite.
+    Only broadcast channels are supported; groups and supergroups are out of scope for `export-channel`.
+    `--media full` is not implemented yet and exits with a clear CLI error.
 *   **Full Local Purge**:
     `python3 -m tg_msg_manager.cli delete --user-id 123456789`
 *   **Scheduler (macOS)**:
@@ -333,6 +350,9 @@ Supported legacy aliases:
 
 * `--limit` caps work inside a single `sync_chat`; when exporting a user across multiple dialogs, the cap applies per dialog.
 * `export-pm` produces a text-and-media archive, not a full Telegram-native replayable backup.
+* `export-channel` in Stage 3A is a filesystem-first dataset projection pipeline; discussion group export, source extraction from groups, and SQLite persistence for channel posts are not implemented yet.
+* `export-channel --media full` is not implemented yet; the safe default remains `--media metadata`.
+* `export-channel` currently performs a full re-export into the dataset directory and does not yet implement incremental channel updates.
 * SQLite background writing is still most sensitive during very large deep-export passes; the current optimization focus is batched service-level writes.
 * The built-in `schedule` command currently targets macOS `launchd`.
 * `db-export --json` no longer includes the full `raw_payload` by default; a future explicit full-export profile would be needed for raw Telethon dumps.
