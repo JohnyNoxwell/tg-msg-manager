@@ -28,6 +28,10 @@ from .services.reporting import (
     render_report_json,
     render_report_markdown,
 )
+from .services.channel_export.discussions.options import (
+    DEFAULT_MAX_COMMENTS_PER_POST,
+    DISCUSSION_MODE_NONE,
+)
 from .services.scheduler import setup_scheduler
 from .utils.ui import UI
 
@@ -222,6 +226,10 @@ async def _handle_menu_export_channel(ctx) -> None:
                 channel=channel.strip(),
                 limit=limit,
                 media=normalized_media,
+                max_media_size=None,
+                media_types=None,
+                discussion=DISCUSSION_MODE_NONE,
+                max_comments_per_post=DEFAULT_MAX_COMMENTS_PER_POST,
                 output_dir=None,
                 force=False,
             ),

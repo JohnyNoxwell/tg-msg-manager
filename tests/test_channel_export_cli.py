@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 from tg_msg_manager.cli import _command_needs_client, run_cli
 from tg_msg_manager.cli_commands import _handle_export_channel_command
+from tg_msg_manager.cli_menu import _handle_menu_export_channel
 from tg_msg_manager.cli_parser import build_cli_parser
 from tg_msg_manager.core.config import Settings
 from tg_msg_manager.core.runtime import AppPaths, AppRuntime
@@ -282,6 +283,33 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
             str(raised.exception),
             "Channel export failed: Object of type datetime is not JSON serializable",
         )
+
+    async def test_menu_export_channel_builds_complete_command_namespace(self):
+        ctx = MagicMock()
+
+        with (
+            patch(
+                "tg_msg_manager.cli_menu.TerminalInput.prompt_with_esc",
+                side_effect=["1523454586", "100", "full"],
+            ),
+            patch("tg_msg_manager.cli_menu.pause_for_enter"),
+            patch(
+                "tg_msg_manager.cli_menu._handle_export_channel_command",
+                new_callable=AsyncMock,
+            ) as mock_handler,
+        ):
+            await _handle_menu_export_channel(ctx)
+
+        args = mock_handler.await_args.args[1]
+        self.assertEqual(args.channel, "1523454586")
+        self.assertEqual(args.limit, 100)
+        self.assertEqual(args.media, "full")
+        self.assertIsNone(args.max_media_size)
+        self.assertIsNone(args.media_types)
+        self.assertEqual(args.discussion, "none")
+        self.assertEqual(args.max_comments_per_post, 100)
+        self.assertIsNone(args.output_dir)
+        self.assertFalse(args.force)
 
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_dispatches_export_channel_and_requires_client(
