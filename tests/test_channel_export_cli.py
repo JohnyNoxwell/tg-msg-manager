@@ -40,6 +40,8 @@ class TestChannelExportCLIParser(unittest.TestCase):
 
         self.assertEqual(parsed.limit, 5)
         self.assertEqual(parsed.media, "metadata")
+        self.assertEqual(parsed.discussion, "none")
+        self.assertEqual(parsed.max_comments_per_post, 100)
         self.assertFalse(parsed.force)
 
     def test_full_media_flags_are_parsed(self):
@@ -90,6 +92,56 @@ class TestChannelExportCLIParser(unittest.TestCase):
                 ]
             )
 
+    def test_discussion_mode_choices_are_parsed(self):
+        parser = build_cli_parser()
+
+        parsed_none = parser.parse_args(
+            ["export-channel", "--channel", "@example", "--discussion", "none"]
+        )
+        parsed_full = parser.parse_args(
+            ["export-channel", "--channel", "@example", "--discussion", "full"]
+        )
+
+        self.assertEqual(parsed_none.discussion, "none")
+        self.assertEqual(parsed_full.discussion, "full")
+
+    def test_invalid_discussion_mode_is_rejected(self):
+        parser = build_cli_parser()
+
+        with self.assertRaises(SystemExit):
+            parser.parse_args(
+                ["export-channel", "--channel", "@example", "--discussion", "tree"]
+            )
+
+    def test_max_comments_per_post_is_parsed(self):
+        parser = build_cli_parser()
+        parsed = parser.parse_args(
+            [
+                "export-channel",
+                "--channel",
+                "@example",
+                "--max-comments-per-post",
+                "50",
+            ]
+        )
+
+        self.assertEqual(parsed.max_comments_per_post, 50)
+
+    def test_invalid_max_comments_per_post_is_rejected(self):
+        parser = build_cli_parser()
+
+        for value in ("0", "-1"):
+            with self.subTest(value=value), self.assertRaises(SystemExit):
+                parser.parse_args(
+                    [
+                        "export-channel",
+                        "--channel",
+                        "@example",
+                        "--max-comments-per-post",
+                        value,
+                    ]
+                )
+
 
 class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -125,6 +177,15 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
                 skipped_by_size_count_this_run=0,
                 skipped_by_type_count_this_run=0,
                 failed_media_count_this_run=0,
+                discussion_mode="full",
+                discussion_thread_count_this_run=2,
+                discussion_comment_count_this_run=5,
+                failed_discussion_thread_count_this_run=1,
+                discussion_comments_jsonl_path=Path(
+                    "/tmp/out/discussion_comments.jsonl"
+                ),
+                discussion_threads_jsonl_path=Path("/tmp/out/discussion_threads.jsonl"),
+                discussion_state_path=Path("/tmp/out/discussion_export_state.json"),
                 manifest_path=Path("/tmp/out/manifest.json"),
                 messages_jsonl_path=Path("/tmp/out/messages.jsonl"),
                 messages_txt_path=Path("/tmp/out/messages.txt"),
@@ -138,6 +199,8 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
             media="metadata",
             max_media_size=None,
             media_types=None,
+            discussion="full",
+            max_comments_per_post=50,
             output_dir=None,
             force=False,
         )
@@ -152,8 +215,17 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(options.output_dir, Path(ctx.paths.channel_exports_dir))
         self.assertIsNone(options.max_media_size)
         self.assertIsNone(options.media_types)
+        self.assertEqual(options.discussion_mode, "full")
+        self.assertEqual(options.max_comments_per_post, 50)
         mock_print.assert_any_call("Channel export completed")
         mock_print.assert_any_call("Mode: incremental")
+        mock_print.assert_any_call("Discussion mode: full")
+        mock_print.assert_any_call("Discussion threads this run: 2")
+        mock_print.assert_any_call("Discussion comments this run: 5")
+        mock_print.assert_any_call("Failed discussion threads this run: 1")
+        mock_print.assert_any_call(
+            "Discussion comments: /tmp/out/discussion_comments.jsonl"
+        )
 
     async def test_handler_converts_domain_error_to_system_exit(self):
         ctx = MagicMock()
@@ -170,6 +242,8 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
             media="metadata",
             max_media_size=None,
             media_types=None,
+            discussion="none",
+            max_comments_per_post=100,
             output_dir=None,
             force=False,
         )
@@ -195,6 +269,8 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
             media="metadata",
             max_media_size=None,
             media_types=None,
+            discussion="none",
+            max_comments_per_post=100,
             output_dir=None,
             force=False,
         )

@@ -162,6 +162,8 @@ async def _handle_export_channel_command(ctx, args: argparse.Namespace) -> None:
         output_dir=output_dir,
         max_media_size=args.max_media_size,
         media_types=args.media_types,
+        discussion_mode=args.discussion,
+        max_comments_per_post=args.max_comments_per_post,
         force=args.force,
     )
     try:
@@ -188,3 +190,16 @@ async def _handle_export_channel_command(ctx, args: argparse.Namespace) -> None:
     print(f"TXT: {result.messages_txt_path}")
     print(f"Media manifest: {result.media_manifest_path}")
     print(f"State: {result.state_path}")
+    if result.discussion_mode == "full":
+        print("Discussion mode: full")
+        print(f"Discussion threads this run: {result.discussion_thread_count_this_run}")
+        print(
+            f"Discussion comments this run: {result.discussion_comment_count_this_run}"
+        )
+        print(
+            "Failed discussion threads this run: "
+            f"{result.failed_discussion_thread_count_this_run}"
+        )
+        print(f"Discussion comments: {result.discussion_comments_jsonl_path}")
+        print(f"Discussion threads: {result.discussion_threads_jsonl_path}")
+        print(f"Discussion state: {result.discussion_state_path}")

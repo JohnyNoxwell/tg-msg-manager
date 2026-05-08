@@ -338,6 +338,48 @@ Failure:
 - duplicate payload rows after rerun
 - existing files re-downloaded instead of marked `already_exists`
 
+### 15. Direct channel export with linked discussion comments
+
+Use a broadcast channel that has a linked discussion group. Keep the limit small.
+
+Command:
+
+```bash
+python3 -m tg_msg_manager.cli export-channel \
+  --channel "$TEST_CHANNEL" \
+  --limit 3 \
+  --media metadata \
+  --discussion full \
+  --max-comments-per-post 20
+```
+
+Expected:
+
+- exit code `0`
+- `discussion_comments.jsonl` exists when discussion export is available for current-run posts
+- `discussion_comments.txt` exists when discussion export is available for current-run posts
+- `discussion_threads.jsonl` exists
+- `discussion_export_state.json` exists
+- `manifest.json` contains a `discussion` block with mode `full`
+- failed thread count is recorded if some threads fail or are unavailable
+- no SQLite migration is required
+- no full media files are downloaded for discussion comments
+
+Incremental/no-new-posts check:
+
+- rerun without `--force`
+- if there are no new channel posts, old discussion threads are not refetched
+- `discussion_export_state.json` is not mutated on a no-new-posts run
+
+Failure:
+
+- non-zero exit code
+- missing discussion files when the channel has linked discussion data for current-run posts
+- `manifest.json` lacks the `discussion` block
+- discussion comments are written into SQLite
+- discussion media is fully downloaded
+- old discussion threads are refreshed without `--force`
+
 ## Result table
 
 | Date | Commit | Tester | Scenario | Result | Notes |

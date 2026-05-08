@@ -41,6 +41,7 @@ def build_manifest(
     max_media_size: Optional[int],
     media_types: Optional[Tuple[str, ...]],
     included_files: Tuple[str, ...],
+    discussion: Optional[Dict[str, Any]] = None,
     status: str = "completed",
 ) -> Dict[str, Any]:
     return {
@@ -70,6 +71,7 @@ def build_manifest(
             "media_types": list(media_types) if media_types is not None else None,
             "included_files": list(included_files),
         },
+        "discussion": discussion or {"mode": "none"},
         "status": status,
     }
 

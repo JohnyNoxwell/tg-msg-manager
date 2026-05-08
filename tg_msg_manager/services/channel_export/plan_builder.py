@@ -69,4 +69,8 @@ class ChannelExportPlanBuilder:
             media_manifest_path=output_dir / "media_manifest.jsonl",
             state_path=output_dir / "channel_export_state.json",
             media_dir=media_dir,
+            discussion_comments_jsonl_path=output_dir / "discussion_comments.jsonl",
+            discussion_comments_txt_path=output_dir / "discussion_comments.txt",
+            discussion_threads_jsonl_path=output_dir / "discussion_threads.jsonl",
+            discussion_state_path=output_dir / "discussion_export_state.json",
         )

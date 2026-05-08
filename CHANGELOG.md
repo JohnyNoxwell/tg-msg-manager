@@ -4,20 +4,30 @@ All notable changes to this project will be documented in this file in both Engl
 ## [4.2.25] - 2026-05-08
 
 ### Added (EN)
+- **Stage 3C Channel Discussion Context Export**: Added explicit `export-channel --discussion full` support for linked discussion comments as dataset files, while keeping the default `--discussion none`.
+- **Discussion Dataset Files**: Added `discussion_comments.jsonl`, `discussion_comments.txt`, `discussion_threads.jsonl`, and `discussion_export_state.json` for current-run channel posts only.
+- **Discussion Comment Limit**: Added `--max-comments-per-post` with a default of `100`.
 - **Stage 3B Media Download Hardening**: Added `ChannelMediaDownloader` under `services/channel_export/` with file hashing, existing-file reuse, size/type guardrails, and per-media failure recording for direct channel export.
 - **Channel Export Media Controls**: Added `--max-media-size` and `--media-types` for `export-channel`, while keeping `--media metadata` as the default and requiring explicit `--media full` for downloads.
 - **Media Download Event Surface**: Added `channel_export.media_progress`, `channel_export.media_downloaded`, `channel_export.media_skipped`, and `channel_export.media_failed` events plus CLI progress rendering.
 
 ### Changed (EN)
+- **Discussion Export State Safety**: Discussion state is filesystem-local, separate from `channel_export_state.json`, and no-new-posts runs do not refetch old discussion threads or mutate discussion state.
+- **Manifest / CLI Discussion Summary**: Channel export manifest and CLI summary now include discussion counts when `--discussion full` is used.
 - **Direct Channel Export Full Media**: `export-channel --media full` now downloads media into `media/`, computes `sha256`, skips reusable files as `already_exists`, and records final statuses in `media_manifest.jsonl`.
 - **Manifest / State Media Summary**: Channel export manifest/state now track detailed media counters for downloaded, existing, skipped-by-size, skipped-by-type, and failed media records.
 
 ### Добавлено (RU)
+- **Stage 3C Channel Discussion Context Export**: Добавлена явная поддержка `export-channel --discussion full` для linked discussion comments как dataset files; default остаётся `--discussion none`.
+- **Discussion dataset files**: Добавлены `discussion_comments.jsonl`, `discussion_comments.txt`, `discussion_threads.jsonl` и `discussion_export_state.json` только для channel posts текущего run.
+- **Лимит discussion comments**: Добавлен `--max-comments-per-post` с default `100`.
 - **Stage 3B Media Download Hardening**: Для direct channel export добавлен `ChannelMediaDownloader` в `services/channel_export/` с file hashing, reuse существующих файлов, size/type guardrails и фиксацией per-media failures.
 - **Media controls для channel export**: Для `export-channel` добавлены `--max-media-size` и `--media-types`, при этом default остаётся `--media metadata`, а загрузка файлов требует явного `--media full`.
 - **Event surface для media download**: Добавлены события `channel_export.media_progress`, `channel_export.media_downloaded`, `channel_export.media_skipped` и `channel_export.media_failed` вместе с CLI progress rendering.
 
 ### Изменения (RU)
+- **Безопасность discussion state**: Discussion state хранится только в filesystem, отдельно от `channel_export_state.json`; no-new-posts runs не перечитывают старые threads и не меняют discussion state.
+- **Discussion summary в manifest/CLI**: Manifest channel export и CLI summary теперь включают discussion counts при использовании `--discussion full`.
 - **Full media в direct channel export**: `export-channel --media full` теперь скачивает media в `media/`, считает `sha256`, переиспользует существующие файлы как `already_exists` и пишет финальные статусы в `media_manifest.jsonl`.
 - **Детальный media summary в manifest/state**: Manifest и filesystem-state channel export теперь хранят отдельные счётчики для downloaded, existing, skipped-by-size, skipped-by-type и failed media records.
 

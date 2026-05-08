@@ -1,5 +1,10 @@
 import argparse
 
+from .services.channel_export.discussions.options import (
+    DEFAULT_MAX_COMMENTS_PER_POST,
+    validate_discussion_mode,
+    validate_max_comments_per_post,
+)
 from .services.channel_export.media_types import parse_media_types
 from .services.channel_export.size_parser import parse_media_size
 
@@ -16,6 +21,20 @@ def _parse_media_size_argument(value: str) -> int:
 def _parse_media_types_argument(value: str):
     try:
         return parse_media_types(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
+def _parse_discussion_mode_argument(value: str) -> str:
+    try:
+        return validate_discussion_mode(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
+def _parse_max_comments_per_post_argument(value: str) -> int:
+    try:
+        return validate_max_comments_per_post(int(value))
     except ValueError as exc:
         raise argparse.ArgumentTypeError(str(exc)) from exc
 
@@ -77,6 +96,18 @@ def build_cli_parser() -> argparse.ArgumentParser:
         type=_parse_media_types_argument,
         default=None,
         help="Comma-separated allowlist for --media full: photo,video,document,audio,voice,animation",
+    )
+    export_channel_parser.add_argument(
+        "--discussion",
+        choices=("none", "full"),
+        type=_parse_discussion_mode_argument,
+        default="none",
+    )
+    export_channel_parser.add_argument(
+        "--max-comments-per-post",
+        type=_parse_max_comments_per_post_argument,
+        default=DEFAULT_MAX_COMMENTS_PER_POST,
+        help="Maximum linked discussion comments to export per channel post",
     )
     export_channel_parser.add_argument("--output-dir", default=None)
     export_channel_parser.add_argument("--force", action="store_true", default=False)

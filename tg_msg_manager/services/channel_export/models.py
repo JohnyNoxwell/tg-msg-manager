@@ -3,6 +3,11 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+from .discussions.options import (
+    DEFAULT_MAX_COMMENTS_PER_POST,
+    DISCUSSION_MODE_NONE,
+)
+
 CHANNEL_EXPORT_RUN_MODE_FULL = "full"
 CHANNEL_EXPORT_RUN_MODE_INCREMENTAL = "incremental"
 CHANNEL_EXPORT_RUN_MODE_FORCE_FULL = "force_full"
@@ -24,6 +29,8 @@ class ChannelExportOptions:
     output_dir: Path
     max_media_size: Optional[int] = None
     media_types: Optional[Tuple[str, ...]] = None
+    discussion_mode: str = DISCUSSION_MODE_NONE
+    max_comments_per_post: int = DEFAULT_MAX_COMMENTS_PER_POST
     include_jsonl: bool = True
     include_txt: bool = True
     force: bool = False
@@ -72,6 +79,10 @@ class ChannelExportPlan:
     media_manifest_path: Path
     state_path: Path
     media_dir: Path
+    discussion_comments_jsonl_path: Path
+    discussion_comments_txt_path: Path
+    discussion_threads_jsonl_path: Path
+    discussion_state_path: Path
 
 
 @dataclass(frozen=True)
@@ -140,3 +151,12 @@ class ChannelExportResult:
     messages_txt_path: Path
     media_manifest_path: Path
     state_path: Path
+    discussion_mode: str = DISCUSSION_MODE_NONE
+    discussion_chat_id: Optional[int] = None
+    discussion_thread_count_this_run: int = 0
+    discussion_comment_count_this_run: int = 0
+    failed_discussion_thread_count_this_run: int = 0
+    discussion_comments_jsonl_path: Optional[Path] = None
+    discussion_comments_txt_path: Optional[Path] = None
+    discussion_threads_jsonl_path: Optional[Path] = None
+    discussion_state_path: Optional[Path] = None

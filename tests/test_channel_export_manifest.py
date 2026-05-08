@@ -66,8 +66,54 @@ class TestChannelExportManifest(unittest.TestCase):
         self.assertEqual(manifest["export"]["included_files"][0], "manifest.json")
         self.assertIn("jsonl", manifest["export"]["formats"])
         self.assertIn("txt", manifest["export"]["formats"])
+        self.assertEqual(manifest["discussion"], {"mode": "none"})
         self.assertEqual(manifest["status"], "completed")
         self.assertIsInstance(manifest["exported_at"], str)
+
+    def test_build_manifest_contains_discussion_summary(self):
+        manifest = build_manifest(
+            channel=ChannelIdentity(
+                channel_id=777,
+                title="Updates",
+                username="updates",
+                access_hash=None,
+            ),
+            message_count=10,
+            media_count=0,
+            downloaded_media_count=0,
+            already_existing_media_count=0,
+            skipped_media_count=0,
+            skipped_by_size_count=0,
+            skipped_by_type_count=0,
+            failed_media_count=0,
+            date_from=None,
+            date_to=None,
+            media_mode="metadata",
+            max_media_size=None,
+            media_types=None,
+            included_files=("manifest.json", "messages.jsonl"),
+            discussion={
+                "mode": "full",
+                "discussion_chat_id": 222,
+                "thread_count": 10,
+                "comment_count": 237,
+                "failed_thread_count": 1,
+                "max_comments_per_post": 100,
+                "included_files": [
+                    "discussion_comments.jsonl",
+                    "discussion_comments.txt",
+                    "discussion_threads.jsonl",
+                    "discussion_export_state.json",
+                ],
+            },
+        )
+
+        self.assertEqual(manifest["discussion"]["mode"], "full")
+        self.assertEqual(manifest["discussion"]["comment_count"], 237)
+        self.assertIn(
+            "discussion_comments.jsonl",
+            manifest["discussion"]["included_files"],
+        )
 
     def test_manifest_writer_writes_valid_json_file(self):
         manifest = build_manifest(

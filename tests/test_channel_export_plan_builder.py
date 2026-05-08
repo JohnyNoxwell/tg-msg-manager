@@ -69,6 +69,22 @@ class TestChannelExportPlanBuilder(unittest.TestCase):
                 plan.state_path,
                 plan.output_dir / "channel_export_state.json",
             )
+            self.assertEqual(
+                plan.discussion_comments_jsonl_path,
+                plan.output_dir / "discussion_comments.jsonl",
+            )
+            self.assertEqual(
+                plan.discussion_comments_txt_path,
+                plan.output_dir / "discussion_comments.txt",
+            )
+            self.assertEqual(
+                plan.discussion_threads_jsonl_path,
+                plan.output_dir / "discussion_threads.jsonl",
+            )
+            self.assertEqual(
+                plan.discussion_state_path,
+                plan.output_dir / "discussion_export_state.json",
+            )
             self.assertTrue(plan.media_dir.is_dir())
             for subdirectory in MEDIA_SUBDIRECTORIES:
                 self.assertTrue((plan.media_dir / subdirectory).is_dir())

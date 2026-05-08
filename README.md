@@ -18,6 +18,7 @@ python3 -m tg_msg_manager.cli db-export --user-id 123456789
 python3 -m tg_msg_manager.cli export-pm --user-id 123456789
 python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json
 python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata
+python3 -m tg_msg_manager.cli export-channel --channel @example --limit 10 --media metadata --discussion full --max-comments-per-post 100
 python3 -m tg_msg_manager.cli update
 python3 -m tg_msg_manager.cli retry --list
 python3 -m tg_msg_manager.cli report
@@ -52,7 +53,7 @@ python3 -m tg_msg_manager.cli report
 * 💬 **Архив лички (`export-pm`)** — Текстовый бэкап приватного чата с подготовленной структурой папок под медиа.
 * 🗄️ **SQLite База данных** — Все данные хранятся в структурированной базе `messages.db`. Это обеспечивает мгновенный поиск и отсутствие дубликатов.
 * 📤 **Экспорт из БД** — Выгрузка накопленных данных из SQLite в JSON/Text. JSONL по умолчанию теперь компактный и ориентирован на анализ нейросетью.
-* 📡 **Прямой экспорт канала (`export-channel`)** — Файловый dataset export постов Telegram-канала в `manifest.json`, `messages.jsonl`, `messages.txt` и `media_manifest.jsonl`.
+* 📡 **Прямой экспорт канала (`export-channel`)** — Файловый dataset export постов Telegram-канала в `manifest.json`, `messages.jsonl`, `messages.txt`, `media_manifest.jsonl` и, при явном `--discussion full`, discussion dataset files.
 * ♻️ **Retry Queue (`retry`)** — Управление повторными задачами для recoverable sync/archive ошибок без ручного вмешательства в БД.
 * 📋 **Audit Report (`report`)** — Read-only диагностика локальной БД, retry-очереди, export artifacts и состояния tracked targets без доступа к Telegram.
 
@@ -83,10 +84,15 @@ python3 -m tg_msg_manager.cli report
     Без `--json` команда пишет TXT; с `--json` — компактный AI-friendly JSONL.
 *   **Прямой экспорт канала**:
     `python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata`
-    Команда создаёт файловый dataset в `exports/channels/`. Stage 3A/3A.1/3B не делает analytics и не пишет channel posts в SQLite.
+    `python3 -m tg_msg_manager.cli export-channel --channel @example --limit 10 --media metadata --discussion full --max-comments-per-post 100`
+    Команда создаёт файловый dataset в `exports/channels/`. Stage 3A/3A.1/3B/3C не делает analytics и не пишет channel posts или discussion comments в SQLite.
     Поддерживаются только broadcast-каналы; группы и супергруппы не входят в `export-channel`.
     После успешного запуска создаётся `channel_export_state.json`; повторный запуск без `--force` экспортирует только новые посты и дописывает dataset append-only.
     По умолчанию используется безопасный режим `--media metadata`.
+    По умолчанию `--discussion none`: resolver обсуждений не запускается и discussion files не создаются.
+    `--discussion full` пишет `discussion_comments.jsonl`, `discussion_comments.txt`, `discussion_threads.jsonl` и `discussion_export_state.json` только для постов, полученных в текущем run.
+    Инкрементальный запуск экспортирует discussion comments только для новых постов; no-new-posts run не перечитывает старые threads и не меняет `discussion_export_state.json`.
+    Для discussion comments не выполняется full media download, только metadata/empty media fields.
     Полная загрузка media требует явного `--media full`; для неё доступны `--max-media-size 50MB` по умолчанию и `--media-types photo,video,...`.
     В `full` режиме `media_manifest.jsonl` фиксирует итоговые статусы `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type` и `failed`.
 *   **Полное удаление локальных данных**:
@@ -163,8 +169,11 @@ Legacy aliases still supported:
 
 * `--limit` ограничивает обработку в рамках одного `sync_chat`; при экспорте пользователя по нескольким диалогам лимит применяется к каждому диалогу отдельно.
 * `export-pm` пишет текстовый лог и медиа-структуру, но не восстанавливает Telegram-специфичные сущности как полноценный replay архива.
-* `export-channel` в Stage 3A/3A.1/3B является filesystem-first dataset projection pipeline: discussion group export, group source extraction и SQLite persistence для channel posts пока не реализованы.
+* `export-channel` в Stage 3A/3A.1/3B/3C является filesystem-first dataset projection pipeline: channel posts и discussion comments не пишутся в SQLite, analytics не выполняется.
 * Безопасный режим по умолчанию для `export-channel` — `--media metadata`; `--media full` работает только при явном указании и использует size/type guardrails.
+* Discussion export выключен по умолчанию через `--discussion none`; `--discussion full` экспортирует только threads для постов текущего run.
+* Старые discussion threads не refresh/backfill без `--force`; reply-tree reconstruction не выполняется, сохраняется только `reply_to_id`.
+* Full media download для discussion comments не реализован.
 * `export-channel` использует файловый `channel_export_state.json` и append-only incremental update для новых постов, но не делает partial rollback уже дописанных файлов при сбое посередине run.
 * Переключение существующего metadata-only dataset на `--media full` без `--force` скачивает media только для новых постов текущего run; исторический backfill старых rows по-прежнему требует full re-export.
 * Фоновая запись в SQLite остаётся чувствительной к очень большим deep-export проходам; основная оптимизация сейчас сделана на уровне пакетных сервисных вызовов.
@@ -212,6 +221,7 @@ python3 -m tg_msg_manager.cli db-export --user-id 123456789
 python3 -m tg_msg_manager.cli export-pm --user-id 123456789
 python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json
 python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata
+python3 -m tg_msg_manager.cli export-channel --channel @example --limit 10 --media metadata --discussion full --max-comments-per-post 100
 python3 -m tg_msg_manager.cli update
 python3 -m tg_msg_manager.cli retry --list
 python3 -m tg_msg_manager.cli report
@@ -246,7 +256,7 @@ Core system capabilities:
 * 💬 **PM Archive (`export-pm`)** — Text backup for private conversations with a prepared folder structure for media.
 * 🗄️ **SQLite Storage** — All messages are stored in a structured `messages.db` for instant querying and zero duplicates.
 * 📤 **Database Export** — Export collected SQLite records into JSON or Text. JSONL now defaults to a compact AI-friendly profile.
-* 📡 **Direct Channel Export (`export-channel`)** — Filesystem-first dataset export of Telegram channel posts into `manifest.json`, `messages.jsonl`, `messages.txt`, and `media_manifest.jsonl`.
+* 📡 **Direct Channel Export (`export-channel`)** — Filesystem-first dataset export of Telegram channel posts into `manifest.json`, `messages.jsonl`, `messages.txt`, `media_manifest.jsonl`, and optional discussion dataset files when `--discussion full` is explicit.
 * ♻️ **Retry Queue (`retry`)** — Replays recoverable sync/archive failures through typed retry tasks instead of manual DB surgery.
 * 📋 **Audit Report (`report`)** — Read-only diagnostics for local DB state, retry backlog, export artifacts, and tracked-target health without Telegram access.
 
@@ -277,10 +287,15 @@ Subcommands can be executed directly for automation:
     Without `--json`, the command writes TXT; with `--json`, it writes compact AI-friendly JSONL.
 *   **Direct Channel Export**:
     `python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata`
-    The command writes a filesystem dataset under `exports/channels/`. Stage 3A/3A.1/3B does not perform analytics and does not persist channel posts into SQLite.
+    `python3 -m tg_msg_manager.cli export-channel --channel @example --limit 10 --media metadata --discussion full --max-comments-per-post 100`
+    The command writes a filesystem dataset under `exports/channels/`. Stage 3A/3A.1/3B/3C does not perform analytics and does not persist channel posts or discussion comments into SQLite.
     Only broadcast channels are supported; groups and supergroups are out of scope for `export-channel`.
     Successful runs create `channel_export_state.json`; later runs without `--force` append only newly discovered posts to the dataset.
     The safe default remains `--media metadata`.
+    The discussion default is `--discussion none`; no discussion resolver runs and no discussion files are created in that mode.
+    `--discussion full` writes `discussion_comments.jsonl`, `discussion_comments.txt`, `discussion_threads.jsonl`, and `discussion_export_state.json` only for posts fetched in the current run.
+    Incremental runs export discussion comments only for new posts; no-new-posts runs do not refetch old threads or mutate `discussion_export_state.json`.
+    Discussion comment media is metadata-only; full media download for discussion comments is not implemented.
     Full media download requires explicit `--media full`; it supports `--max-media-size` with a `50MB` default and `--media-types photo,video,...`.
     In `full` mode, `media_manifest.jsonl` records final statuses such as `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type`, and `failed`.
 *   **Full Local Purge**:
@@ -357,8 +372,11 @@ Supported legacy aliases:
 
 * `--limit` caps work inside a single `sync_chat`; when exporting a user across multiple dialogs, the cap applies per dialog.
 * `export-pm` produces a text-and-media archive, not a full Telegram-native replayable backup.
-* `export-channel` in Stage 3A/3A.1/3B is a filesystem-first dataset projection pipeline; discussion group export, source extraction from groups, and SQLite persistence for channel posts are not implemented yet.
+* `export-channel` in Stage 3A/3A.1/3B/3C is a filesystem-first dataset projection pipeline; channel posts and discussion comments are not written to SQLite, and analytics are not performed.
 * The safe default for `export-channel` remains `--media metadata`; `--media full` works only when requested explicitly and runs through size/type guardrails.
+* Discussion export is disabled by default with `--discussion none`; `--discussion full` exports only threads for posts fetched in the current run.
+* Old discussion threads are not refreshed/backfilled without `--force`; reply-tree reconstruction is not implemented beyond preserving `reply_to_id`.
+* Full media download for discussion comments is not implemented.
 * `export-channel` now uses filesystem state plus append-only incremental updates for new posts, but it does not yet roll back already appended payload files if a run fails mid-write.
 * Switching an existing metadata-only dataset to `--media full` without `--force` downloads media only for newly fetched posts in that run; historical backfill for old rows still requires a full re-export.
 * SQLite background writing is still most sensitive during very large deep-export passes; the current optimization focus is batched service-level writes.

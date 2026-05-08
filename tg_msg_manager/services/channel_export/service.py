@@ -9,6 +9,19 @@ from .media_downloader import ChannelMediaDownloader
 from .media_manifest_writer import ChannelMediaManifestWriter
 from .media_processor import ChannelExportMediaProcessor
 from .media_policy import validate_media_mode
+from .discussions import (
+    DISCUSSION_MODE_FULL,
+    ChannelDiscussionExporter,
+    ChannelDiscussionFetcher,
+    ChannelDiscussionOptions,
+    ChannelDiscussionResolver,
+    validate_discussion_mode,
+    validate_max_comments_per_post,
+)
+from .discussions.manifest_summary import (
+    build_discussion_manifest,
+    discussion_included_files,
+)
 from .models import (
     CHANNEL_EXPORT_RUN_MODE_FORCE_FULL,
     CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
@@ -48,6 +61,8 @@ class ChannelExportService:
         manifest_writer: Optional[ChannelManifestWriter] = None,
         payload_writer: Optional[ChannelPayloadWriter] = None,
         media_downloader: Optional[ChannelMediaDownloader] = None,
+        discussion_resolver: Optional[ChannelDiscussionResolver] = None,
+        discussion_exporter: Optional[ChannelDiscussionExporter] = None,
         state_manager: Optional[ChannelExportStateManager] = None,
         event_emitter: Optional[ChannelExportEventEmitter] = None,
         progress_interval: int = 100,
@@ -66,6 +81,12 @@ class ChannelExportService:
         self.manifest_writer = manifest_writer or ChannelManifestWriter()
         self.payload_writer = payload_writer or ChannelPayloadWriter()
         self.media_downloader = media_downloader or ChannelMediaDownloader(client)
+        self.discussion_resolver = discussion_resolver or ChannelDiscussionResolver(
+            client
+        )
+        self.discussion_exporter = discussion_exporter or ChannelDiscussionExporter(
+            fetcher=ChannelDiscussionFetcher(client)
+        )
         self.state_manager = state_manager or ChannelExportStateManager()
         self.event_emitter = event_emitter or ChannelExportEventEmitter(event_sink)
         self.media_processor = ChannelExportMediaProcessor(
@@ -78,7 +99,16 @@ class ChannelExportService:
         self, options: ChannelExportOptions
     ) -> ChannelExportResult:
         media_mode = validate_media_mode(options.media_mode)
-        options = self._normalize_options(options, media_mode)
+        discussion_mode = validate_discussion_mode(options.discussion_mode)
+        max_comments_per_post = validate_max_comments_per_post(
+            options.max_comments_per_post
+        )
+        options = self._normalize_options(
+            options,
+            media_mode,
+            discussion_mode,
+            max_comments_per_post,
+        )
         self.media_processor.reset_progress()
         plan = None
         channel_identity = None
@@ -183,6 +213,7 @@ class ChannelExportService:
         )
 
         with write_session as session:
+            current_run_records = []
             async for message in self.post_fetcher.iter_posts(
                 entity,
                 limit=options.limit,
@@ -195,8 +226,17 @@ class ChannelExportService:
                     output_dir=plan.output_dir,
                 )
                 session.write_record(mapped_record)
+                current_run_records.append(mapped_record)
             run_stats = session.finish()
 
+        discussion_result = await self._export_discussions_for_posts(
+            entity=entity,
+            channel_identity=channel_identity,
+            plan=plan,
+            options=options,
+            run_mode=run_mode,
+            posts=current_run_records,
+        )
         completed_state = self.state_manager.build_completed_state(
             channel=channel_identity,
             stats=run_stats,
@@ -207,10 +247,13 @@ class ChannelExportService:
             state=completed_state,
             options=options,
             media_mode=media_mode,
-            included_files=self._included_files(options),
+            included_files=self._included_files(options, discussion_result),
+            discussion_result=discussion_result,
         )
         self.manifest_writer.write(plan.manifest_path, manifest)
         self.state_manager.save(plan.state_path, completed_state)
+        if discussion_result is not None:
+            self.discussion_exporter.save_result_state(discussion_result)
         return self._build_result(
             channel=channel_identity,
             plan=plan,
@@ -218,6 +261,7 @@ class ChannelExportService:
             run_mode=run_mode,
             state=completed_state,
             run_stats=run_stats,
+            discussion_result=discussion_result,
         )
 
     async def _run_incremental_export(
@@ -253,7 +297,8 @@ class ChannelExportService:
                 state=state,
                 options=options,
                 media_mode=media_mode,
-                included_files=self._included_files(options),
+                included_files=self._included_files(options, None),
+                discussion_result=None,
             )
             self.manifest_writer.write(plan.manifest_path, manifest)
             self.event_emitter.emit_no_new_posts(
@@ -283,6 +328,7 @@ class ChannelExportService:
                 run_mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
                 state=state,
                 run_stats=empty_stats,
+                discussion_result=None,
             )
 
         write_session = self.payload_writer.open_session(
@@ -302,6 +348,20 @@ class ChannelExportService:
                 session.write_record(record)
             run_stats = session.finish()
 
+        previous_discussion_state = None
+        if options.discussion_mode == DISCUSSION_MODE_FULL:
+            previous_discussion_state = self.discussion_exporter.load_state(
+                plan.discussion_state_path
+            )
+        discussion_result = await self._export_discussions_for_posts(
+            entity=entity,
+            channel_identity=channel_identity,
+            plan=plan,
+            options=options,
+            run_mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
+            posts=mapped_records,
+            previous_discussion_state=previous_discussion_state,
+        )
         completed_state = self.state_manager.build_completed_state(
             channel=channel_identity,
             stats=run_stats,
@@ -313,10 +373,13 @@ class ChannelExportService:
             state=completed_state,
             options=options,
             media_mode=media_mode,
-            included_files=self._included_files(options),
+            included_files=self._included_files(options, discussion_result),
+            discussion_result=discussion_result,
         )
         self.manifest_writer.write(plan.manifest_path, manifest)
         self.state_manager.save(plan.state_path, completed_state)
+        if discussion_result is not None:
+            self.discussion_exporter.save_result_state(discussion_result)
         return self._build_result(
             channel=channel_identity,
             plan=plan,
@@ -324,6 +387,7 @@ class ChannelExportService:
             run_mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
             state=completed_state,
             run_stats=run_stats,
+            discussion_result=discussion_result,
         )
 
     def _build_manifest(
@@ -334,6 +398,7 @@ class ChannelExportService:
         options: ChannelExportOptions,
         media_mode: str,
         included_files: tuple[str, ...],
+        discussion_result: Any = None,
     ) -> dict[str, Any]:
         return build_manifest(
             channel=channel,
@@ -351,6 +416,11 @@ class ChannelExportService:
             max_media_size=options.max_media_size,
             media_types=options.media_types,
             included_files=included_files,
+            discussion=build_discussion_manifest(
+                discussion_mode=options.discussion_mode,
+                max_comments_per_post=options.max_comments_per_post,
+                discussion_result=discussion_result,
+            ),
             status=state.last_run_status,
         )
 
@@ -363,6 +433,7 @@ class ChannelExportService:
         run_mode: str,
         state: ChannelExportState,
         run_stats: ChannelExportRunStats,
+        discussion_result: Any = None,
     ) -> ChannelExportResult:
         result = ChannelExportResult(
             channel=channel,
@@ -390,6 +461,41 @@ class ChannelExportService:
             messages_txt_path=plan.messages_txt_path,
             media_manifest_path=plan.media_manifest_path,
             state_path=plan.state_path,
+            discussion_mode=options.discussion_mode,
+            discussion_chat_id=(
+                discussion_result.discussion_chat_id
+                if discussion_result is not None
+                else None
+            ),
+            discussion_thread_count_this_run=(
+                discussion_result.thread_count if discussion_result is not None else 0
+            ),
+            discussion_comment_count_this_run=(
+                discussion_result.comment_count if discussion_result is not None else 0
+            ),
+            failed_discussion_thread_count_this_run=(
+                discussion_result.failed_thread_count
+                if discussion_result is not None
+                else 0
+            ),
+            discussion_comments_jsonl_path=(
+                discussion_result.comments_jsonl_path
+                if discussion_result is not None
+                else None
+            ),
+            discussion_comments_txt_path=(
+                discussion_result.comments_txt_path
+                if discussion_result is not None
+                else None
+            ),
+            discussion_threads_jsonl_path=(
+                discussion_result.threads_jsonl_path
+                if discussion_result is not None
+                else None
+            ),
+            discussion_state_path=(
+                discussion_result.state_path if discussion_result is not None else None
+            ),
         )
         self.event_emitter.emit_completed(
             channel_id=channel.channel_id,
@@ -431,11 +537,47 @@ class ChannelExportService:
             media_types=options.media_types,
         )
 
+    async def _export_discussions_for_posts(
+        self,
+        *,
+        entity: Any,
+        channel_identity: Any,
+        plan: Any,
+        options: ChannelExportOptions,
+        run_mode: str,
+        posts: list[Any],
+        previous_discussion_state: Any = None,
+    ):
+        if options.discussion_mode != DISCUSSION_MODE_FULL or not posts:
+            return None
+        discussion_source = await self.discussion_resolver.resolve(entity)
+        discussion_options = ChannelDiscussionOptions(
+            mode=options.discussion_mode,
+            max_comments_per_post=options.max_comments_per_post,
+        )
+        return await self.discussion_exporter.export_for_posts(
+            channel_identity=channel_identity,
+            discussion_source=discussion_source,
+            posts=posts,
+            plan=plan,
+            discussion_options=discussion_options,
+            run_mode=run_mode,
+            previous_state=previous_discussion_state,
+            save_state=False,
+        )
+
     @staticmethod
     def _normalize_options(
         options: ChannelExportOptions,
         media_mode: str,
+        discussion_mode: str,
+        max_comments_per_post: int,
     ) -> ChannelExportOptions:
+        options = replace(
+            options,
+            discussion_mode=discussion_mode,
+            max_comments_per_post=max_comments_per_post,
+        )
         if media_mode == "full" and options.max_media_size is None:
             return replace(options, max_media_size=DEFAULT_MAX_MEDIA_SIZE_BYTES)
         return options
@@ -449,7 +591,10 @@ class ChannelExportService:
         self.event_emitter.emit_progress(**event_payload)
 
     @staticmethod
-    def _included_files(options: ChannelExportOptions) -> tuple[str, ...]:
+    def _included_files(
+        options: ChannelExportOptions,
+        discussion_result: Any = None,
+    ) -> tuple[str, ...]:
         included = ["manifest.json", "media_manifest.jsonl"]
         if options.include_jsonl:
             included.append("messages.jsonl")
@@ -457,4 +602,5 @@ class ChannelExportService:
             included.append("messages.txt")
         if options.media_mode == "full":
             included.append("media/")
+        included.extend(discussion_included_files(discussion_result))
         return tuple(included)

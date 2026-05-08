@@ -9,6 +9,14 @@ from tg_msg_manager.services.channel_export import (
     ChannelExportOptions,
     ChannelExportService,
 )
+from tg_msg_manager.services.channel_export.discussions.exporter import (
+    ChannelDiscussionExporter,
+)
+from tg_msg_manager.services.channel_export.discussions.models import (
+    DISCUSSION_SOURCE_STATUS_RESOLVED,
+    ChannelDiscussionFetchResult,
+    ChannelDiscussionSource,
+)
 
 
 class FakeChannelEntity:
@@ -73,6 +81,50 @@ class FailingManifestWriter:
         raise RuntimeError("manifest write failed")
 
 
+class CountingDiscussionResolver:
+    def __init__(self, source):
+        self.source = source
+        self.calls = []
+
+    async def resolve(self, entity):
+        self.calls.append(entity)
+        return self.source
+
+
+class FakeDiscussionFetcher:
+    def __init__(self, results):
+        self.results = dict(results)
+        self.calls = []
+
+    async def fetch_comments_for_post(
+        self,
+        *,
+        discussion_entity,
+        channel_post_record,
+        max_comments_per_post,
+    ):
+        del discussion_entity
+        self.calls.append((channel_post_record.message_id, max_comments_per_post))
+        result = self.results[channel_post_record.message_id]
+        if isinstance(result, Exception):
+            return ChannelDiscussionFetchResult(comments=(), error=str(result))
+        return result
+
+
+class FailingDiscussionExporter:
+    def __init__(self):
+        self.calls = 0
+
+    def load_state(self, path):
+        del path
+        return None
+
+    async def export_for_posts(self, **kwargs):
+        del kwargs
+        self.calls += 1
+        raise RuntimeError("discussion payload write failed")
+
+
 def make_message(
     message_id, *, text, media_type=None, media_ref=None, is_service=False
 ):
@@ -90,6 +142,32 @@ def make_message(
         raw_payload={},
         is_service=is_service,
         media_ref=media_ref,
+    )
+
+
+def make_comment(message_id: int, *, text: str = "comment"):
+    return type(
+        "Comment",
+        (),
+        {
+            "id": message_id,
+            "sender_id": 123,
+            "author_name": "Commenter",
+            "username": "commenter",
+            "date": datetime(2026, 5, 8, 12, message_id % 60, tzinfo=timezone.utc),
+            "message": text,
+            "reply_to_id": 98765,
+            "raw_payload": {"id": message_id},
+        },
+    )()
+
+
+def resolved_discussion_source():
+    return ChannelDiscussionSource(
+        status=DISCUSSION_SOURCE_STATUS_RESOLVED,
+        discussion_chat_id=222,
+        discussion_entity=FakeChannelEntity(entity_id=222, title="Comments"),
+        error=None,
     )
 
 
@@ -130,8 +208,431 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
             state = json.loads(result.state_path.read_text(encoding="utf-8"))
             self.assertEqual(manifest["export"]["message_count"], 2)
             self.assertEqual(manifest["export"]["media_count"], 1)
+            self.assertEqual(manifest["discussion"], {"mode": "none"})
             self.assertEqual(manifest["source"]["username"], "daily")
             self.assertEqual(state["last_exported_message_id"], 2)
+            self.assertFalse(
+                (result.manifest_path.parent / "discussion_comments.jsonl").exists()
+            )
+            self.assertFalse(
+                (result.manifest_path.parent / "discussion_threads.jsonl").exists()
+            )
+            self.assertFalse(
+                (result.manifest_path.parent / "discussion_export_state.json").exists()
+            )
+
+    async def test_default_discussion_mode_does_not_call_discussion_components(self):
+        entity = FakeChannelEntity()
+        client = FakeChannelClient(entity, [make_message(1, text="First")])
+        resolver = CountingDiscussionResolver(resolved_discussion_source())
+        exporter = FailingDiscussionExporter()
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_no_discussion_"
+        ) as tmpdir:
+            result = await ChannelExportService(
+                client=client,
+                base_dir=Path(tmpdir),
+                discussion_resolver=resolver,
+                discussion_exporter=exporter,
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                )
+            )
+
+            self.assertEqual(resolver.calls, [])
+            self.assertEqual(exporter.calls, 0)
+            self.assertEqual(result.discussion_mode, "none")
+            self.assertFalse(
+                (result.manifest_path.parent / "discussion_comments.jsonl").exists()
+            )
+
+    async def test_discussion_full_writes_dataset_files_state_and_manifest_summary(
+        self,
+    ):
+        entity = FakeChannelEntity()
+        client = FakeChannelClient(
+            entity,
+            [make_message(1, text="First"), make_message(2, text="Second")],
+        )
+        fetcher = FakeDiscussionFetcher(
+            {
+                1: ChannelDiscussionFetchResult(
+                    comments=(make_comment(101, text="one"),),
+                    has_more=False,
+                ),
+                2: ChannelDiscussionFetchResult(
+                    comments=(make_comment(201, text="two"),),
+                    has_more=False,
+                ),
+            }
+        )
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_discussion_"
+        ) as tmpdir:
+            result = await ChannelExportService(
+                client=client,
+                base_dir=Path(tmpdir),
+                discussion_resolver=CountingDiscussionResolver(
+                    resolved_discussion_source()
+                ),
+                discussion_exporter=ChannelDiscussionExporter(fetcher=fetcher),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                    discussion_mode="full",
+                    max_comments_per_post=100,
+                )
+            )
+
+            manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+            discussion_state = json.loads(
+                result.discussion_state_path.read_text(encoding="utf-8")
+            )
+            comments = [
+                json.loads(line)
+                for line in result.discussion_comments_jsonl_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+            threads = [
+                json.loads(line)
+                for line in result.discussion_threads_jsonl_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+
+            self.assertEqual(result.discussion_thread_count_this_run, 2)
+            self.assertEqual(result.discussion_comment_count_this_run, 2)
+            self.assertEqual(fetcher.calls, [(1, 100), (2, 100)])
+            self.assertEqual(
+                [comment["message_id"] for comment in comments], [101, 201]
+            )
+            self.assertEqual(
+                [thread["status"] for thread in threads], ["exported", "exported"]
+            )
+            self.assertEqual(manifest["discussion"]["mode"], "full")
+            self.assertEqual(manifest["discussion"]["discussion_chat_id"], 222)
+            self.assertEqual(manifest["discussion"]["thread_count"], 2)
+            self.assertEqual(manifest["discussion"]["comment_count"], 2)
+            self.assertIn(
+                "discussion_comments.jsonl",
+                manifest["export"]["included_files"],
+            )
+            self.assertEqual(discussion_state["comment_count_total"], 2)
+
+    async def test_discussion_incremental_exports_only_new_posts(self):
+        entity = FakeChannelEntity()
+        first_fetcher = FakeDiscussionFetcher(
+            {
+                1: ChannelDiscussionFetchResult(comments=(make_comment(101),)),
+                2: ChannelDiscussionFetchResult(comments=(make_comment(201),)),
+            }
+        )
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_discussion_inc_"
+        ) as tmpdir:
+            await ChannelExportService(
+                client=FakeChannelClient(
+                    entity,
+                    [make_message(1, text="First"), make_message(2, text="Second")],
+                ),
+                base_dir=Path(tmpdir),
+                discussion_resolver=CountingDiscussionResolver(
+                    resolved_discussion_source()
+                ),
+                discussion_exporter=ChannelDiscussionExporter(fetcher=first_fetcher),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                    discussion_mode="full",
+                )
+            )
+
+            second_fetcher = FakeDiscussionFetcher(
+                {
+                    3: ChannelDiscussionFetchResult(comments=(make_comment(301),)),
+                }
+            )
+            result = await ChannelExportService(
+                client=FakeChannelClient(
+                    entity,
+                    [
+                        make_message(1, text="First"),
+                        make_message(2, text="Second"),
+                        make_message(3, text="Third"),
+                    ],
+                ),
+                base_dir=Path(tmpdir),
+                discussion_resolver=CountingDiscussionResolver(
+                    resolved_discussion_source()
+                ),
+                discussion_exporter=ChannelDiscussionExporter(fetcher=second_fetcher),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                    discussion_mode="full",
+                )
+            )
+
+            comments = [
+                json.loads(line)
+                for line in result.discussion_comments_jsonl_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+            discussion_state = json.loads(
+                result.discussion_state_path.read_text(encoding="utf-8")
+            )
+            self.assertEqual(result.run_mode, "incremental")
+            self.assertEqual(second_fetcher.calls, [(3, 100)])
+            self.assertEqual(
+                [comment["message_id"] for comment in comments], [101, 201, 301]
+            )
+            self.assertEqual(discussion_state["comment_count_total"], 3)
+
+    async def test_discussion_no_new_posts_does_not_refetch_or_mutate_state(self):
+        entity = FakeChannelEntity()
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_discussion_nonew_"
+        ) as tmpdir:
+            first_fetcher = FakeDiscussionFetcher(
+                {1: ChannelDiscussionFetchResult(comments=(make_comment(101),))}
+            )
+            first_result = await ChannelExportService(
+                client=FakeChannelClient(entity, [make_message(1, text="Only")]),
+                base_dir=Path(tmpdir),
+                discussion_resolver=CountingDiscussionResolver(
+                    resolved_discussion_source()
+                ),
+                discussion_exporter=ChannelDiscussionExporter(fetcher=first_fetcher),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                    discussion_mode="full",
+                )
+            )
+            initial_state = first_result.discussion_state_path.read_text(
+                encoding="utf-8"
+            )
+            initial_comments = first_result.discussion_comments_jsonl_path.read_text(
+                encoding="utf-8"
+            )
+
+            second_fetcher = FakeDiscussionFetcher({})
+            resolver = CountingDiscussionResolver(resolved_discussion_source())
+            second_result = await ChannelExportService(
+                client=FakeChannelClient(entity, [make_message(1, text="Only")]),
+                base_dir=Path(tmpdir),
+                discussion_resolver=resolver,
+                discussion_exporter=ChannelDiscussionExporter(fetcher=second_fetcher),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                    discussion_mode="full",
+                )
+            )
+
+            self.assertEqual(second_result.posts_exported_this_run, 0)
+            self.assertEqual(resolver.calls, [])
+            self.assertEqual(second_fetcher.calls, [])
+            self.assertEqual(
+                first_result.discussion_state_path.read_text(encoding="utf-8"),
+                initial_state,
+            )
+            self.assertEqual(
+                first_result.discussion_comments_jsonl_path.read_text(encoding="utf-8"),
+                initial_comments,
+            )
+
+    async def test_force_discussion_export_overwrites_discussion_files_and_state(self):
+        entity = FakeChannelEntity()
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_discussion_force_"
+        ) as tmpdir:
+            await ChannelExportService(
+                client=FakeChannelClient(entity, [make_message(1, text="First")]),
+                base_dir=Path(tmpdir),
+                discussion_resolver=CountingDiscussionResolver(
+                    resolved_discussion_source()
+                ),
+                discussion_exporter=ChannelDiscussionExporter(
+                    fetcher=FakeDiscussionFetcher(
+                        {1: ChannelDiscussionFetchResult(comments=(make_comment(101),))}
+                    )
+                ),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                    discussion_mode="full",
+                )
+            )
+
+            result = await ChannelExportService(
+                client=FakeChannelClient(entity, [make_message(2, text="Second")]),
+                base_dir=Path(tmpdir),
+                discussion_resolver=CountingDiscussionResolver(
+                    resolved_discussion_source()
+                ),
+                discussion_exporter=ChannelDiscussionExporter(
+                    fetcher=FakeDiscussionFetcher(
+                        {2: ChannelDiscussionFetchResult(comments=(make_comment(201),))}
+                    )
+                ),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                    discussion_mode="full",
+                    force=True,
+                )
+            )
+
+            comments = [
+                json.loads(line)
+                for line in result.discussion_comments_jsonl_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+            discussion_state = json.loads(
+                result.discussion_state_path.read_text(encoding="utf-8")
+            )
+            self.assertEqual([comment["message_id"] for comment in comments], [201])
+            self.assertEqual(discussion_state["comment_count_total"], 1)
+
+    async def test_failed_discussion_thread_is_recorded_without_failing_export(self):
+        entity = FakeChannelEntity()
+        fetcher = FakeDiscussionFetcher(
+            {
+                1: RuntimeError("thread failed"),
+                2: ChannelDiscussionFetchResult(comments=(make_comment(201),)),
+            }
+        )
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_discussion_failed_"
+        ) as tmpdir:
+            result = await ChannelExportService(
+                client=FakeChannelClient(
+                    entity,
+                    [make_message(1, text="First"), make_message(2, text="Second")],
+                ),
+                base_dir=Path(tmpdir),
+                discussion_resolver=CountingDiscussionResolver(
+                    resolved_discussion_source()
+                ),
+                discussion_exporter=ChannelDiscussionExporter(fetcher=fetcher),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                    discussion_mode="full",
+                )
+            )
+
+            threads = [
+                json.loads(line)
+                for line in result.discussion_threads_jsonl_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+            self.assertEqual(result.failed_discussion_thread_count_this_run, 1)
+            self.assertEqual(
+                [thread["status"] for thread in threads], ["failed", "exported"]
+            )
+
+    async def test_discussion_payload_failure_does_not_advance_state(self):
+        entity = FakeChannelEntity()
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_discussion_writer_fail_"
+        ) as tmpdir:
+            await ChannelExportService(
+                client=FakeChannelClient(entity, [make_message(1, text="First")]),
+                base_dir=Path(tmpdir),
+                discussion_resolver=CountingDiscussionResolver(
+                    resolved_discussion_source()
+                ),
+                discussion_exporter=ChannelDiscussionExporter(
+                    fetcher=FakeDiscussionFetcher(
+                        {1: ChannelDiscussionFetchResult(comments=(make_comment(101),))}
+                    )
+                ),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                    discussion_mode="full",
+                )
+            )
+            state_path = Path(tmpdir) / "@daily__123" / "channel_export_state.json"
+            discussion_state_path = (
+                Path(tmpdir) / "@daily__123" / "discussion_export_state.json"
+            )
+            initial_state = state_path.read_text(encoding="utf-8")
+            initial_discussion_state = discussion_state_path.read_text(encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "discussion payload write failed",
+            ):
+                await ChannelExportService(
+                    client=FakeChannelClient(
+                        entity,
+                        [make_message(1, text="First"), make_message(2, text="Second")],
+                    ),
+                    base_dir=Path(tmpdir),
+                    discussion_resolver=CountingDiscussionResolver(
+                        resolved_discussion_source()
+                    ),
+                    discussion_exporter=FailingDiscussionExporter(),
+                ).export_channel(
+                    ChannelExportOptions(
+                        channel="@daily",
+                        limit=None,
+                        media_mode="metadata",
+                        output_dir=Path(tmpdir),
+                        discussion_mode="full",
+                    )
+                )
+
+            self.assertEqual(state_path.read_text(encoding="utf-8"), initial_state)
+            self.assertEqual(
+                discussion_state_path.read_text(encoding="utf-8"),
+                initial_discussion_state,
+            )
 
     async def test_second_incremental_export_appends_only_new_posts(self):
         entity = FakeChannelEntity()
@@ -312,6 +813,76 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
 
             state_after_failure = json.loads(state_path.read_text(encoding="utf-8"))
             self.assertEqual(state_after_failure, initial_state)
+
+    async def test_discussion_state_is_not_saved_when_manifest_write_fails(self):
+        entity = FakeChannelEntity()
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_discussion_manifest_failure_"
+        ) as tmpdir:
+            await ChannelExportService(
+                client=FakeChannelClient(entity, [make_message(1, text="First")]),
+                base_dir=Path(tmpdir),
+                discussion_resolver=CountingDiscussionResolver(
+                    resolved_discussion_source()
+                ),
+                discussion_exporter=ChannelDiscussionExporter(
+                    fetcher=FakeDiscussionFetcher(
+                        {1: ChannelDiscussionFetchResult(comments=(make_comment(101),))}
+                    )
+                ),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                    discussion_mode="full",
+                )
+            )
+
+            state_path = Path(tmpdir) / "@daily__123" / "channel_export_state.json"
+            discussion_state_path = (
+                Path(tmpdir) / "@daily__123" / "discussion_export_state.json"
+            )
+            initial_state = state_path.read_text(encoding="utf-8")
+            initial_discussion_state = discussion_state_path.read_text(encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "manifest write failed"):
+                await ChannelExportService(
+                    client=FakeChannelClient(
+                        entity,
+                        [make_message(1, text="First"), make_message(2, text="Second")],
+                    ),
+                    base_dir=Path(tmpdir),
+                    manifest_writer=FailingManifestWriter(),
+                    discussion_resolver=CountingDiscussionResolver(
+                        resolved_discussion_source()
+                    ),
+                    discussion_exporter=ChannelDiscussionExporter(
+                        fetcher=FakeDiscussionFetcher(
+                            {
+                                2: ChannelDiscussionFetchResult(
+                                    comments=(make_comment(201),)
+                                )
+                            }
+                        )
+                    ),
+                ).export_channel(
+                    ChannelExportOptions(
+                        channel="@daily",
+                        limit=None,
+                        media_mode="metadata",
+                        output_dir=Path(tmpdir),
+                        discussion_mode="full",
+                    )
+                )
+
+            self.assertEqual(state_path.read_text(encoding="utf-8"), initial_state)
+            self.assertEqual(
+                discussion_state_path.read_text(encoding="utf-8"),
+                initial_discussion_state,
+            )
 
     async def test_export_channel_emits_progress_and_completion_events(self):
         entity = FakeChannelEntity()
