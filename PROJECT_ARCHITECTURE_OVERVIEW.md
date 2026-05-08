@@ -4,7 +4,7 @@
 
 Источник анализа:
 - фактический код в `tg_msg_manager/`, `scripts/`, `tests/`
-- текущие docs: `README.md`, `COMMANDS.md`, `ROADMAP.md`, `backlog/archive/TODO.md`, `CHANGELOG.md`, `docs/ARCHITECTURE_RULES.md`, `docs/refactor/*`
+- текущие docs: `README.md`, `COMMANDS.md`, `ROADMAP.md`, `backlog/archive/TODO.md`, `CHANGELOG.md`, `docs/ARCHITECTURE_RULES.md`, `docs/refactor/README.md`, `docs/refactor/*`
 - локальная проверка тестов: `make test` -> `Ran 202 tests`, `OK`
 
 Важно:
@@ -947,6 +947,8 @@ Windows-путь:
 - user-facing docs уже знают про `retry` и `report`;
 - в репо появилась offline fixture-based harness в `tg_msg_manager/testing/`.
 - Stage 0 добавил `docs/refactor/*` и `docs/ARCHITECTURE_RULES.md`.
+- Stage 3A добавил baseline/report pair для direct channel export.
+- Stage 3A.1 добавил отдельные baseline/report документы для operational hardening `export-channel`.
 
 Для внешнего аналитика это важно: operational docs стали заметно точнее, но сам обзор остаётся "снимком текущего дерева" и требует обновления после крупных refactor waves.
 
@@ -1025,9 +1027,11 @@ Windows-путь:
 20. `tg_msg_manager/services/private_archive.py`
 21. `tests/test_sync_system.py`
 22. `tests/test_storage_sqlite.py`
-23. `docs/refactor/STAGE_0_FINAL_REPORT.md`
-24. `CHANGELOG.md`
-25. `backlog/archive/TODO.md`
+23. `docs/refactor/README.md`
+24. `docs/refactor/STAGE_3A_1_CHANNEL_EXPORT_OPERATIONAL_HARDENING_REPORT.md`
+25. `docs/refactor/STAGE_0_FINAL_REPORT.md`
+26. `CHANGELOG.md`
+27. `backlog/archive/TODO.md`
 
 Такой порядок даст:
 - сначала картину продукта
