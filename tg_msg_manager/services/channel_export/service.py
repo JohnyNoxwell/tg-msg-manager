@@ -3,12 +3,14 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .event_emitter import ChannelExportEventEmitter
+from .manifest_coordinator import build_channel_export_manifest
 from .jsonl_renderer import ChannelJsonlRenderer
-from .manifest_writer import ChannelManifestWriter, build_manifest
+from .manifest_writer import ChannelManifestWriter
 from .media_downloader import ChannelMediaDownloader
 from .media_manifest_writer import ChannelMediaManifestWriter
 from .media_processor import ChannelExportMediaProcessor
 from .media_policy import validate_media_mode
+from .result_builder import build_channel_export_result
 from .discussions import (
     DISCUSSION_MODE_FULL,
     ChannelDiscussionExporter,
@@ -17,10 +19,6 @@ from .discussions import (
     ChannelDiscussionResolver,
     validate_discussion_mode,
     validate_max_comments_per_post,
-)
-from .discussions.manifest_summary import (
-    build_discussion_manifest,
-    discussion_included_files,
 )
 from .models import (
     CHANNEL_EXPORT_RUN_MODE_FORCE_FULL,
@@ -242,19 +240,18 @@ class ChannelExportService:
             stats=run_stats,
             manifest_path=plan.manifest_path,
         )
-        manifest = self._build_manifest(
+        manifest = build_channel_export_manifest(
             channel=channel_identity,
             state=completed_state,
             options=options,
             media_mode=media_mode,
-            included_files=self._included_files(options, discussion_result),
             discussion_result=discussion_result,
         )
         self.manifest_writer.write(plan.manifest_path, manifest)
         self.state_manager.save(plan.state_path, completed_state)
         if discussion_result is not None:
             self.discussion_exporter.save_result_state(discussion_result)
-        return self._build_result(
+        result = build_channel_export_result(
             channel=channel_identity,
             plan=plan,
             options=options,
@@ -263,6 +260,8 @@ class ChannelExportService:
             run_stats=run_stats,
             discussion_result=discussion_result,
         )
+        self._emit_completed(result)
+        return result
 
     async def _run_incremental_export(
         self,
@@ -292,12 +291,11 @@ class ChannelExportService:
 
         mapped_records.sort(key=lambda record: (record.message_id, record.timestamp))
         if not mapped_records:
-            manifest = self._build_manifest(
+            manifest = build_channel_export_manifest(
                 channel=channel_identity,
                 state=state,
                 options=options,
                 media_mode=media_mode,
-                included_files=self._included_files(options, None),
                 discussion_result=None,
             )
             self.manifest_writer.write(plan.manifest_path, manifest)
@@ -321,7 +319,7 @@ class ChannelExportService:
                 date_to=None,
                 last_exported_message_id=state.last_exported_message_id,
             )
-            return self._build_result(
+            result = build_channel_export_result(
                 channel=channel_identity,
                 plan=plan,
                 options=options,
@@ -330,6 +328,8 @@ class ChannelExportService:
                 run_stats=empty_stats,
                 discussion_result=None,
             )
+            self._emit_completed(result)
+            return result
 
         write_session = self.payload_writer.open_session(
             plan=plan,
@@ -368,19 +368,18 @@ class ChannelExportService:
             manifest_path=plan.manifest_path,
             previous_state=state,
         )
-        manifest = self._build_manifest(
+        manifest = build_channel_export_manifest(
             channel=channel_identity,
             state=completed_state,
             options=options,
             media_mode=media_mode,
-            included_files=self._included_files(options, discussion_result),
             discussion_result=discussion_result,
         )
         self.manifest_writer.write(plan.manifest_path, manifest)
         self.state_manager.save(plan.state_path, completed_state)
         if discussion_result is not None:
             self.discussion_exporter.save_result_state(discussion_result)
-        return self._build_result(
+        result = build_channel_export_result(
             channel=channel_identity,
             plan=plan,
             options=options,
@@ -389,117 +388,16 @@ class ChannelExportService:
             run_stats=run_stats,
             discussion_result=discussion_result,
         )
+        self._emit_completed(result)
+        return result
 
-    def _build_manifest(
+    def _emit_completed(
         self,
-        *,
-        channel: Any,
-        state: ChannelExportState,
-        options: ChannelExportOptions,
-        media_mode: str,
-        included_files: tuple[str, ...],
-        discussion_result: Any = None,
-    ) -> dict[str, Any]:
-        return build_manifest(
-            channel=channel,
-            message_count=state.message_count_total,
-            media_count=state.media_count_total,
-            downloaded_media_count=state.downloaded_media_count_total,
-            already_existing_media_count=state.already_existing_media_count_total,
-            skipped_media_count=state.skipped_media_count_total,
-            skipped_by_size_count=state.skipped_by_size_count_total,
-            skipped_by_type_count=state.skipped_by_type_count_total,
-            failed_media_count=state.failed_media_count_total,
-            date_from=state.date_from,
-            date_to=state.date_to,
-            media_mode=media_mode,
-            max_media_size=options.max_media_size,
-            media_types=options.media_types,
-            included_files=included_files,
-            discussion=build_discussion_manifest(
-                discussion_mode=options.discussion_mode,
-                max_comments_per_post=options.max_comments_per_post,
-                discussion_result=discussion_result,
-            ),
-            status=state.last_run_status,
-        )
-
-    def _build_result(
-        self,
-        *,
-        channel: Any,
-        plan: Any,
-        options: ChannelExportOptions,
-        run_mode: str,
-        state: ChannelExportState,
-        run_stats: ChannelExportRunStats,
-        discussion_result: Any = None,
-    ) -> ChannelExportResult:
-        result = ChannelExportResult(
-            channel=channel,
-            run_mode=run_mode,
-            media_mode=options.media_mode,
-            max_media_size=options.max_media_size,
-            media_types=options.media_types,
-            message_count=state.message_count_total,
-            media_count=state.media_count_total,
-            posts_exported_this_run=run_stats.posts_exported,
-            media_records_added_this_run=run_stats.media_records_added,
-            downloaded_media_count_this_run=run_stats.downloaded_media_count,
-            already_existing_media_count_this_run=run_stats.already_existing_media_count,
-            skipped_by_size_count_this_run=run_stats.skipped_by_size_count,
-            skipped_by_type_count_this_run=run_stats.skipped_by_type_count,
-            failed_media_count_this_run=run_stats.failed_media_count,
-            downloaded_media_count=state.downloaded_media_count_total,
-            already_existing_media_count=state.already_existing_media_count_total,
-            skipped_media_count=state.skipped_media_count_total,
-            skipped_by_size_count=state.skipped_by_size_count_total,
-            skipped_by_type_count=state.skipped_by_type_count_total,
-            failed_media_count=state.failed_media_count_total,
-            manifest_path=plan.manifest_path,
-            messages_jsonl_path=plan.messages_jsonl_path,
-            messages_txt_path=plan.messages_txt_path,
-            media_manifest_path=plan.media_manifest_path,
-            state_path=plan.state_path,
-            discussion_mode=options.discussion_mode,
-            discussion_chat_id=(
-                discussion_result.discussion_chat_id
-                if discussion_result is not None
-                else None
-            ),
-            discussion_thread_count_this_run=(
-                discussion_result.thread_count if discussion_result is not None else 0
-            ),
-            discussion_comment_count_this_run=(
-                discussion_result.comment_count if discussion_result is not None else 0
-            ),
-            failed_discussion_thread_count_this_run=(
-                discussion_result.failed_thread_count
-                if discussion_result is not None
-                else 0
-            ),
-            discussion_comments_jsonl_path=(
-                discussion_result.comments_jsonl_path
-                if discussion_result is not None
-                else None
-            ),
-            discussion_comments_txt_path=(
-                discussion_result.comments_txt_path
-                if discussion_result is not None
-                else None
-            ),
-            discussion_threads_jsonl_path=(
-                discussion_result.threads_jsonl_path
-                if discussion_result is not None
-                else None
-            ),
-            discussion_state_path=(
-                discussion_result.state_path if discussion_result is not None else None
-            ),
-        )
+        result: ChannelExportResult,
+    ) -> None:
         self.event_emitter.emit_completed(
-            channel_id=channel.channel_id,
-            run_mode=run_mode,
+            channel_id=result.channel.channel_id,
+            run_mode=result.run_mode,
             posts_exported_this_run=result.posts_exported_this_run,
             total_known_posts=result.message_count,
             media_records_added_this_run=result.media_records_added_this_run,
@@ -512,7 +410,6 @@ class ChannelExportService:
             manifest_path=str(result.manifest_path),
             state_path=str(result.state_path),
         )
-        return result
 
     async def _prepare_record(
         self,
@@ -589,18 +486,3 @@ class ChannelExportService:
             3,
         )
         self.event_emitter.emit_progress(**event_payload)
-
-    @staticmethod
-    def _included_files(
-        options: ChannelExportOptions,
-        discussion_result: Any = None,
-    ) -> tuple[str, ...]:
-        included = ["manifest.json", "media_manifest.jsonl"]
-        if options.include_jsonl:
-            included.append("messages.jsonl")
-        if options.include_txt:
-            included.append("messages.txt")
-        if options.media_mode == "full":
-            included.append("media/")
-        included.extend(discussion_included_files(discussion_result))
-        return tuple(included)

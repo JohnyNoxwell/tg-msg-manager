@@ -142,6 +142,36 @@ Stage lifecycle cleanup is mandatory. When a stage is fully complete and its fin
 
 Do not perform completion cleanup before the final stage report exists.
 
+### Stage lifecycle policy
+
+Stage task files have a lifecycle:
+
+1. active - executable task files currently being worked on
+2. completed - finished task files preserved for history
+3. reports - factual completion reports
+4. archive - deprecated, superseded, or old prompt files
+
+Rules:
+
+- Only currently executable task files may live in `docs/stages/active/`.
+- When a stage is fully completed and its final report exists, move its task files from `docs/stages/active/` to `docs/stages/completed/`.
+- Do not leave completed stage files in `docs/stages/active/`.
+- Do not move unfinished or partially completed stage files to `docs/stages/completed/`.
+- Move general launch prompts to `docs/archive/old_prompts/` unless the active task says otherwise.
+- Stage reports must live in `docs/stages/reports/`.
+- Archived files must not be treated as current instructions.
+
+Before marking a stage complete:
+
+- [ ] Required implementation/docs work is done.
+- [ ] Required tests/checks were run or inability was documented.
+- [ ] Required stage report exists under `docs/stages/reports/`.
+- [ ] Relevant `README.md`, `COMMANDS.md`, `CHANGELOG.md`, or docs were updated if behavior changed.
+- [ ] Completed task files were moved from `docs/stages/active/` to `docs/stages/completed/`.
+- [ ] Launch/general prompts were moved to `docs/archive/old_prompts/`.
+- [ ] `docs/stages/README.md` was updated.
+- [ ] `docs/stages/active/` contains only unfinished or next active work.
+
 ## 8. Coding rules
 
 - Preserve behavior first.

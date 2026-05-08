@@ -1,6 +1,6 @@
 # Architecture Rules
 
-Last updated: 2026-05-05
+Last updated: 2026-05-08
 
 ## 1. CLI Thin Only
 
@@ -41,7 +41,9 @@ CLI modules must not:
 
 - `tg_msg_manager/services/export/service.py` orchestrates sync flow.
 - `tg_msg_manager/services/db_export/service.py` is a facade only.
+- `tg_msg_manager/services/channel_export/service.py` is a channel export orchestration facade.
 - export artifact formatting/writing stays in dedicated `services/db_export/` components.
+- channel export result, manifest, included-file, media, discussion, payload, and state logic must stay in focused `services/channel_export/` components.
 - sync orchestration must not grow raw SQL branches.
 
 ## 6. Analytics Read Boundary
@@ -107,6 +109,7 @@ The following modules are orchestration facades:
 - `tg_msg_manager/services/context/engine.py`
 - `tg_msg_manager/services/db_export/service.py`
 - `tg_msg_manager/services/private_archive/service.py`
+- `tg_msg_manager/services/channel_export/service.py`
 
 New business logic must not be added directly to these files.
 If a facade grows because of a new concern, extract a dedicated component first.
@@ -120,7 +123,8 @@ If a facade grows because of a new concern, extract a dedicated component first.
 
 - DB export logic must not be added back to `tg_msg_manager/services/db_export/service.py`.
 - Private archive must reuse shared pipeline pieces where possible and stay out of the sync/export monoliths.
-- New business logic must not be added directly to `tg_msg_manager/services/export/service.py` or `tg_msg_manager/services/context/engine.py`.
+- New business logic must not be added directly to `tg_msg_manager/services/export/service.py`, `tg_msg_manager/services/context/engine.py`, or `tg_msg_manager/services/channel_export/service.py`.
+- `ChannelExportService` should normalize options, resolve sources, select run mode, delegate payload/media/discussion/manifest/result helpers, save state in the established order, and emit high-level events.
 - Services should depend on narrow storage contracts from `tg_msg_manager/infrastructure/storage/contracts/`.
 - New services must not depend on the compatibility storage interface aggregator when a narrow contract exists.
 - New payload models belong in `tg_msg_manager/core/models/payloads/`, not `service_payloads.py`.

@@ -2,6 +2,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Callable, Optional, TextIO
 
+from .atomic_writer import AtomicTextFile
 from .jsonl_renderer import ChannelJsonlRenderer
 from .media_manifest_writer import ChannelMediaManifestWriter
 from .models import ChannelExportPlan, ChannelExportRunStats, ChannelPostRecord
@@ -52,20 +53,24 @@ class ChannelPayloadWriteSession:
         self._jsonl_handle: Optional[TextIO] = None
         self._txt_handle: Optional[TextIO] = None
         self._media_handle: Optional[TextIO] = None
+        self._jsonl_file: Optional[AtomicTextFile] = None
+        self._txt_file: Optional[AtomicTextFile] = None
+        self._media_file: Optional[AtomicTextFile] = None
 
     def open(self) -> "ChannelPayloadWriteSession":
         self.plan.output_dir.mkdir(parents=True, exist_ok=True)
         Path(self.plan.media_dir).mkdir(parents=True, exist_ok=True)
         file_mode = "a" if self.write_mode == WRITE_MODE_APPEND else "w"
-        self._jsonl_handle = Path(self.plan.messages_jsonl_path).open(
-            file_mode, encoding="utf-8"
-        )
-        self._txt_handle = Path(self.plan.messages_txt_path).open(
-            file_mode, encoding="utf-8"
-        )
-        self._media_handle = Path(self.plan.media_manifest_path).open(
-            file_mode, encoding="utf-8"
-        )
+        self._jsonl_file = AtomicTextFile(self.plan.messages_jsonl_path, mode=file_mode)
+        self._txt_file = AtomicTextFile(self.plan.messages_txt_path, mode=file_mode)
+        self._media_file = AtomicTextFile(self.plan.media_manifest_path, mode=file_mode)
+        try:
+            self._jsonl_handle = self._jsonl_file.open()
+            self._txt_handle = self._txt_file.open()
+            self._media_handle = self._media_file.open()
+        except Exception:
+            self.rollback()
+            raise
         return self
 
     def close(self) -> None:
@@ -76,11 +81,24 @@ class ChannelPayloadWriteSession:
         self._txt_handle = None
         self._media_handle = None
 
+    def commit(self) -> None:
+        for atomic_file in (self._jsonl_file, self._txt_file, self._media_file):
+            if atomic_file is not None:
+                atomic_file.commit()
+
+    def rollback(self) -> None:
+        for atomic_file in (self._jsonl_file, self._txt_file, self._media_file):
+            if atomic_file is not None:
+                atomic_file.rollback()
+
     def __enter__(self) -> "ChannelPayloadWriteSession":
         return self.open()
 
     def __exit__(self, exc_type, exc, tb) -> None:
-        self.close()
+        if exc_type is None:
+            self.commit()
+        else:
+            self.rollback()
 
     def write_record(self, record: ChannelPostRecord) -> None:
         if (

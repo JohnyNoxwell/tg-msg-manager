@@ -23,6 +23,11 @@ from .payload_writer import (
     WRITE_MODE_OVERWRITE,
     ChannelDiscussionPayloadWriter,
 )
+from ..state_consistency import (
+    validate_discussion_state_for_incremental,
+    validate_discussion_state_matches_channel,
+    validate_discussion_state_matches_source,
+)
 from .state_manager import ChannelDiscussionStateManager
 from .txt_renderer import ChannelDiscussionTxtRenderer
 
@@ -74,6 +79,15 @@ class ChannelDiscussionExporter:
         write_mode = (
             WRITE_MODE_APPEND if run_mode == "incremental" else WRITE_MODE_OVERWRITE
         )
+        if previous_state is not None:
+            validate_discussion_state_matches_channel(
+                channel_identity,
+                previous_state,
+            )
+            validate_discussion_state_matches_source(
+                previous_state,
+                discussion_source.discussion_chat_id,
+            )
         session = self.payload_writer.open_session(
             comments_jsonl_path=plan.discussion_comments_jsonl_path,
             comments_txt_path=plan.discussion_comments_txt_path,
@@ -103,6 +117,8 @@ class ChannelDiscussionExporter:
             stats=stats,
             previous_state=previous_state,
         )
+        if previous_state is not None and run_mode == "incremental":
+            validate_discussion_state_for_incremental(previous_state, state)
         if save_state:
             self.state_manager.save(plan.discussion_state_path, state)
         return ChannelDiscussionExportResult(

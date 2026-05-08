@@ -137,6 +137,11 @@ class TestChannelExportRenderers(unittest.TestCase):
         self.assertEqual(data["download_status"], "metadata_only")
         self.assertEqual(data["width"], 640)
         self.assertEqual(data["height"], 480)
+        self.assertIn("original_filename", data)
+        self.assertIn("detected_extension", data)
+        self.assertIn("filename_strategy", data)
+        self.assertIn("final_filename", data)
+        self.assertIn("final_path", data)
 
 
 if __name__ == "__main__":

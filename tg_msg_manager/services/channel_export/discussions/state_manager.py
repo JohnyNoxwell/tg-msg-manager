@@ -3,8 +3,10 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from ..atomic_writer import atomic_write_text
 from .errors import ChannelDiscussionStateError
 from .models import ChannelDiscussionExportState, ChannelDiscussionRunStats
+from ..state_consistency import validate_discussion_state_integrity
 
 
 def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
@@ -46,7 +48,7 @@ class ChannelDiscussionStateManager:
                 f"Discussion export state must be a JSON object: {target_path}"
             )
         try:
-            return ChannelDiscussionExportState(
+            state = ChannelDiscussionExportState(
                 schema_version=str(
                     payload.get("schema_version") or self.schema_version
                 ),
@@ -74,14 +76,15 @@ class ChannelDiscussionStateManager:
             raise ChannelDiscussionStateError(
                 f"Discussion export state has invalid values: {target_path}"
             ) from exc
+        validate_discussion_state_integrity(state)
+        return state
 
     def save(self, path: Path, state: ChannelDiscussionExportState) -> None:
+        validate_discussion_state_integrity(state)
         target_path = Path(path)
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_text(
-            json.dumps(self.to_dict(state), ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        content = json.dumps(self.to_dict(state), ensure_ascii=False, indent=2) + "\n"
+        atomic_write_text(target_path, content, encoding="utf-8")
 
     def to_dict(self, state: ChannelDiscussionExportState) -> Dict[str, Any]:
         return {

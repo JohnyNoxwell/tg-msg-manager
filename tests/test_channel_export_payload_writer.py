@@ -172,6 +172,129 @@ class TestChannelPayloadWriter(unittest.TestCase):
             self.assertIn("message_id=1", txt_content)
             self.assertIn("message_id=2", txt_content)
 
+    def test_overwrite_failure_does_not_replace_existing_files(self):
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_writer_overwrite_fail_"
+        ) as tmpdir:
+            plan = self._build_plan(tmpdir)
+            writer = ChannelPayloadWriter()
+
+            with writer.open_session(
+                plan=plan,
+                jsonl_renderer=ChannelJsonlRenderer(),
+                txt_renderer=ChannelTxtRenderer(),
+                media_manifest_writer=ChannelMediaManifestWriter(),
+                run_mode=CHANNEL_EXPORT_RUN_MODE_FULL,
+            ) as session:
+                session.write_record(
+                    make_post(
+                        message_id=1,
+                        text="Original",
+                        timestamp=datetime(2026, 5, 7, 10, 0, tzinfo=timezone.utc),
+                    )
+                )
+
+            original_jsonl = plan.messages_jsonl_path.read_text(encoding="utf-8")
+            original_txt = plan.messages_txt_path.read_text(encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "write failed"):
+                with writer.open_session(
+                    plan=plan,
+                    jsonl_renderer=ChannelJsonlRenderer(),
+                    txt_renderer=ChannelTxtRenderer(),
+                    media_manifest_writer=ChannelMediaManifestWriter(),
+                    run_mode=CHANNEL_EXPORT_RUN_MODE_FULL,
+                ) as session:
+                    session.write_record(
+                        make_post(
+                            message_id=2,
+                            text="Replacement",
+                            timestamp=datetime(2026, 5, 7, 11, 0, tzinfo=timezone.utc),
+                        )
+                    )
+                    raise RuntimeError("write failed")
+
+            self.assertEqual(
+                plan.messages_jsonl_path.read_text(encoding="utf-8"),
+                original_jsonl,
+            )
+            self.assertEqual(
+                plan.messages_txt_path.read_text(encoding="utf-8"),
+                original_txt,
+            )
+            self.assertEqual(list(plan.output_dir.glob("*.tmp")), [])
+
+    def test_append_failure_does_not_partially_append(self):
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_writer_append_fail_"
+        ) as tmpdir:
+            plan = self._build_plan(tmpdir)
+            writer = ChannelPayloadWriter()
+
+            with writer.open_session(
+                plan=plan,
+                jsonl_renderer=ChannelJsonlRenderer(),
+                txt_renderer=ChannelTxtRenderer(),
+                media_manifest_writer=ChannelMediaManifestWriter(),
+                run_mode=CHANNEL_EXPORT_RUN_MODE_FULL,
+            ) as session:
+                session.write_record(
+                    make_post(
+                        message_id=1,
+                        text="First",
+                        timestamp=datetime(2026, 5, 7, 10, 0, tzinfo=timezone.utc),
+                    )
+                )
+
+            with self.assertRaisesRegex(RuntimeError, "append failed"):
+                with writer.open_session(
+                    plan=plan,
+                    jsonl_renderer=ChannelJsonlRenderer(),
+                    txt_renderer=ChannelTxtRenderer(),
+                    media_manifest_writer=ChannelMediaManifestWriter(),
+                    run_mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
+                    write_mode=WRITE_MODE_APPEND,
+                ) as session:
+                    session.write_record(
+                        make_post(
+                            message_id=2,
+                            text="Second",
+                            timestamp=datetime(2026, 5, 7, 11, 0, tzinfo=timezone.utc),
+                        )
+                    )
+                    raise RuntimeError("append failed")
+
+            jsonl_lines = plan.messages_jsonl_path.read_text(
+                encoding="utf-8"
+            ).splitlines()
+            txt_content = plan.messages_txt_path.read_text(encoding="utf-8")
+            self.assertEqual(len(jsonl_lines), 1)
+            self.assertEqual(json.loads(jsonl_lines[0])["message_id"], 1)
+            self.assertIn("message_id=1", txt_content)
+            self.assertNotIn("message_id=2", txt_content)
+            self.assertEqual(list(plan.output_dir.glob("*.tmp")), [])
+
+    def test_temp_files_are_cleaned_after_success(self):
+        with tempfile.TemporaryDirectory(prefix="tg_channel_writer_temp_") as tmpdir:
+            plan = self._build_plan(tmpdir)
+
+            with ChannelPayloadWriter().open_session(
+                plan=plan,
+                jsonl_renderer=ChannelJsonlRenderer(),
+                txt_renderer=ChannelTxtRenderer(),
+                media_manifest_writer=ChannelMediaManifestWriter(),
+                run_mode=CHANNEL_EXPORT_RUN_MODE_FULL,
+            ) as session:
+                session.write_record(
+                    make_post(
+                        message_id=1,
+                        text="First",
+                        timestamp=datetime(2026, 5, 7, 10, 0, tzinfo=timezone.utc),
+                    )
+                )
+
+            self.assertEqual(list(plan.output_dir.glob("*.tmp")), [])
+
     def test_write_session_handles_empty_channel_and_creates_files(self):
         with tempfile.TemporaryDirectory(prefix="tg_channel_writer_empty_") as tmpdir:
             plan = self._build_plan(tmpdir)

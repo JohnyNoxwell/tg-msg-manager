@@ -1,6 +1,7 @@
 from pathlib import Path
 from typing import Optional, TextIO
 
+from ..atomic_writer import AtomicTextFile
 from .jsonl_renderer import ChannelDiscussionJsonlRenderer
 from .models import (
     DISCUSSION_THREAD_STATUS_FAILED,
@@ -40,6 +41,9 @@ class ChannelDiscussionPayloadWriteSession:
         self._comments_jsonl_handle: Optional[TextIO] = None
         self._comments_txt_handle: Optional[TextIO] = None
         self._threads_jsonl_handle: Optional[TextIO] = None
+        self._comments_jsonl_file: Optional[AtomicTextFile] = None
+        self._comments_txt_file: Optional[AtomicTextFile] = None
+        self._threads_jsonl_file: Optional[AtomicTextFile] = None
         self.thread_count = 0
         self.comment_count = 0
         self.failed_thread_count = 0
@@ -51,15 +55,20 @@ class ChannelDiscussionPayloadWriteSession:
     def open(self) -> "ChannelDiscussionPayloadWriteSession":
         self.comments_jsonl_path.parent.mkdir(parents=True, exist_ok=True)
         file_mode = "a" if self.write_mode == WRITE_MODE_APPEND else "w"
-        self._comments_jsonl_handle = self.comments_jsonl_path.open(
-            file_mode, encoding="utf-8"
+        self._comments_jsonl_file = AtomicTextFile(
+            self.comments_jsonl_path, mode=file_mode
         )
-        self._comments_txt_handle = self.comments_txt_path.open(
-            file_mode, encoding="utf-8"
+        self._comments_txt_file = AtomicTextFile(self.comments_txt_path, mode=file_mode)
+        self._threads_jsonl_file = AtomicTextFile(
+            self.threads_jsonl_path, mode=file_mode
         )
-        self._threads_jsonl_handle = self.threads_jsonl_path.open(
-            file_mode, encoding="utf-8"
-        )
+        try:
+            self._comments_jsonl_handle = self._comments_jsonl_file.open()
+            self._comments_txt_handle = self._comments_txt_file.open()
+            self._threads_jsonl_handle = self._threads_jsonl_file.open()
+        except Exception:
+            self.rollback()
+            raise
         return self
 
     def close(self) -> None:
@@ -74,11 +83,32 @@ class ChannelDiscussionPayloadWriteSession:
         self._comments_txt_handle = None
         self._threads_jsonl_handle = None
 
+    def commit(self) -> None:
+        for atomic_file in (
+            self._comments_jsonl_file,
+            self._comments_txt_file,
+            self._threads_jsonl_file,
+        ):
+            if atomic_file is not None:
+                atomic_file.commit()
+
+    def rollback(self) -> None:
+        for atomic_file in (
+            self._comments_jsonl_file,
+            self._comments_txt_file,
+            self._threads_jsonl_file,
+        ):
+            if atomic_file is not None:
+                atomic_file.rollback()
+
     def __enter__(self) -> "ChannelDiscussionPayloadWriteSession":
         return self.open()
 
     def __exit__(self, exc_type, exc, tb) -> None:
-        self.close()
+        if exc_type is None:
+            self.commit()
+        else:
+            self.rollback()
 
     def write_thread(self, record: ChannelDiscussionThreadRecord) -> None:
         if self._threads_jsonl_handle is None:

@@ -126,6 +126,56 @@ class TestChannelDiscussionPayloadWriter(unittest.TestCase):
                 len(comments_path.read_text(encoding="utf-8").splitlines()), 2
             )
 
+    def test_overwrite_failure_does_not_replace_existing_discussion_files(self):
+        with tempfile.TemporaryDirectory(
+            prefix="tg_discussion_writer_overwrite_fail_"
+        ) as tmpdir:
+            with self._open_session(tmpdir) as session:
+                session.write_thread(make_thread())
+                session.write_comment(make_comment(1))
+
+            output_dir = Path(tmpdir)
+            comments_path = output_dir / "discussion_comments.jsonl"
+            original_comments = comments_path.read_text(encoding="utf-8")
+
+            with self.assertRaisesRegex(RuntimeError, "discussion write failed"):
+                with self._open_session(tmpdir) as session:
+                    session.write_thread(make_thread())
+                    session.write_comment(make_comment(2))
+                    raise RuntimeError("discussion write failed")
+
+            self.assertEqual(
+                comments_path.read_text(encoding="utf-8"),
+                original_comments,
+            )
+            self.assertEqual(list(output_dir.glob("*.tmp")), [])
+
+    def test_append_failure_does_not_partially_append_discussion_files(self):
+        with tempfile.TemporaryDirectory(
+            prefix="tg_discussion_writer_append_fail_"
+        ) as tmpdir:
+            with self._open_session(tmpdir) as session:
+                session.write_thread(make_thread())
+                session.write_comment(make_comment(1))
+
+            output_dir = Path(tmpdir)
+            comments_path = output_dir / "discussion_comments.jsonl"
+
+            with self.assertRaisesRegex(RuntimeError, "discussion append failed"):
+                with self._open_session(
+                    tmpdir,
+                    mode="incremental",
+                    write_mode=WRITE_MODE_APPEND,
+                ) as session:
+                    session.write_thread(make_thread())
+                    session.write_comment(make_comment(2))
+                    raise RuntimeError("discussion append failed")
+
+            comments = comments_path.read_text(encoding="utf-8").splitlines()
+            self.assertEqual(len(comments), 1)
+            self.assertEqual(json.loads(comments[0])["message_id"], 1)
+            self.assertEqual(list(output_dir.glob("*.tmp")), [])
+
     def test_stats_count_failed_threads(self):
         with tempfile.TemporaryDirectory(
             prefix="tg_discussion_writer_failed_"

@@ -20,6 +20,11 @@ def media_record_to_dict(record: ChannelMediaRecord) -> Dict[str, Any]:
         "sha256": record.sha256,
         "download_status": record.download_status,
         "error": record.error,
+        "original_filename": record.original_filename,
+        "detected_extension": record.detected_extension,
+        "filename_strategy": record.filename_strategy,
+        "final_filename": record.final_filename,
+        "final_path": record.final_path,
     }
 
 

@@ -1,13 +1,14 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
-from .media_types import normalize_media_type
+from .media_filename import resolve_media_filename
 from .media_policy import (
     MEDIA_MODE_NONE,
-    build_media_relative_path,
     initial_download_status,
+    media_category,
     validate_media_mode,
 )
+from .media_types import normalize_media_type
 from .models import ChannelIdentity, ChannelMediaRecord, ChannelPostRecord
 
 
@@ -133,13 +134,14 @@ class ChannelPostMapper:
         duration = media_metadata.get("duration")
         media_index = 1
         message_id = int(getattr(message, "message_id"))
-        local_path = build_media_relative_path(
+        filename_decision = resolve_media_filename(
             message_id=message_id,
             media_index=media_index,
-            media_type=media_type,
+            original_filename=file_name,
             mime_type=mime_type,
-            file_name=file_name,
         )
+        category = media_category(media_type, mime_type)
+        local_path = f"media/{category}/{filename_decision.filename}"
         normalized_media_type = (
             normalize_media_type(media_type, mime_type) or media_type
         )
@@ -158,5 +160,10 @@ class ChannelPostMapper:
                 local_path=local_path,
                 sha256=None,
                 download_status=initial_download_status(media_mode),
+                original_filename=filename_decision.original_filename,
+                detected_extension=filename_decision.extension,
+                filename_strategy=filename_decision.strategy,
+                final_filename=filename_decision.filename,
+                final_path=local_path,
             ),
         )

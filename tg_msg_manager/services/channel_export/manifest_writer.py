@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+from .atomic_writer import atomic_write_text
 from .models import ChannelIdentity
 
 
@@ -80,7 +81,5 @@ class ChannelManifestWriter:
     def write(self, path: Path, manifest: Dict[str, Any]) -> None:
         target_path = Path(path)
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_text(
-            json.dumps(manifest, ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        content = json.dumps(manifest, ensure_ascii=False, indent=2) + "\n"
+        atomic_write_text(target_path, content, encoding="utf-8")

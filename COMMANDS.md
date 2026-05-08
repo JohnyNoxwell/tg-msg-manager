@@ -56,11 +56,15 @@ Notes:
 - Incremental runs export discussions only for newly fetched posts. No-new-posts runs do not refetch old discussion threads and do not mutate `discussion_export_state.json`.
 - `--force --discussion full` overwrites discussion files and rebuilds discussion state for posts fetched in that force run.
 - `--media full` downloads files only when explicitly requested and records final statuses in `media_manifest.jsonl`.
+- Media filenames and final media subdirectories are resolved from a safe Telegram original filename, then Telegram MIME type, then lightweight magic bytes. `.bin` is used only when the type remains unknown.
+- `media_manifest.jsonl` records the final media path; no OCR, speech-to-text, media analysis, transcoding, or ffmpeg processing is performed.
 - Full media statuses are `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type`, and `failed`.
 - Discussion comment media remains metadata-only; full media download for discussion comments is not implemented.
 - Discussion comments are not persisted to SQLite, and no SQLite migration is required.
 - Successful runs create/update `channel_export_state.json` with the last exported message id and aggregate counters.
 - A second run without `--force` exports only posts newer than `last_exported_message_id` and appends to `messages.jsonl`, `messages.txt`, and `media_manifest.jsonl`.
+- Channel and discussion payload appends use temp-file copy/append/replace, so a write-session failure does not partially append final payload files.
+- `channel_export_state.json` and `discussion_export_state.json` advance only after required payload and manifest writes succeed.
 - If there are no new posts, the command reports that state clearly and does not advance the export cursor.
 
 ## Interactive Menu

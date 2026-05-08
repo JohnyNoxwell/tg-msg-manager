@@ -81,6 +81,27 @@ class FailingManifestWriter:
         raise RuntimeError("manifest write failed")
 
 
+class FailingChannelPayloadSession:
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc, tb):
+        return None
+
+    def write_record(self, record):
+        del record
+        raise RuntimeError("channel payload write failed")
+
+    def finish(self):
+        raise RuntimeError("channel payload write failed")
+
+
+class FailingChannelPayloadWriter:
+    def open_session(self, **kwargs):
+        del kwargs
+        return FailingChannelPayloadSession()
+
+
 class CountingDiscussionResolver:
     def __init__(self, source):
         self.source = source
@@ -814,6 +835,49 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
             state_after_failure = json.loads(state_path.read_text(encoding="utf-8"))
             self.assertEqual(state_after_failure, initial_state)
 
+    async def test_state_is_not_updated_when_channel_payload_write_fails(self):
+        entity = FakeChannelEntity()
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_payload_failure_"
+        ) as tmpdir:
+            await ChannelExportService(
+                client=FakeChannelClient(entity, [make_message(1, text="First")]),
+                base_dir=Path(tmpdir),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                )
+            )
+
+            state_path = Path(tmpdir) / "@daily__123" / "channel_export_state.json"
+            initial_state = state_path.read_text(encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "channel payload write failed",
+            ):
+                await ChannelExportService(
+                    client=FakeChannelClient(
+                        entity,
+                        [make_message(1, text="First"), make_message(2, text="Second")],
+                    ),
+                    base_dir=Path(tmpdir),
+                    payload_writer=FailingChannelPayloadWriter(),
+                ).export_channel(
+                    ChannelExportOptions(
+                        channel="@daily",
+                        limit=None,
+                        media_mode="metadata",
+                        output_dir=Path(tmpdir),
+                    )
+                )
+
+            self.assertEqual(state_path.read_text(encoding="utf-8"), initial_state)
+
     async def test_discussion_state_is_not_saved_when_manifest_write_fails(self):
         entity = FakeChannelEntity()
 
@@ -966,6 +1030,59 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
             self.assertTrue(manifest_rows[0]["sha256"])
             self.assertIsNone(manifest_rows[0]["error"])
             self.assertNotEqual(manifest_rows[0]["download_status"], "pending")
+
+    async def test_full_media_manifest_references_magic_resolved_final_mp4_path(self):
+        content = b"\x00\x00\x00\x18ftypisom\x00\x00\x00\x00payload"
+        entity = FakeChannelEntity()
+        client = FakeChannelClient(
+            entity,
+            [
+                make_message(
+                    3,
+                    text="Video document",
+                    media_type="Document",
+                    media_ref={
+                        "mime_type": "application/octet-stream",
+                        "content": content,
+                        "binary": True,
+                    },
+                )
+            ],
+        )
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_magic_mp4_"
+        ) as tmpdir:
+            result = await ChannelExportService(
+                client=client, base_dir=Path(tmpdir)
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="full",
+                    output_dir=Path(tmpdir),
+                )
+            )
+
+            manifest_rows = [
+                json.loads(line)
+                for line in result.media_manifest_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+            final_path = "media/videos/0000000003_01.mp4"
+            self.assertEqual(manifest_rows[0]["download_status"], "downloaded")
+            self.assertEqual(manifest_rows[0]["local_path"], final_path)
+            self.assertEqual(manifest_rows[0]["final_path"], final_path)
+            self.assertEqual(manifest_rows[0]["detected_extension"], ".mp4")
+            self.assertEqual(manifest_rows[0]["filename_strategy"], "magic_bytes")
+            self.assertFalse(final_path.endswith(".bin"))
+            self.assertTrue((result.manifest_path.parent / final_path).exists())
+            self.assertFalse(
+                (
+                    result.manifest_path.parent / "media/documents/0000000003_01.bin"
+                ).exists()
+            )
 
     async def test_full_media_mode_skips_existing_file(self):
         entity = FakeChannelEntity()

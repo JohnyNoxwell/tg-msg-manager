@@ -52,6 +52,11 @@ class ChannelMediaRecord:
     sha256: Optional[str]
     download_status: str
     error: Optional[str] = None
+    original_filename: Optional[str] = None
+    detected_extension: Optional[str] = None
+    filename_strategy: Optional[str] = None
+    final_filename: Optional[str] = None
+    final_path: Optional[str] = None
 
 
 @dataclass(frozen=True)

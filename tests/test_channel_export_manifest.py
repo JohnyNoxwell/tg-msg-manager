@@ -148,6 +148,17 @@ class TestChannelExportManifest(unittest.TestCase):
             self.assertEqual(loaded["source"]["id"], 1)
             self.assertEqual(loaded["export"]["media_mode"], "none")
 
+    def test_manifest_writer_serialization_failure_keeps_existing_file(self):
+        with tempfile.TemporaryDirectory(prefix="tg_channel_manifest_fail_") as tmpdir:
+            path = Path(tmpdir) / "manifest.json"
+            path.write_text('{"old": true}\n', encoding="utf-8")
+
+            with self.assertRaises(TypeError):
+                ChannelManifestWriter().write(path, {"bad": object()})
+
+            self.assertEqual(path.read_text(encoding="utf-8"), '{"old": true}\n')
+            self.assertEqual(list(Path(tmpdir).glob("*.tmp")), [])
+
 
 if __name__ == "__main__":
     unittest.main()

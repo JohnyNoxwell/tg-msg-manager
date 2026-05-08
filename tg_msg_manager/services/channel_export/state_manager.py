@@ -3,6 +3,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from .atomic_writer import atomic_write_text
 from .errors import ChannelExportStateError
 from .models import (
     CHANNEL_EXPORT_RUN_MODE_FORCE_FULL,
@@ -12,6 +13,7 @@ from .models import (
     ChannelExportState,
     ChannelIdentity,
 )
+from .state_consistency import validate_channel_state_integrity
 
 
 def _parse_iso_datetime(value: Optional[str]) -> Optional[datetime]:
@@ -59,7 +61,7 @@ class ChannelExportStateManager:
             )
 
         try:
-            return ChannelExportState(
+            state = ChannelExportState(
                 schema_version=str(
                     payload.get("schema_version") or self.schema_version
                 ),
@@ -107,14 +109,15 @@ class ChannelExportStateManager:
             raise ChannelExportStateError(
                 f"Channel export state has invalid values: {target_path}"
             ) from exc
+        validate_channel_state_integrity(state)
+        return state
 
     def save(self, path: Path, state: ChannelExportState) -> None:
+        validate_channel_state_integrity(state)
         target_path = Path(path)
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        target_path.write_text(
-            json.dumps(self.to_dict(state), ensure_ascii=False, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        content = json.dumps(self.to_dict(state), ensure_ascii=False, indent=2) + "\n"
+        atomic_write_text(target_path, content, encoding="utf-8")
 
     def to_dict(self, state: ChannelExportState) -> Dict[str, Any]:
         return {

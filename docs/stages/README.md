@@ -20,6 +20,16 @@ Current completed prompt groups:
 - Stage 3B media hardening and stabilization task prompts.
 - Stage 3C discussion export task prompts.
 - Stage 3D.0 project governance and documentation reorganization task prompts.
+- Stage 3D.1 stage lifecycle cleanup task prompt.
+- Stage 3E.0 channel export service decomposition task prompt.
+- Stage 3E.1 dataset atomic write / commit safety task prompt.
+- Stage 3E.2 dataset schema contract tests task prompt.
+- Stage 3E.3 state consistency hardening task prompt.
+- Stage 3E.4 media filename / extension detection hardening task prompt.
+
+Stage 3E.4 completed task files:
+
+- [`completed/stage_3e_4_media_filename_extension_detection_hardening.md`](completed/stage_3e_4_media_filename_extension_detection_hardening.md)
 
 Stage 3D.0 completed task files:
 
@@ -31,6 +41,26 @@ Stage 3D.0 completed task files:
 - [`completed/stage_3d_0_6_root_readme_commands_changelog_alignment.md`](completed/stage_3d_0_6_root_readme_commands_changelog_alignment.md)
 - [`completed/stage_3d_0_7_verification_and_governance_report.md`](completed/stage_3d_0_7_verification_and_governance_report.md)
 
+Stage 3D.1 completed task files:
+
+- [`completed/stage_3d_1_stage_lifecycle_cleanup.md`](completed/stage_3d_1_stage_lifecycle_cleanup.md)
+
+Stage 3E.0 completed task files:
+
+- [`completed/stage_3e_0_channel_export_service_decomposition.md`](completed/stage_3e_0_channel_export_service_decomposition.md)
+
+Stage 3E.1 completed task files:
+
+- [`completed/stage_3e_1_dataset_atomic_write_commit_safety.md`](completed/stage_3e_1_dataset_atomic_write_commit_safety.md)
+
+Stage 3E.2 completed task files:
+
+- [`completed/stage_3e_2_dataset_schema_contract_tests.md`](completed/stage_3e_2_dataset_schema_contract_tests.md)
+
+Stage 3E.3 completed task files:
+
+- [`completed/stage_3e_3_state_consistency_hardening.md`](completed/stage_3e_3_state_consistency_hardening.md)
+
 Archived launch prompts and prompt packs:
 
 - [`../archive/old_prompts/stage_3d_0_general_prompt.md`](../archive/old_prompts/stage_3d_0_general_prompt.md)
@@ -40,7 +70,7 @@ Archived launch prompts and prompt packs:
 
 Reports under [`reports/`](reports/) are factual completion records. They can contain time-bound claims that were true for a specific stage.
 
-Current Stage 3D.0 records:
+Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, and Stage 3E.3 records:
 
 - [`reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md`](reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md)
 - [`reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md`](reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md)
@@ -49,6 +79,12 @@ Current Stage 3D.0 records:
 - [`reports/STAGE_3D_0_5_AGENTS_REWRITE_REPORT.md`](reports/STAGE_3D_0_5_AGENTS_REWRITE_REPORT.md)
 - [`reports/STAGE_3D_0_6_ROOT_DOCS_ALIGNMENT_REPORT.md`](reports/STAGE_3D_0_6_ROOT_DOCS_ALIGNMENT_REPORT.md)
 - [`reports/STAGE_3D_0_PROJECT_GOVERNANCE_DOCS_REORGANIZATION_REPORT.md`](reports/STAGE_3D_0_PROJECT_GOVERNANCE_DOCS_REORGANIZATION_REPORT.md)
+- [`reports/STAGE_3D_1_STAGE_LIFECYCLE_CLEANUP_REPORT.md`](reports/STAGE_3D_1_STAGE_LIFECYCLE_CLEANUP_REPORT.md)
+- [`reports/STAGE_3E_0_CHANNEL_EXPORT_SERVICE_DECOMPOSITION_REPORT.md`](reports/STAGE_3E_0_CHANNEL_EXPORT_SERVICE_DECOMPOSITION_REPORT.md)
+- [`reports/STAGE_3E_1_DATASET_ATOMIC_WRITE_COMMIT_SAFETY_REPORT.md`](reports/STAGE_3E_1_DATASET_ATOMIC_WRITE_COMMIT_SAFETY_REPORT.md)
+- [`reports/STAGE_3E_2_DATASET_SCHEMA_CONTRACT_TESTS_REPORT.md`](reports/STAGE_3E_2_DATASET_SCHEMA_CONTRACT_TESTS_REPORT.md)
+- [`reports/STAGE_3E_3_STATE_CONSISTENCY_HARDENING_REPORT.md`](reports/STAGE_3E_3_STATE_CONSISTENCY_HARDENING_REPORT.md)
+- [`reports/STAGE_3E_4_MEDIA_FILENAME_EXTENSION_DETECTION_HARDENING_REPORT.md`](reports/STAGE_3E_4_MEDIA_FILENAME_EXTENSION_DETECTION_HARDENING_REPORT.md)
 
 ## Stage lifecycle
 
@@ -67,7 +103,11 @@ Stage lifecycle cleanup is mandatory after a stage is fully complete and its fin
 - Update this index.
 - Ensure [`active/`](active/) contains only unfinished or next active work.
 
+General prompts and prompt packs usually belong under [`../archive/old_prompts/`](../archive/old_prompts/), not under `active/` or `completed/`.
+
 Do not perform completion cleanup before the final stage report exists.
+
+Before marking a stage complete, confirm the required work is done, required verification is recorded, the stage report exists, relevant docs are current, completed task files have moved to [`completed/`](completed/), launch prompts have moved to [`../archive/old_prompts/`](../archive/old_prompts/), and this index reflects the final stage state.
 
 ## Rules for agents
 

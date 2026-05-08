@@ -1,7 +1,10 @@
-import mimetypes
-from pathlib import Path
 from typing import Optional
 
+from .media_filename import (
+    extension_from_filename,
+    extension_from_mime_type,
+    resolve_media_filename,
+)
 from .media_types import normalize_media_type
 
 MEDIA_MODE_NONE = "none"
@@ -11,6 +14,24 @@ ALLOWED_MEDIA_MODES = {
     MEDIA_MODE_NONE,
     MEDIA_MODE_METADATA,
     MEDIA_MODE_FULL,
+}
+
+EXTENSION_MEDIA_CATEGORIES = {
+    ".jpg": "photos",
+    ".jpeg": "photos",
+    ".png": "photos",
+    ".webp": "photos",
+    ".gif": "animations",
+    ".mp4": "videos",
+    ".mov": "videos",
+    ".mp3": "audio",
+    ".m4a": "audio",
+    ".ogg": "audio",
+    ".wav": "audio",
+    ".pdf": "documents",
+    ".zip": "documents",
+    ".rar": "documents",
+    ".7z": "documents",
 }
 
 
@@ -37,8 +58,6 @@ def media_category(media_type: Optional[str], mime_type: Optional[str]) -> str:
         return "audio"
     if "video" in normalized_media_type:
         return "videos"
-    if "document" in normalized_media_type:
-        return "documents"
 
     if normalized_mime_type.startswith("image/"):
         return "photos"
@@ -46,21 +65,16 @@ def media_category(media_type: Optional[str], mime_type: Optional[str]) -> str:
         return "videos"
     if normalized_mime_type.startswith("audio/"):
         return "audio"
+    if "document" in normalized_media_type:
+        return "documents"
     if normalized_mime_type:
         return "documents"
     return "unknown"
 
 
-def _safe_extension(value: str) -> Optional[str]:
-    normalized = (value or "").strip().lower()
-    if not normalized.startswith("."):
-        return None
-    suffix = normalized[1:]
-    if not suffix or len(suffix) > 10:
-        return None
-    if not suffix.replace("+", "").isalnum():
-        return None
-    return normalized
+def media_category_for_extension(extension: Optional[str], *, fallback: str) -> str:
+    normalized = (extension or "").strip().lower()
+    return EXTENSION_MEDIA_CATEGORIES.get(normalized, fallback)
 
 
 def extension_for_media(
@@ -69,15 +83,13 @@ def extension_for_media(
     mime_type: Optional[str],
     file_name: Optional[str],
 ) -> str:
-    if file_name:
-        extension = _safe_extension(Path(file_name).suffix)
-        if extension:
-            return extension
+    filename_extension = extension_from_filename(file_name)
+    if filename_extension:
+        return filename_extension
 
-    guessed = mimetypes.guess_extension((mime_type or "").strip().lower(), strict=False)
-    safe_guessed = _safe_extension(guessed or "")
-    if safe_guessed:
-        return safe_guessed
+    mime_extension = extension_from_mime_type(mime_type)
+    if mime_extension:
+        return mime_extension
 
     if media_type and "photo" in media_type.lower():
         return ".jpg"
@@ -93,12 +105,13 @@ def build_media_relative_path(
     file_name: Optional[str],
 ) -> str:
     category = media_category(media_type, mime_type)
-    extension = extension_for_media(
-        media_type=media_type,
+    decision = resolve_media_filename(
+        message_id=message_id,
+        media_index=media_index,
+        original_filename=file_name,
         mime_type=mime_type,
-        file_name=file_name,
     )
-    return f"media/{category}/{message_id:010d}_{media_index:02d}{extension}"
+    return f"media/{category}/{decision.filename}"
 
 
 def initial_download_status(media_mode: str) -> str:

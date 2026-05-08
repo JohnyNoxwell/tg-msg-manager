@@ -93,13 +93,15 @@ python3 -m tg_msg_manager.cli report
     `python3 -m tg_msg_manager.cli export-channel --channel @example --limit 10 --media metadata --discussion full --max-comments-per-post 100`
     Команда создаёт файловый dataset в `exports/channels/`. Stage 3A/3A.1/3B/3C не делает analytics и не пишет channel posts или discussion comments в SQLite.
     Поддерживаются только broadcast-каналы; группы и супергруппы не входят в `export-channel`.
-    После успешного запуска создаётся `channel_export_state.json`; повторный запуск без `--force` экспортирует только новые посты и дописывает dataset append-only.
+    После успешного запуска создаётся `channel_export_state.json`; повторный запуск без `--force` экспортирует только новые посты и дописывает dataset через temp-file copy/append/replace.
     По умолчанию используется безопасный режим `--media metadata`.
     По умолчанию `--discussion none`: resolver обсуждений не запускается и discussion files не создаются.
     `--discussion full` пишет `discussion_comments.jsonl`, `discussion_comments.txt`, `discussion_threads.jsonl` и `discussion_export_state.json` только для постов, полученных в текущем run.
     Инкрементальный запуск экспортирует discussion comments только для новых постов; no-new-posts run не перечитывает старые threads и не меняет `discussion_export_state.json`.
     Для discussion comments не выполняется full media download, только metadata/empty media fields.
     Полная загрузка media требует явного `--media full`; для неё доступны `--max-media-size 50MB` по умолчанию и `--media-types photo,video,...`.
+    Имена media-файлов и итоговые media-подпапки выбираются из безопасного Telegram original filename, затем MIME type, затем лёгких magic bytes; `.bin` остаётся fallback только для неизвестного типа.
+    `media_manifest.jsonl` фиксирует итоговый путь media. OCR, speech-to-text, media analysis, transcoding и ffmpeg processing не выполняются.
     В `full` режиме `media_manifest.jsonl` фиксирует итоговые статусы `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type` и `failed`.
 *   **Полное удаление локальных данных**:
     `python3 -m tg_msg_manager.cli delete --user-id 123456789`
@@ -180,7 +182,7 @@ Legacy aliases still supported:
 * Discussion export выключен по умолчанию через `--discussion none`; `--discussion full` экспортирует только threads для постов текущего run.
 * Старые discussion threads не refresh/backfill без `--force`; reply-tree reconstruction не выполняется, сохраняется только `reply_to_id`.
 * Full media download для discussion comments не реализован.
-* `export-channel` использует файловый `channel_export_state.json` и append-only incremental update для новых постов, но не делает partial rollback уже дописанных файлов при сбое посередине run.
+* `export-channel` использует файловый `channel_export_state.json`; channel/discussion payload writes проходят через temp-file replace, поэтому сбой write-session не дописывает частичные rows в финальные payload files. Это не полноценная multi-file ACID-транзакция и не откатывает уже скачанные media files.
 * Переключение существующего metadata-only dataset на `--media full` без `--force` скачивает media только для новых постов текущего run; исторический backfill старых rows по-прежнему требует full re-export.
 * Фоновая запись в SQLite остаётся чувствительной к очень большим deep-export проходам; основная оптимизация сейчас сделана на уровне пакетных сервисных вызовов.
 * Планировщик `schedule` сейчас ориентирован на macOS `launchd`.
@@ -304,13 +306,15 @@ Subcommands can be executed directly for automation:
     `python3 -m tg_msg_manager.cli export-channel --channel @example --limit 10 --media metadata --discussion full --max-comments-per-post 100`
     The command writes a filesystem dataset under `exports/channels/`. Stage 3A/3A.1/3B/3C does not perform analytics and does not persist channel posts or discussion comments into SQLite.
     Only broadcast channels are supported; groups and supergroups are out of scope for `export-channel`.
-    Successful runs create `channel_export_state.json`; later runs without `--force` append only newly discovered posts to the dataset.
+    Successful runs create `channel_export_state.json`; later runs without `--force` append only newly discovered posts through temp-file copy/append/replace.
     The safe default remains `--media metadata`.
     The discussion default is `--discussion none`; no discussion resolver runs and no discussion files are created in that mode.
     `--discussion full` writes `discussion_comments.jsonl`, `discussion_comments.txt`, `discussion_threads.jsonl`, and `discussion_export_state.json` only for posts fetched in the current run.
     Incremental runs export discussion comments only for new posts; no-new-posts runs do not refetch old threads or mutate `discussion_export_state.json`.
     Discussion comment media is metadata-only; full media download for discussion comments is not implemented.
     Full media download requires explicit `--media full`; it supports `--max-media-size` with a `50MB` default and `--media-types photo,video,...`.
+    Media filenames and final media subdirectories are resolved from a safe Telegram original filename, then MIME type, then lightweight magic bytes; `.bin` remains the fallback only for unknown types.
+    `media_manifest.jsonl` records the final media path. OCR, speech-to-text, media analysis, transcoding, and ffmpeg processing are not performed.
     In `full` mode, `media_manifest.jsonl` records final statuses such as `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type`, and `failed`.
 *   **Full Local Purge**:
     `python3 -m tg_msg_manager.cli delete --user-id 123456789`
@@ -391,7 +395,7 @@ Supported legacy aliases:
 * Discussion export is disabled by default with `--discussion none`; `--discussion full` exports only threads for posts fetched in the current run.
 * Old discussion threads are not refreshed/backfilled without `--force`; reply-tree reconstruction is not implemented beyond preserving `reply_to_id`.
 * Full media download for discussion comments is not implemented.
-* `export-channel` now uses filesystem state plus append-only incremental updates for new posts, but it does not yet roll back already appended payload files if a run fails mid-write.
+* `export-channel` uses filesystem state; channel/discussion payload writes go through temp-file replace, so write-session failures do not append partial rows to final payload files. This is not a full multi-file ACID transaction and does not roll back media files already downloaded.
 * Switching an existing metadata-only dataset to `--media full` without `--force` downloads media only for newly fetched posts in that run; historical backfill for old rows still requires a full re-export.
 * SQLite background writing is still most sensitive during very large deep-export passes; the current optimization focus is batched service-level writes.
 * The built-in `schedule` command currently targets macOS `launchd`.

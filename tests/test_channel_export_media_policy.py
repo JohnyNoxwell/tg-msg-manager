@@ -10,6 +10,7 @@ from tg_msg_manager.services.channel_export.media_policy import (
     initial_download_status,
     is_media_type_allowed,
     media_category,
+    media_category_for_extension,
     should_skip_by_size,
     validate_media_mode,
 )
@@ -31,6 +32,25 @@ class TestChannelExportMediaPolicy(unittest.TestCase):
         self.assertEqual(media_category("Document", None), "documents")
         self.assertEqual(media_category(None, None), "unknown")
 
+    def test_media_category_prefers_concrete_mime_over_document_container(self):
+        self.assertEqual(media_category("Document", "video/mp4"), "videos")
+        self.assertEqual(media_category("Document", "image/jpeg"), "photos")
+        self.assertEqual(media_category("Document", "audio/mpeg"), "audio")
+
+    def test_media_category_for_extension_maps_detected_video_to_videos(self):
+        self.assertEqual(
+            media_category_for_extension(".mp4", fallback="documents"),
+            "videos",
+        )
+        self.assertEqual(
+            media_category_for_extension(".mov", fallback="documents"),
+            "videos",
+        )
+        self.assertEqual(
+            media_category_for_extension(".bin", fallback="documents"),
+            "documents",
+        )
+
     def test_extension_for_media_prefers_file_name_then_mime_type(self):
         self.assertEqual(
             extension_for_media(
@@ -49,7 +69,7 @@ class TestChannelExportMediaPolicy(unittest.TestCase):
             ".jpg",
         )
 
-    def test_build_media_relative_path_is_stable_and_zero_padded(self):
+    def test_build_media_relative_path_preserves_safe_original_filename(self):
         path = build_media_relative_path(
             message_id=12345,
             media_index=1,
@@ -58,7 +78,7 @@ class TestChannelExportMediaPolicy(unittest.TestCase):
             file_name="image.jpg",
         )
 
-        self.assertEqual(path, "media/photos/0000012345_01.jpg")
+        self.assertEqual(path, "media/photos/0000012345_01_image.jpg")
 
     def test_initial_download_status_follows_media_mode(self):
         self.assertEqual(initial_download_status("none"), "skipped_by_mode")
