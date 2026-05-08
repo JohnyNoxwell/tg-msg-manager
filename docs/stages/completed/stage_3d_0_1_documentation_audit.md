@@ -1,8 +1,8 @@
-# STAGE 3D.0.4 — DOCUMENTATION INDEXES AND NAVIGATION
+# STAGE 3D.0.1 — DOCUMENTATION AUDIT
 
-Status: active
+Status: completed
 Stage: 3D.0
-Scope: documentation index task
+Scope: documentation audit task
 
 ## 0. CODEX ENTRY PROMPT
 
@@ -252,333 +252,235 @@ Execute only the current file scope.
 
 ## 6. PURPOSE OF THIS SUB-STAGE
 
-Create documentation index files and navigation after the docs tree has been reorganized.
+Perform a documentation audit only.
+
+Do not move files yet.
 
 Do not rewrite `AGENTS.md` yet.
 
-Expected result:
+Do not reorganize the docs tree yet.
 
-```text
-docs/README.md
-docs/architecture/README.md
-docs/development/README.md
-docs/stages/README.md
-docs/roadmap/README.md
-docs/archive/README.md
-```
-
----
-
-## 7. INPUT
-
-Read:
+Expected output:
 
 ```text
 docs/stages/reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md
-docs/stages/reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md
-docs/stages/reports/STAGE_3D_0_3_DOCS_MIGRATION_REPORT.md
 ```
 
-If migration report is missing, stop and report that Stage 3D.0.3 must be completed first.
+This audit becomes the input for the next sub-stage.
 
 ---
 
-## 8. INDEX DESIGN PRINCIPLES
+## 7. AUDIT SCOPE
 
-Index files must be:
+Inspect:
 
 ```text
-- short
-- navigational
-- explicit about what is current
-- explicit about what is archived
-- useful for agents
-- not a duplicate of all content
+AGENTS.md
+README.md
+COMMANDS.md
+CHANGELOG.md
+docs/
+tests/
 ```
 
-Do not copy full docs into index files.
-
-Each index should answer:
+Find and classify:
 
 ```text
-- what is in this folder
-- what to read first
-- what not to read by default
-- which files are current
-- which files are historical
-```
-
----
-
-## 9. CREATE DOCS ROOT INDEX
-
-Create/update:
-
-```text
-docs/README.md
-```
-
-Required sections:
-
-```text
-# Documentation Index
-
-## 1. How to use this documentation
-## 2. For coding agents
-## 3. Architecture docs
-## 4. Development docs
-## 5. Stages
-## 6. Roadmap
-## 7. Archive
-## 8. Rule: do not read everything by default
-```
-
-Must include:
-
-```text
-Read AGENTS.md first.
-Then read the active stage file.
-Then read only referenced architecture/development docs.
-Do not read archive unless explicitly asked.
+- architecture docs
+- development rules
+- CLI docs
+- testing docs
+- roadmap docs
+- stage task files
+- stage reports
+- old prompts
+- deprecated plans
+- duplicated docs
+- broken or stale references
+- files that should remain in place
+- files that should move
+- files that should be archived
 ```
 
 ---
 
-## 10. CREATE ARCHITECTURE INDEX
+## 8. CLASSIFICATION CATEGORIES
 
-Create/update:
+For each relevant doc, classify as one of:
 
 ```text
-docs/architecture/README.md
+current_architecture
+current_development_rule
+current_cli_doc
+current_testing_doc
+active_stage_task
+completed_stage_task
+stage_report
+roadmap
+backlog
+archive_candidate
+deprecated
+duplicate
+unknown
 ```
 
-Required sections:
+Also record recommended target location:
 
 ```text
-# Architecture Documentation
-
-## Purpose
-## Current architecture docs
-## Channel export docs
-## Dataset/state docs
-## Media/discussion docs
-## Rules for adding architecture docs
-```
-
-Must state:
-
-```text
-Architecture docs are stable references.
-Stage task files should not replace architecture docs.
-```
-
----
-
-## 11. CREATE DEVELOPMENT INDEX
-
-Create/update:
-
-```text
-docs/development/README.md
-```
-
-Required sections:
-
-```text
-# Development Documentation
-
-## Purpose
-## Development rules
-## Testing
-## CLI contracts
-## Agent workflow
-## Documentation rules
-```
-
-Must state:
-
-```text
-Development docs define how changes are made.
-They do not define product roadmap by themselves.
+keep
+move_to_docs_architecture
+move_to_docs_development
+move_to_docs_stages_active
+move_to_docs_stages_completed
+move_to_docs_stages_reports
+move_to_docs_roadmap
+move_to_docs_archive
+needs_manual_review
 ```
 
 ---
 
-## 12. CREATE STAGES INDEX
+## 9. TASKS
 
-Create/update:
+### A. Inventory
 
-```text
-docs/stages/README.md
-```
+- [ ] List root documentation files.
+- [ ] List all files under `docs/`.
+- [ ] List stage task files.
+- [ ] List stage report files.
+- [ ] List roadmap/backlog-like files.
+- [ ] List testing/smoke checklist files.
+- [ ] List old prompt/deprecated files.
+- [ ] List architecture-like files.
+- [ ] List development-rule-like files.
 
-Required sections:
+### B. Identify current active docs
 
-```text
-# Stage Documentation
+- [ ] Identify the current active stage docs, if any.
+- [ ] Identify the latest completed stage reports.
+- [ ] Identify current architecture docs.
+- [ ] Identify current testing docs.
+- [ ] Identify current CLI docs.
+- [ ] Identify current roadmap docs.
 
-## Active stages
-## Completed stages
-## Reports
-## Stage lifecycle
-## Rules for agents
-```
+### C. Detect duplicates and stale docs
 
-Must define lifecycle:
+Search for duplicated or stale concepts:
 
-```text
-active -> completed -> report
-```
+- [ ] Stage 0
+- [ ] Stage 3A
+- [ ] Stage 3A.1
+- [ ] Stage 3B
+- [ ] Stage 3B.1
+- [ ] Stage 3C
+- [ ] AGENTS
+- [ ] architecture rules
+- [ ] CLI behavior
+- [ ] SQLite schema
+- [ ] media full not implemented
+- [ ] discussion export
+- [ ] old not-implemented claims
 
-Must state:
+For each suspect stale item:
 
-```text
-Only files under docs/stages/active/ are executable current tasks.
-Completed stage files are historical instructions.
-Reports are factual completion records.
-```
+- [ ] record file path
+- [ ] record stale claim
+- [ ] record whether to update, move, or archive later
 
----
+### D. Detect broken references
 
-## 13. CREATE ROADMAP INDEX
+- [ ] Search docs for links to files that no longer exist.
+- [ ] Search README/COMMANDS/CHANGELOG for outdated paths.
+- [ ] Record broken paths.
+- [ ] Do not fix them yet unless trivial and isolated.
 
-Create/update:
-
-```text
-docs/roadmap/README.md
-```
-
-Required sections:
-
-```text
-# Roadmap Documentation
-
-## Current roadmap
-## Next steps
-## Backlog
-## Deferred
-## Rules
-```
-
-Must state:
-
-```text
-Roadmap items are not implementation permission.
-Implementation requires an active stage task.
-```
-
----
-
-## 14. CREATE ARCHIVE INDEX
-
-Create/update:
-
-```text
-docs/archive/README.md
-```
-
-Required sections:
-
-```text
-# Archive
-
-## Purpose
-## What is archived here
-## How agents should treat archived files
-## Legacy notes
-## Old prompts
-## Deprecated stage files
-```
-
-Must state:
-
-```text
-Do not use archived files as current instructions unless the user explicitly asks.
-```
-
----
-
-## 15. LINK CHECK TASKS
-
-- [ ] Ensure each index links to existing files only.
-- [ ] Avoid links to files that do not exist.
-- [ ] Avoid raw old paths from before migration.
-- [ ] Do not over-link archived docs.
-- [ ] Prefer relative links.
-
----
-
-## 16. REPORT
+### E. Write audit file
 
 Create:
 
 ```text
-docs/stages/reports/STAGE_3D_0_4_DOCS_INDEXES_REPORT.md
+docs/stages/reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md
 ```
 
 Required sections:
 
 ```text
-# Stage 3D.0.4 — Docs Indexes Report
+# Stage 3D.0.1 — Documentation Audit
 
 ## 1. Summary
-## 2. Index files created
-## 3. Navigation rules
-## 4. Agent usage rules
-## 5. Link checks
-## 6. Remaining docs alignment work
+## 2. Current root docs
+## 3. Current docs tree
+## 4. Stage task files
+## 5. Stage reports
+## 6. Architecture docs
+## 7. Development/testing docs
+## 8. Roadmap/backlog docs
+## 9. Archive/deprecated candidates
+## 10. Duplicate/stale content
+## 11. Broken or suspicious references
+## 12. Recommended migration map
+## 13. Risks
+## 14. Next sub-stage recommendation
+```
+
+The recommended migration map should be a table:
+
+```text
+| Current path | Classification | Recommended target | Action |
 ```
 
 ---
 
-## 17. VERIFICATION
+## 10. VERIFICATION
 
-Run:
+Run no code tests unless code was changed.
+
+Recommended checks:
 
 ```bash
-find docs -name README.md -type f | sort
-grep -R "docs/refactor" -n README.md COMMANDS.md docs || true
-grep -R "not implemented yet" -n README.md COMMANDS.md docs || true
+find docs -type f | sort
+find . -maxdepth 2 -type f | sort
 ```
 
-Do not mass-fix all results in this stage unless they are index-related. Record remaining issues for 3D.0.6.
+If available, use grep/search to verify inventory.
 
 ---
 
-## 18. COMPLETION CRITERIA
+## 11. COMPLETION CRITERIA
 
 Complete only if:
 
-- [ ] docs root index exists.
-- [ ] architecture index exists.
-- [ ] development index exists.
-- [ ] stages index exists.
-- [ ] roadmap index exists.
-- [ ] archive index exists.
-- [ ] indexes are navigational, not bloated.
-- [ ] archive is clearly marked non-current.
-- [ ] active stage rule is clear.
-- [ ] report created.
-- [ ] AGENTS.md not rewritten yet.
-- [ ] runtime code unchanged.
+- [ ] Audit file exists.
+- [ ] It lists current docs.
+- [ ] It classifies stage files.
+- [ ] It identifies reports.
+- [ ] It identifies stale/duplicate docs.
+- [ ] It proposes target locations.
+- [ ] No docs were moved.
+- [ ] AGENTS.md was not rewritten.
+- [ ] Runtime code was not changed.
 
 ---
 
-## 19. FINAL RESPONSE FORMAT
+## 12. FINAL RESPONSE FORMAT
 
 ```text
 ## Summary
-- docs indexes created
-- navigation rules added
+- audit completed
+- no docs moved
 - no runtime changes
 
 ## Files changed
-- path
-- path
+- docs/stages/reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md
 
-## Tests/checks
-- command/result
+## Findings
+- current docs count
+- archive candidates count
+- stale references count
+
+## Tests
+- not run; docs-audit only
 
 ## Stage status
-Stage 3D.0.4: complete / partial / blocked
+Stage 3D.0.1: complete / partial / blocked
 ```

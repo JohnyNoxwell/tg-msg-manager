@@ -1,6 +1,6 @@
 # GENERAL PROMPT — EXECUTE STAGE 3D.0 PROJECT GOVERNANCE / DOCS REORGANIZATION
 
-Status: active
+Status: archived
 Stage: 3D.0
 Scope: general execution prompt
 

@@ -1,6 +1,6 @@
 # STAGE 3D.0.5 — AGENTS.md REWRITE
 
-Status: active
+Status: completed
 Stage: 3D.0
 Scope: repository agent contract rewrite task
 

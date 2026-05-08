@@ -1,6 +1,6 @@
 # STAGE 3D.0.6 — ROOT README / COMMANDS / CHANGELOG ALIGNMENT
 
-Status: active
+Status: completed
 Stage: 3D.0
 Scope: root documentation alignment task
 

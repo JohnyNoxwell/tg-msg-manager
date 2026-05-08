@@ -1,6 +1,6 @@
 # STAGE 3D.0.3 — MOVE AND NORMALIZE DOCUMENTATION
 
-Status: active
+Status: completed
 Stage: 3D.0
 Scope: documentation migration task
 

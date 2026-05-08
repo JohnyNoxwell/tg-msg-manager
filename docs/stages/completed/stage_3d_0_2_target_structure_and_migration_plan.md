@@ -1,8 +1,8 @@
-# STAGE 3D.0.7 — VERIFICATION AND GOVERNANCE REPORT
+# STAGE 3D.0.2 — TARGET STRUCTURE AND MIGRATION PLAN
 
-Status: active
+Status: completed
 Stage: 3D.0
-Scope: final verification and governance report task
+Scope: documentation structure planning task
 
 ## 0. CODEX ENTRY PROMPT
 
@@ -252,240 +252,230 @@ Execute only the current file scope.
 
 ## 6. PURPOSE OF THIS SUB-STAGE
 
-Finalize Stage 3D.0 by verifying the documentation governance system and producing a final report.
+Use the Stage 3D.0.1 audit to create a concrete target documentation structure and migration plan.
 
-This stage should not introduce new structure unless verification reveals a small docs issue.
+Do not move files yet.
+
+Do not rewrite `AGENTS.md` yet.
+
+Expected output:
+
+```text
+docs/stages/reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md
+```
 
 ---
 
 ## 7. INPUT
 
-Read all Stage 3D.0 reports:
+Read:
 
 ```text
 docs/stages/reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md
-docs/stages/reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md
-docs/stages/reports/STAGE_3D_0_3_DOCS_MIGRATION_REPORT.md
-docs/stages/reports/STAGE_3D_0_4_DOCS_INDEXES_REPORT.md
-docs/stages/reports/STAGE_3D_0_5_AGENTS_REWRITE_REPORT.md
-docs/stages/reports/STAGE_3D_0_6_ROOT_DOCS_ALIGNMENT_REPORT.md
 ```
 
-If any report is missing, stop and report which sub-stage is incomplete.
+If missing, stop and report that Stage 3D.0.1 must be completed first.
 
 ---
 
-## 8. VERIFICATION GOALS
+## 8. TARGET STRUCTURE REQUIREMENTS
 
-Confirm:
+Design a final docs structure that supports:
 
 ```text
-- docs tree is organized
-- active/completed/reports/archive are separated
-- AGENTS.md is concise and usable
-- root README points to docs
-- COMMANDS reflects current CLI
-- CHANGELOG records docs governance stage
-- archive is clearly non-current
-- agent workflow is explicit
-- no runtime code behavior changed
+- agent onboarding
+- architecture rules
+- development rules
+- active stage execution
+- completed stage history
+- stage reports
+- roadmap/backlog
+- archived/deprecated notes
 ```
+
+Recommended structure:
+
+```text
+docs/
+  README.md
+  architecture/
+  development/
+  stages/
+    active/
+    completed/
+    reports/
+  roadmap/
+  archive/
+```
+
+Do not create excessive nested folders unless audit proves they are necessary.
 
 ---
 
-## 9. FILE STRUCTURE CHECKS
+## 9. MIGRATION PLAN TASKS
 
-Run or inspect equivalent:
+### A. Confirm target directories
 
-```bash
-find docs -maxdepth 3 -type d | sort
-find docs -maxdepth 4 -type f | sort
+Define target directories:
+
+- [ ] `docs/architecture/`
+- [ ] `docs/development/`
+- [ ] `docs/stages/`
+- [ ] `docs/stages/active/`
+- [ ] `docs/stages/completed/`
+- [ ] `docs/stages/reports/`
+- [ ] `docs/roadmap/`
+- [ ] `docs/archive/`
+- [ ] `docs/archive/legacy_notes/`
+- [ ] `docs/archive/old_prompts/`
+- [ ] `docs/archive/deprecated_stage_files/`
+
+### B. Map each existing doc
+
+For every doc from the audit:
+
+- [ ] choose final location
+- [ ] choose action:
+  - [ ] keep
+  - [ ] move
+  - [ ] copy then archive
+  - [ ] merge later
+  - [ ] update reference only
+  - [ ] manual review
+- [ ] explain why
+
+### C. Define active/completed/report rules
+
+Write rules:
+
+```text
+docs/stages/active/
+  only currently executable stage task files
+
+docs/stages/completed/
+  completed task instruction files
+
+docs/stages/reports/
+  factual completion reports
+
+docs/archive/
+  old prompts, deprecated plans, superseded notes
 ```
 
-Check:
+### D. Define README/index files to create
 
-- [ ] `docs/README.md` exists.
-- [ ] `docs/architecture/README.md` exists.
-- [ ] `docs/development/README.md` exists.
-- [ ] `docs/stages/README.md` exists.
-- [ ] `docs/roadmap/README.md` exists.
-- [ ] `docs/archive/README.md` exists.
-- [ ] `docs/stages/active/` exists.
-- [ ] `docs/stages/completed/` exists.
-- [ ] `docs/stages/reports/` exists.
-- [ ] archive directories exist if planned.
+Plan index files:
 
----
+- [ ] `docs/README.md`
+- [ ] `docs/architecture/README.md`
+- [ ] `docs/development/README.md`
+- [ ] `docs/stages/README.md`
+- [ ] `docs/roadmap/README.md`
+- [ ] `docs/archive/README.md`
 
-## 10. AGENTS.md CHECKS
+### E. Define AGENTS.md rewrite target
 
-Verify `AGENTS.md` contains:
+Plan final `AGENTS.md` content, but do not rewrite it yet.
 
-- [ ] mandatory first-step workflow
-- [ ] project identity
-- [ ] protected file list
+It should include:
+
+- [ ] mandatory pre-task workflow
+- [ ] protected files
+- [ ] architecture rules
 - [ ] docs map
-- [ ] relevant-doc selection policy
-- [ ] do-not-read-whole-docs-tree rule
-- [ ] archive-not-current rule
+- [ ] relevant-doc selection rule
+- [ ] stage workflow
 - [ ] testing policy
-- [ ] stop-and-report conditions
+- [ ] documentation policy
+- [ ] stop-and-report conflict rule
 
-Search:
+### F. Define path update strategy
 
-```bash
-grep -n "docs/stages/active" AGENTS.md
-grep -n "Do not read" AGENTS.md
-grep -n "archive" AGENTS.md
-grep -n "SQLite" AGENTS.md
-grep -n "Protected" AGENTS.md
-```
+Plan which files need path updates:
 
----
+- [ ] root README
+- [ ] COMMANDS.md
+- [ ] CHANGELOG.md
+- [ ] docs index files
+- [ ] stage reports
+- [ ] active stage files
 
-## 11. STALE REFERENCE CHECKS
-
-Search:
-
-```bash
-grep -R "not implemented yet" -n README.md COMMANDS.md docs || true
-grep -R "docs/refactor" -n README.md COMMANDS.md docs || true
-grep -R "old_prompts" -n README.md COMMANDS.md docs || true
-```
-
-Interpretation:
-
-- [ ] false stale claims should be fixed.
-- [ ] legitimate historical references inside archive may remain.
-- [ ] report any remaining questionable references.
+Do not mass-edit old archived docs unless necessary.
 
 ---
 
-## 12. RUNTIME SAFETY CHECKS
-
-Confirm no runtime behavior changes were made intentionally.
-
-Run:
-
-```bash
-python3 -m compileall tg_msg_manager
-python3 -m tg_msg_manager.cli --help
-python3 -m tg_msg_manager.cli export-channel --help
-```
-
-If practical:
-
-```bash
-pytest tests/test_channel_export_*.py
-ruff check tg_msg_manager tests
-ruff format --check tg_msg_manager tests
-```
-
-If docs-only changes and full tests are expensive, at minimum run compile/help checks. Do not claim unrun tests passed.
-
----
-
-## 13. FINAL GOVERNANCE REPORT
+## 10. WRITE PLAN FILE
 
 Create:
 
 ```text
-docs/stages/reports/STAGE_3D_0_PROJECT_GOVERNANCE_DOCS_REORGANIZATION_REPORT.md
+docs/stages/reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md
 ```
 
 Required sections:
 
 ```text
-# Stage 3D.0 — Project Governance / Documentation Reorganization Report
+# Stage 3D.0.2 — Target Docs Structure Plan
 
 ## 1. Summary
-## 2. Final documentation structure
-## 3. AGENTS.md contract
-## 4. Stage documentation lifecycle
-## 5. Architecture/development docs separation
-## 6. Archive policy
-## 7. Root docs alignment
-## 8. Verification results
-## 9. Runtime behavior statement
-## 10. Remaining documentation limitations
-## 11. Rules for future stages
-## 12. Status
+## 2. Target directory structure
+## 3. Directory responsibility rules
+## 4. File migration map
+## 5. Index files to create
+## 6. AGENTS.md rewrite plan
+## 7. Link/reference update plan
+## 8. Risks
+## 9. Do-not-move list
+## 10. Next sub-stage checklist
 ```
 
-Must explicitly state:
+File migration map table:
 
 ```text
-- no product feature was added
-- no SQLite schema change was made
-- no legacy CLI behavior was changed
-- AGENTS.md is the repository-level agent contract
-- active stage files live under docs/stages/active/
-- completed task files are historical
-- reports are factual records
-- archive is not current guidance
+| Current path | Target path | Action | Reason |
 ```
 
 ---
 
-## 14. OPTIONAL FINAL CLEANUP
+## 11. VERIFICATION
 
-Only if safe:
+No tests required unless code changed.
 
-- [ ] Move Stage 3D.0 active task files to completed after all sub-stages are complete.
-- [ ] Ensure final report is under `docs/stages/reports/`.
-- [ ] Update docs/stages/README.md if active/completed lists changed.
-
-Do not overdo cleanup.
+Run simple filesystem checks if useful.
 
 ---
 
-## 15. COMPLETION CRITERIA
+## 12. COMPLETION CRITERIA
 
 Complete only if:
 
-- [ ] All prior Stage 3D.0 reports exist.
-- [ ] Final governance report exists.
-- [ ] Docs indexes exist.
-- [ ] AGENTS.md is updated.
-- [ ] Root README/COMMANDS/CHANGELOG aligned.
-- [ ] Verification commands run and results recorded.
-- [ ] Runtime code behavior unchanged.
-- [ ] No new feature added.
-- [ ] No SQLite schema changed.
-- [ ] Stage 3D.0 marked complete.
+- [ ] Plan file exists.
+- [ ] It uses the audit as input.
+- [ ] It defines final docs directories.
+- [ ] It maps existing docs to targets.
+- [ ] It defines index files.
+- [ ] It defines AGENTS.md rewrite plan.
+- [ ] It defines path update strategy.
+- [ ] No files were moved yet.
+- [ ] AGENTS.md was not rewritten.
+- [ ] Runtime code was not changed.
 
 ---
 
-## 16. FINAL RESPONSE FORMAT
+## 13. FINAL RESPONSE FORMAT
 
 ```text
 ## Summary
-- Stage 3D.0 docs governance complete
-- AGENTS.md contract ready
-- docs structure organized
+- target docs structure planned
+- migration map prepared
+- no files moved
 
 ## Files changed
-- path
-- path
+- docs/stages/reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md
 
-## Verification
-- command: result
-- command: result
-
-## Runtime behavior
-- unchanged
-
-## Remaining limitations
-- item
-- item
+## Tests
+- not run; docs-plan only
 
 ## Stage status
-Stage 3D.0.1: complete / partial / blocked
 Stage 3D.0.2: complete / partial / blocked
-Stage 3D.0.3: complete / partial / blocked
-Stage 3D.0.4: complete / partial / blocked
-Stage 3D.0.5: complete / partial / blocked
-Stage 3D.0.6: complete / partial / blocked
-Stage 3D.0.7: complete / partial / blocked
-Stage 3D.0: complete / partial / blocked
 ```

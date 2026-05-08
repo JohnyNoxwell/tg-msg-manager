@@ -128,10 +128,19 @@ Every stage should:
 Lifecycle:
 
 ```text
-active task -> implementation -> tests/checks -> report -> completed task history
+active task -> implementation -> tests/checks -> report -> lifecycle cleanup -> completed task history
 ```
 
 Only files under `docs/stages/active/` are executable current tasks. Completed stage files are historical instructions. Stage reports are factual records, not instructions.
+
+Stage lifecycle cleanup is mandatory. When a stage is fully complete and its final report exists, the agent must:
+
+- move completed stage task files from `docs/stages/active/` to `docs/stages/completed/`;
+- move general launch prompts to `docs/archive/old_prompts/`;
+- update `docs/stages/README.md`;
+- ensure `docs/stages/active/` contains only unfinished or next active work.
+
+Do not perform completion cleanup before the final stage report exists.
 
 ## 8. Coding rules
 
