@@ -1,5 +1,7 @@
 # STAGE 3A — DIRECT CHANNEL EXPORT / DATASET PROJECTION BACKLOG
 
+Archived: this file is preserved for history and is not current instructions unless explicitly referenced.
+
 ## 0. Назначение
 
 Этот backlog описывает внедрение нового функционала в `tg-msg-manager`:

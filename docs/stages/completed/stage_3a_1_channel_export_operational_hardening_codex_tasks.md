@@ -1,5 +1,9 @@
 # STAGE 3A.1 — CHANNEL EXPORT OPERATIONAL HARDENING — CODEX TASK FILE
 
+Status: completed
+Stage: 3A.1
+Scope: historical task instructions
+
 ## 0. Purpose
 
 This file is intended to be given directly to Codex / AI coding agent.

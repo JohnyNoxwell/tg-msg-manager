@@ -1,5 +1,9 @@
 # STAGE 3A — DIRECT CHANNEL EXPORT — AGENT EXECUTION PLAN
 
+Status: completed
+Stage: 3A
+Scope: historical task instructions
+
 ## 0. Purpose
 
 This file is an execution plan for an AI coding agent.

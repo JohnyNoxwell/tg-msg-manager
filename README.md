@@ -24,6 +24,12 @@ python3 -m tg_msg_manager.cli retry --list
 python3 -m tg_msg_manager.cli report
 ```
 
+### Документация
+
+- Полная карта документации: [`docs/README.md`](docs/README.md)
+- Справочник команд: [`COMMANDS.md`](COMMANDS.md)
+- Правила для coding agents: [`AGENTS.md`](AGENTS.md)
+
 ### 🚀 Быстрый старт
 
 1. **Установка**:
@@ -259,6 +265,14 @@ Core system capabilities:
 * 📡 **Direct Channel Export (`export-channel`)** — Filesystem-first dataset export of Telegram channel posts into `manifest.json`, `messages.jsonl`, `messages.txt`, `media_manifest.jsonl`, and optional discussion dataset files when `--discussion full` is explicit.
 * ♻️ **Retry Queue (`retry`)** — Replays recoverable sync/archive failures through typed retry tasks instead of manual DB surgery.
 * 📋 **Audit Report (`report`)** — Read-only diagnostics for local DB state, retry backlog, export artifacts, and tracked-target health without Telegram access.
+
+---
+
+### 📚 Documentation
+
+- Full documentation map: [`docs/README.md`](docs/README.md)
+- Command reference: [`COMMANDS.md`](COMMANDS.md)
+- Coding-agent contract: [`AGENTS.md`](AGENTS.md)
 
 ---
 

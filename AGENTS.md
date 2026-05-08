@@ -1,1006 +1,257 @@
 # AGENTS.md
 
-## 0. Purpose
+## 1. Mandatory first step
 
-This file defines the engineering rules for all AI agents and human contributors working on this repository.
+Before editing code or documentation:
 
-The main goal is to preserve the architectural foundation of `tg-msg-manager` after refactoring and prevent future development from turning the project back into a set of large, fragile service files.
+1. Read this AGENTS.md.
+2. Identify the active task or stage file.
+3. Read only the documentation referenced by that task.
+4. Inspect files you plan to change.
+5. Write a short plan before editing.
+6. Implement only the requested scope.
 
-Every change must follow these rules unless a maintainer explicitly updates this document.
+Do not read the whole docs tree by default.
+Do not use archive files as current instructions unless explicitly asked.
 
----
+## 2. Project identity
 
-# 1. Core Principles
+`tg-msg-manager` is a local Telegram export/data pipeline and CLI project.
 
-## 1.1. Preserve behavior first
+It is not:
 
-Refactoring must not change user-visible behavior unless the task explicitly says so.
+- a SaaS monitoring platform;
+- an analytics engine;
+- an OSINT interpretation engine;
+- a profiling system;
+- a GUI dashboard.
 
-Do not change without explicit instruction:
+Dataset export comes first. Interpretation, analytics, profiling, and classification are out of the exporter pipeline unless a future active stage explicitly scopes them.
 
-- CLI command names;
-- CLI arguments;
-- default values;
-- export formats;
-- output filenames;
-- output directory layout;
-- database schema;
-- incremental sync behavior;
-- target attribution behavior;
-- context depth behavior;
-- retry behavior;
-- report format.
+## 3. Non-negotiable architecture rules
 
-If behavior must change, document it in `CHANGELOG.md`, tests, and architecture notes.
+- CLI is thin: parse args, validate basic input, call services, and render high-level results.
+- Services are orchestration-only and must not contain raw SQL or large feature algorithms.
+- Feature logic must live in focused modules with one responsibility.
+- Do not bloat service facades.
+- Existing public CLI behavior must remain stable unless the active stage explicitly allows changes.
+- SQLite schema changes are forbidden unless the active stage explicitly allows them.
+- Dataset format changes require regression tests and documentation updates.
+- State, incremental, force, and no-new-work behavior must be preserved unless explicitly changed.
+- Any behavior change requires tests and docs.
 
-## 1.2. Small changes only
+Channel export rules:
 
-Prefer small, isolated changes.
+- Channel export logic lives under `tg_msg_manager/services/channel_export/`.
+- Media download logic lives in media-specific channel export modules.
+- Discussion export logic lives under `tg_msg_manager/services/channel_export/discussions/`.
+- `ChannelExportService` remains orchestration-only.
 
-Do not perform big-bang rewrites.
+Current architecture guidance lives in `docs/architecture/README.md`.
 
-A valid change should normally fit one category:
+## 4. Protected files and boundaries
 
-- extract module;
-- split responsibility;
-- add test;
-- fix bug;
-- add internal helper;
-- improve naming;
-- update documentation;
-- add compatibility wrapper;
-- remove verified dead code.
-
-Avoid mixing refactor, feature work, formatting, and behavioral changes in the same change.
-
-## 1.3. Architecture over convenience
-
-Do not place new logic in a file simply because it is convenient.
-
-New functionality must go into the correct layer and module, even if that requires creating a new small module.
-
-Bad:
+Do not add new feature logic to these protected service facades:
 
 ```text
-"Just add it to the existing service."
+tg_msg_manager/services/export/service.py
+tg_msg_manager/services/db_export/service.py
+tg_msg_manager/services/private_archive/service.py
+tg_msg_manager/services/context/engine.py
+tg_msg_manager/services/channel_export/service.py
 ```
 
-Good:
+Only orchestration or mechanical wiring is allowed where appropriate. If a protected file must change, explain why in the plan and keep the change minimal.
 
-```text
-"Create a dedicated component with one responsibility and inject it into the orchestrator."
-```
-
-## 1.4. Explicit boundaries
-
-Each module must have a clear responsibility.
-
-If a module needs the words "and also" to describe what it does, it probably has too many responsibilities.
-
----
-
-# 2. Layering Rules
-
-The project must preserve a layered architecture.
-
-Expected direction of dependencies:
-
-```text
-CLI
-  ↓
-Application / Services
-  ↓
-Domain Models / Policies
-  ↓
-Infrastructure Interfaces / Contracts
-  ↓
-Infrastructure Implementations
-```
-
-## 2.1. CLI layer
-
-CLI files must remain thin.
-
-CLI may:
-
-- parse command arguments;
-- validate basic user input;
-- call application/service layer;
-- format high-level command result;
-- exit with proper status code.
-
-CLI must not:
-
-- contain business logic;
-- contain SQL;
-- perform Telegram fetching directly;
-- build context clusters;
-- implement export formatting;
-- write database records directly;
-- decide target attribution;
-- perform analytics.
-
-If CLI code becomes complex, move logic into a service or command handler.
-
-## 2.2. Service layer
-
-Services coordinate use cases.
-
-Services may:
-
-- orchestrate components;
-- call storage contracts;
-- call adapters;
-- call policies;
-- call renderers/writers;
-- emit events;
-- return structured result objects.
-
-Services must not:
-
-- contain raw SQL;
-- directly manipulate SQLite cursors;
-- perform low-level filesystem formatting inline;
-- become large algorithmic modules;
-- contain unrelated use cases;
-- import CLI modules;
-- import concrete infrastructure when a contract is available.
-
-A service should normally depend on narrow contracts, not broad storage objects.
-
-## 2.3. Domain / core layer
-
-Core/domain modules contain stable concepts.
-
-They may contain:
-
-- dataclasses;
-- enums;
-- value objects;
-- policy objects;
-- pure functions;
-- domain-level validation.
-
-They must not:
-
-- import Telegram client code;
-- import SQLite code;
-- read/write files;
-- depend on CLI;
-- depend on concrete infrastructure.
-
-Core logic should be easy to unit test without IO.
-
-## 2.4. Infrastructure layer
-
-Infrastructure contains concrete implementations.
-
-It may contain:
-
-- SQLite queries;
-- file IO;
-- Telegram adapter code;
-- process locks;
-- OS scheduler integration;
-- logging sinks;
-- retry persistence;
-- concrete storage implementations.
-
-Infrastructure must not:
-
-- import CLI;
-- decide business policy;
-- perform user-facing orchestration;
-- contain analytics decisions;
-- format user-facing export text unless the module is explicitly a writer/renderer.
-
----
-
-# 3. Hot-Path Protection
-
-The following files or module types must not become large feature dumping grounds.
-
-## 3.1. Protected hot-path files
-
-Do not add new major logic to:
+Compatibility wrappers and aggregators are also protected from new business logic:
 
 ```text
 tg_msg_manager/services/exporter.py
 tg_msg_manager/services/context_engine.py
 tg_msg_manager/services/db_exporter.py
 tg_msg_manager/services/private_archive.py
-tg_msg_manager/infrastructure/storage/interface.py
 tg_msg_manager/core/models/service_payloads.py
+tg_msg_manager/infrastructure/storage/interface.py
 ```
 
-These files should be compatibility wrappers, facades, or aggregators only.
+Storage SQL belongs under `tg_msg_manager/infrastructure/storage/`. Core/domain code must not import infrastructure. Infrastructure must not import services. CLI must not be imported by service/core/infrastructure modules.
 
-If one of these files grows significantly, stop and create a dedicated module.
+## 5. Documentation map
 
-## 3.2. Protected service packages
+- `docs/README.md` - top-level documentation index and doc selection policy.
+- `docs/architecture/` - current architecture rules, split maps, storage/model decisions, and architecture snapshots.
+- `docs/development/` - CLI contracts, testing guidance, PR checklist, and development workflow.
+- `docs/stages/active/` - executable current stage task files.
+- `docs/stages/completed/` - historical task instruction files.
+- `docs/stages/reports/` - factual completion reports and baselines.
+- `docs/roadmap/` - roadmap/backlog navigation; not implementation permission.
+- `docs/archive/` - old prompts, deprecated plans, and superseded notes; not current guidance.
 
-Do not add unrelated logic to:
+Root user-facing docs:
+
+- `README.md`
+- `COMMANDS.md`
+- `CHANGELOG.md`
+
+## 6. Relevant-doc selection policy
+
+For any task, read:
+
+1. `AGENTS.md`.
+2. The active stage or task file.
+3. Architecture docs referenced by that stage.
+4. Development/testing docs relevant to changed files.
+5. Recent stage reports only if the task depends on prior stage behavior.
+
+Do not read by default:
+
+- all completed stage files;
+- all reports;
+- archive files;
+- roadmap files unrelated to the request.
+
+If the active task references archive material, read only the named archived file.
+
+## 7. Stage workflow
+
+Every stage should:
+
+1. define scope;
+2. define prohibitions;
+3. inspect current code/docs;
+4. implement atomic tasks;
+5. add or update tests when behavior changes;
+6. update docs if behavior, workflow, architecture, formats, or known limitations change;
+7. run verification;
+8. create a factual report.
+
+Lifecycle:
 
 ```text
-tg_msg_manager/services/export/
-tg_msg_manager/services/context/
-tg_msg_manager/services/db_export/
-tg_msg_manager/services/private_archive/
+active task -> implementation -> tests/checks -> report -> completed task history
 ```
 
-Each component inside these packages must keep one responsibility.
+Only files under `docs/stages/active/` are executable current tasks. Completed stage files are historical instructions. Stage reports are factual records, not instructions.
 
-Examples:
+## 8. Coding rules
 
-```text
-planner.py              -> planning only
-source_loader.py        -> loading only
-skip_policy.py          -> skip decision only
-state_manager.py        -> state only
-txt_renderer.py         -> TXT rendering only
-jsonl_renderer.py       -> JSONL rendering only
-event_emitter.py        -> events only
-```
+- Preserve behavior first.
+- Make small, isolated changes.
+- Follow existing project style and local patterns.
+- Prefer typed, explicit, domain-specific models.
+- Use focused modules instead of broad utility modules.
+- Do not add raw SQL to service layer.
+- Do not add business logic to compatibility wrappers.
+- Do not mix refactor, feature work, formatting churn, and behavioral changes unless the active task explicitly scopes it.
+- Do not change command names, arguments, defaults, export formats, output filenames, output directory layout, retry behavior, report format, or database schema without explicit task scope.
 
-Do not merge these responsibilities back into a service facade.
+## 9. Testing policy
 
----
+Run focused tests first. Then run broader verification if behavior changed.
 
-# 4. Export Architecture Rules
+Do not claim tests passed unless actually run. If unable to run tests, state why.
 
-## 4.1. Export service
-
-Export orchestration must stay separated from:
-
-- Telegram fetch;
-- context resolution;
-- target resolving;
-- file rendering;
-- checkpoint persistence;
-- event emission.
-
-The export service may coordinate these components, but it must not implement all of them inline.
-
-## 4.2. DB export
-
-DB export must be split by responsibility.
-
-Expected components:
-
-```text
-services/db_export/service.py          -> orchestration facade
-services/db_export/source_loader.py    -> load DB data
-services/db_export/plan_builder.py     -> build export plan
-services/db_export/skip_policy.py      -> unchanged/fingerprint decision
-services/db_export/state_manager.py    -> export state
-services/db_export/txt_renderer.py     -> TXT rendering
-services/db_export/jsonl_renderer.py   -> JSONL rendering
-services/db_export/payload_writer.py   -> file writing
-services/db_export/event_emitter.py    -> events
-services/db_export/models.py           -> DB export models
-```
-
-Do not put renderer, state, skip, and loading logic back into one class.
-
-## 4.3. Export format stability
-
-Existing export formats are contracts.
-
-Before changing export rendering:
-
-1. Add or update regression tests.
-2. Compare fixture output before/after.
-3. Document the change.
-4. Update changelog.
-5. Ensure the change is intentional.
-
-If the task is refactor-only, export output must remain byte-for-byte stable where possible.
-
----
-
-# 5. Context Architecture Rules
-
-Context logic must stay modular.
-
-Expected components:
-
-```text
-services/context/engine.py                    -> facade
-services/context/reply_chain_resolver.py      -> reply-chain only
-services/context/neighbor_window_resolver.py  -> before/after context only
-services/context/cluster_builder.py           -> cluster construction only
-services/context/deduplicator.py              -> deduplication only
-services/context/scope_policy.py              -> context limits/policy only
-```
-
-## 5.1. Context engine
-
-The context engine may coordinate context components.
-
-It must not:
-
-- contain raw SQL;
-- perform Telegram fetch directly;
-- format export text;
-- write files;
-- contain analytics;
-- contain scoring;
-- mutate storage directly.
-
-## 5.2. Context policy
-
-Context depth, before/after windows, reply depth, fallback behavior, and dedup rules must be explicit.
-
-Do not scatter context constants across unrelated files.
-
-## 5.3. Context relation tables
-
-Context relation tables must have a documented status.
-
-Any table such as:
-
-```text
-message_context_links
-context_group_id
-message_target_links
-```
-
-must be documented as one of:
-
-- first-class source of truth;
-- compatibility/legacy structure;
-- migration candidate.
-
-Do not build new features on ambiguous tables.
-
----
-
-# 6. Storage Rules
-
-## 6.1. No raw SQL in services
-
-Raw SQL belongs in infrastructure/storage modules only.
-
-Forbidden in service layer:
-
-```python
-cursor.execute(...)
-connection.execute(...)
-SELECT ...
-INSERT ...
-UPDATE ...
-DELETE ...
-```
-
-If a service needs data, create or use a storage contract method.
-
-## 6.2. Narrow contracts
-
-Services must depend on narrow storage contracts.
-
-Bad:
-
-```python
-def __init__(self, storage: Storage):
-    self.storage = storage
-```
-
-Good:
-
-```python
-def __init__(self, storage: DBExportStorage):
-    self.storage = storage
-```
-
-Each service should receive only the methods it actually needs.
-
-## 6.3. Storage contract domains
-
-Use separate contracts by use case:
-
-```text
-SyncStorage
-ExportStorage
-DBExportStorage
-ContextStorage
-PrivateArchiveStorage
-ReportStorage
-RetryStorage
-AnalyticsStorage
-```
-
-Do not add unrelated methods to a contract because it is convenient.
-
-## 6.4. Read-side / write-side separation
-
-Read and write paths must stay separated.
-
-Read modules may:
-
-- perform SELECT queries;
-- map rows to DTOs/models;
-- return read-only projections.
-
-Write modules may:
-
-- insert;
-- update;
-- upsert;
-- delete only if explicitly allowed;
-- manage transactions through write infrastructure.
-
-Read modules must not mutate state.
-
-Write modules must not contain export/context business policy.
-
-## 6.5. SQLite constraints
-
-SQLite is the current local storage engine.
-
-Do not replace it without explicit architectural decision.
-
-When changing storage:
-
-- preserve WAL/local assumptions unless instructed;
-- avoid long write locks;
-- batch writes when appropriate;
-- preserve transaction safety;
-- add tests for migrations/schema changes;
-- document schema changes.
-
----
-
-# 7. Payload / Model Rules
-
-## 7.1. No DTO dumping ground
-
-Do not add new models to a giant shared file if a domain-specific module exists.
-
-Preferred structure:
-
-```text
-core/models/payloads/sync.py
-core/models/payloads/export.py
-core/models/payloads/db_export.py
-core/models/payloads/context.py
-core/models/payloads/private_archive.py
-core/models/payloads/retry.py
-core/models/payloads/report.py
-core/models/payloads/telemetry.py
-```
-
-## 7.2. Compatibility aggregators
-
-Files like:
-
-```text
-core/models/service_payloads.py
-infrastructure/storage/interface.py
-```
-
-may exist as compatibility aggregators.
-
-New code should import from domain-specific modules instead of aggregators.
-
-## 7.3. Model rules
-
-Models should be:
-
-- explicit;
-- typed;
-- small;
-- domain-specific;
-- serializable where necessary;
-- stable if used in exports or reports.
-
-Avoid unstructured dicts for internal data passing unless the source is inherently dynamic.
-
----
-
-# 8. Private Archive Rules
-
-Private archive must not become a second independent pipeline duplicating sync/export logic.
-
-Expected separation:
-
-```text
-services/private_archive/service.py          -> orchestration facade
-services/private_archive/planner.py          -> scope planning
-services/private_archive/source_resolver.py  -> private dialog/user resolving
-services/private_archive/media_policy.py     -> media decision policy
-services/private_archive/archive_writer.py   -> archive output writing
-services/private_archive/state_manager.py    -> archive state/checkpoint
-services/private_archive/event_emitter.py    -> archive events
-```
-
-Reuse shared components where possible:
-
-- fetch orchestration;
-- retry handling;
-- checkpoint writers;
-- file writers;
-- storage contracts;
-- event infrastructure.
-
-Do not duplicate large blocks from export or sync code.
-
----
-
-# 9. Analytics Boundary Rules
-
-Analytics must be read-only unless a future architecture decision explicitly says otherwise.
-
-Allowed future analytics examples:
-
-- interaction counts;
-- reply graph projections;
-- user activity timelines;
-- dataset projections;
-- export-ready analytical views.
-
-Forbidden:
-
-- Telegram fetching inside analytics;
-- writing sync/export state from analytics;
-- adding analytics code to `ExportService`;
-- adding analytics code to `DBExportService`;
-- adding analytics code to `ContextEngine`;
-- adding analytics SQL to service layer;
-- mixing analytics with export rendering.
-
-Expected location:
-
-```text
-tg_msg_manager/services/analytics/
-tg_msg_manager/infrastructure/storage/read/analytics/
-```
-
-Analytics should read normalized storage data through read-only contracts.
-
----
-
-# 10. Telegram Adapter Rules
-
-Telegram API access must stay behind adapter/fetch layers.
-
-Do not call Telethon or Telegram client methods from:
-
-- CLI;
-- renderers;
-- storage;
-- analytics;
-- context cluster builder;
-- DB export;
-- report generation.
-
-Telegram fetching belongs in dedicated adapter/fetch orchestration modules.
-
-If a new feature needs Telegram data, add a method to the appropriate adapter/fetch layer and test it through that boundary.
-
----
-
-# 11. File IO and Rendering Rules
-
-## 11.1. File writing
-
-File writing must be isolated in writer modules.
-
-Services may call writers, but should not perform detailed file formatting inline.
-
-## 11.2. Rendering
-
-Rendering must be separate from writing.
-
-Good split:
-
-```text
-txt_renderer.py      -> creates string/lines
-jsonl_renderer.py    -> creates JSONL records/lines
-payload_writer.py    -> writes rendered content to disk
-```
-
-## 11.3. Deterministic output
-
-Export output should be deterministic.
-
-Preserve:
-
-- message ordering;
-- timestamp formatting;
-- author formatting;
-- separator formatting;
-- JSONL field order where relevant;
-- stable filenames.
-
-Any intentional change requires regression test updates and changelog entry.
-
----
-
-# 12. Testing Rules
-
-## 12.1. Run tests before and after refactor
-
-Before changing a major area:
+Common commands:
 
 ```bash
+pytest tests/test_channel_export_*.py
+python3 -m compileall tg_msg_manager
+ruff check tg_msg_manager tests
+ruff format --check tg_msg_manager tests
 make test
 make verify
 ```
 
-or the current project-equivalent commands.
+Docs-only changes do not require every code test unless the active task requires final verification.
 
-After changing a major area, run relevant tests again.
+## 10. Documentation policy
 
-## 12.2. Required tests for refactor
+Documentation is part of the implementation.
 
-If refactoring a component, add or preserve tests for:
+For every change, check whether documentation must be updated.
 
-- compatibility imports;
-- public behavior;
-- fixture output;
-- edge cases;
-- failure paths;
-- no duplicate exports;
-- checkpoint behavior;
-- skip/fingerprint behavior where applicable.
+Update documentation in the same change when modifying:
 
-## 12.3. Fixture regression
+- CLI commands or flags;
+- output files;
+- dataset schemas;
+- manifest formats;
+- state file formats;
+- media behavior;
+- discussion behavior;
+- incremental behavior;
+- force/no-new-work behavior;
+- architecture boundaries;
+- developer workflow;
+- testing commands;
+- stage status;
+- known limitations.
 
-For export/context/db-export changes, compare fixture output before and after.
+A stage is not complete until documentation and reports match the implemented behavior.
 
-Refactor-only changes should not alter output.
+Do not leave code behavior ahead of documentation.
+Do not claim completion if required documentation is stale, missing, or still describes old behavior.
+Do not duplicate large docs content inside `AGENTS.md`; link to the relevant docs instead.
 
-## 12.4. CLI contract tests
-
-CLI tests should protect:
-
-- command availability;
-- argument names;
-- default values;
-- basic help output;
-- exit codes for known safe cases.
-
-Do not assert full help text unless necessary; it is often too brittle.
-
-## 12.5. Live smoke tests
-
-Live Telegram tests should be manual or explicitly marked, not required in normal CI unless designed safely.
-
-Maintain:
-
-```text
-docs/testing/LIVE_SMOKE_CHECKLIST.md
-```
-
-Use it when changing:
-
-- Telegram fetch;
-- sync;
-- private archive;
-- media handling;
-- retry;
-- checkpoint behavior.
-
----
-
-# 13. Documentation Rules
-
-Update documentation when architecture changes.
-
-Relevant files may include:
+Required documentation targets may include:
 
 ```text
 README.md
+COMMANDS.md
 CHANGELOG.md
-PROJECT_ARCHITECTURE_OVERVIEW.md
-docs/ARCHITECTURE_RULES.md
-docs/PR_CHECKLIST.md
-docs/refactor/*.md
-docs/testing/LIVE_SMOKE_CHECKLIST.md
+docs/README.md
+docs/architecture/
+docs/development/
+docs/stages/active/
+docs/stages/completed/
+docs/stages/reports/
+docs/development/LIVE_SMOKE_CHECKLIST.md
 ```
 
-Do not let docs claim that a refactor is complete if code still contradicts it.
-
-If a file is kept only for compatibility, mark it clearly.
-
-Example:
-
-```python
-# DEPRECATED: kept for backward-compatible imports.
-# New code should import from tg_msg_manager.services.db_export.
-```
-
----
-
-# 14. Dependency Rules
-
-## 14.1. Avoid circular imports
-
-After moving modules, check imports.
-
-Run a basic import smoke test:
-
-```bash
-python - <<'PY'
-import tg_msg_manager
-import tg_msg_manager.services.export
-import tg_msg_manager.services.context
-PY
-```
-
-Adapt imports to actual packages.
-
-## 14.2. No upward imports
-
-Infrastructure must not import services.
-
-Core must not import infrastructure.
-
-CLI must not be imported by service/core/infrastructure modules.
-
-## 14.3. Prefer dependency injection
-
-Do not instantiate concrete infrastructure deep inside business logic if it can be injected.
-
-Bad:
-
-```python
-class SomeService:
-    def run(self):
-        storage = SQLiteStorage(...)
-```
-
-Good:
-
-```python
-class SomeService:
-    def __init__(self, storage: SomeStorageContract):
-        self.storage = storage
-```
-
----
-
-# 15. Error Handling Rules
-
-Errors should be explicit and domain-appropriate.
-
-Do not catch broad exceptions unless you add context and re-raise or convert to a structured result.
-
-Bad:
-
-```python
-try:
-    ...
-except Exception:
-    pass
-```
-
-Acceptable:
-
-```python
-try:
-    ...
-except TelegramFetchError as exc:
-    return SyncResult.failed(reason=str(exc))
-```
-
-Do not hide failures that affect exported data, checkpoints, or storage state.
-
----
-
-# 16. Logging / Telemetry Rules
-
-Logging and telemetry must not contain business logic.
-
-Event emitters may emit:
-
-- start;
-- progress;
-- success;
-- failure;
-- skipped;
-- retry scheduled.
-
-Event emitters must not decide:
-
-- what to export;
-- what to fetch;
-- what to skip;
-- what to write.
-
-Telemetry failure should not crash the main use case unless explicitly required.
-
----
-
-# 17. Backward Compatibility Rules
-
-Compatibility wrappers are allowed and preferred during refactor.
-
-Examples:
-
-```text
-services/exporter.py
-services/context_engine.py
-services/db_exporter.py
-services/private_archive.py
-core/models/service_payloads.py
-infrastructure/storage/interface.py
-```
-
-These files may re-export new implementations.
-
-Do not remove them unless:
-
-1. all imports are migrated;
-2. tests confirm removal is safe;
-3. changelog documents the break;
-4. the change is explicitly approved.
-
----
-
-# 18. Schema / Migration Rules
-
-Do not change database schema casually.
-
-Any schema change must include:
-
-- reason;
-- migration path;
-- backward compatibility note;
-- tests;
-- updated architecture documentation;
-- changelog entry.
-
-For refactor-only tasks, schema should not change.
-
-If a table is ambiguous or legacy, document its status before building on it.
-
----
-
-# 19. Code Style Rules
-
-Follow the existing project style.
-
-Prefer:
-
-- type hints;
-- dataclasses for structured internal values;
-- small modules;
-- explicit names;
-- pure functions where possible;
-- narrow interfaces;
-- deterministic behavior.
-
-Avoid:
-
-- global mutable state;
-- untyped dict chains;
-- large methods;
-- hidden side effects;
-- cross-layer imports;
-- broad utility modules with unrelated functions;
-- adding dependencies without need.
-
----
-
-# 20. New Feature Rules
-
-Before adding a feature, identify its proper layer.
-
-Questions to answer:
-
-1. Is this CLI surface?
-2. Is this orchestration?
-3. Is this domain policy?
-4. Is this storage read/write?
-5. Is this rendering?
-6. Is this Telegram fetching?
-7. Is this analytics?
-8. Is this reporting?
-
-Create new modules instead of expanding existing hot-path files.
-
-Every new feature must include:
-
-- tests;
-- documentation if user-visible;
-- architecture note if it adds a new subsystem;
-- changelog entry if behavior changes.
-
----
-
-# 21. Refactor Checklist
-
-Before starting a refactor:
-
-- [ ] Identify current behavior.
-- [ ] Run relevant tests.
-- [ ] Identify public contracts.
-- [ ] Create split map if large module is affected.
-- [ ] Plan compatibility wrappers.
-- [ ] Avoid schema changes.
-- [ ] Avoid CLI changes.
-
-During refactor:
-
-- [ ] Move one responsibility at a time.
-- [ ] Keep old imports working.
-- [ ] Add tests for extracted components.
-- [ ] Run relevant tests after each logical step.
-- [ ] Compare fixture output if export/context is affected.
-
-After refactor:
-
-- [ ] Run full tests.
-- [ ] Run verification command if available.
-- [ ] Run import smoke test.
-- [ ] Update docs.
-- [ ] Update changelog.
-- [ ] Confirm no new product feature was added accidentally.
-
----
-
-# 22. Definition of Done for Any Change
-
-A change is done only if:
-
-- [ ] tests pass;
-- [ ] public behavior is preserved or documented;
-- [ ] CLI contract is preserved if CLI touched;
-- [ ] export output is preserved if export touched;
-- [ ] no raw SQL added to service layer;
-- [ ] no new logic added to compatibility wrappers;
-- [ ] no broad storage contract expanded unnecessarily;
-- [ ] no analytics added to hot-path services;
-- [ ] no circular imports introduced;
-- [ ] docs updated if architecture changed;
-- [ ] changelog updated if behavior or architecture changed.
-
----
-
-# 23. Absolute Prohibitions
-
-Never do the following without explicit task instruction:
-
-- rewrite the project from scratch;
-- replace SQLite;
-- change Telegram library;
-- change CLI interface;
-- change export format;
-- add analytics to export/context/db-export services;
-- put raw SQL in services;
-- build new features on ambiguous legacy tables;
-- remove compatibility wrappers blindly;
-- hide exceptions with `except Exception: pass`;
-- add large unrelated utility modules;
-- merge multiple refactor stages into one uncontrolled change.
-
----
-
-# 24. Preferred Development Pattern
-
-Use this pattern:
-
-```text
-1. Understand current behavior.
-2. Locate correct layer.
-3. Create small dedicated module.
-4. Move one responsibility.
-5. Preserve compatibility import.
-6. Add or update tests.
-7. Run tests.
-8. Update docs.
-9. Stop.
-```
-
-Do not continue expanding scope after the requested task is complete.
-
----
-
-# 25. Final Rule
-
-The repository is a data pipeline with strict boundaries, not a collection of scripts.
-
-Every change must make the codebase easier to extend, easier to test, and harder to accidentally break.
-
-If a change makes future features faster to add but weakens boundaries, reject that change.
+## 11. Forbidden behavior
+
+Do not add unless explicitly scoped by the active task:
+
+- analytics;
+- OSINT interpretation;
+- sentiment analysis;
+- bot detection;
+- user profiling;
+- narrative classification;
+- OCR;
+- speech-to-text;
+- image/video/audio analysis;
+- SQLite schema changes or migrations;
+- DB persistence for channel posts or discussion comments;
+- GUI/dashboard/SaaS features;
+- hidden product features;
+- broad refactors in feature stages;
+- changes to legacy command behavior.
+
+## 12. Stop-and-report conditions
+
+Stop and report if:
+
+- the active task conflicts with `AGENTS.md`;
+- required docs are missing;
+- a requested change requires SQLite schema changes but the stage forbids it;
+- implementation would require protected-file changes beyond orchestration or mechanical wiring;
+- tests reveal unrelated baseline failures;
+- you are about to start a later stage not requested by the active task;
+- required docs are stale and cannot be corrected within scope;
+- preserving behavior conflicts with the requested implementation.
+
+Report the exact blocker and do not continue to the next stage.
+
+## 13. Final response expectations
+
+Final responses should state:
+
+- what changed;
+- which files changed;
+- what checks ran and their results;
+- what was not run and why;
+- whether behavior, SQLite schema, CLI contracts, and feature scope were preserved;
+- remaining limitations or follow-up work when relevant.
+
+For stage work, include per-stage status when the task requests it.

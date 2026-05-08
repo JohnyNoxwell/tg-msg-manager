@@ -124,7 +124,7 @@ If a facade grows because of a new concern, extract a dedicated component first.
 - Services should depend on narrow storage contracts from `tg_msg_manager/infrastructure/storage/contracts/`.
 - New services must not depend on the compatibility storage interface aggregator when a narrow contract exists.
 - New payload models belong in `tg_msg_manager/core/models/payloads/`, not `service_payloads.py`.
-- Context relation tables must follow the documented decision in `docs/refactor/CONTEXT_RELATION_TABLES_DECISION.md`.
+- Context relation tables must follow the documented decision in `docs/architecture/CONTEXT_RELATION_TABLES_DECISION.md`.
 
 ## 10. Message Identity Rule
 

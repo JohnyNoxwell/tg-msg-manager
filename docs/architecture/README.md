@@ -1,0 +1,40 @@
+# Architecture Documentation
+
+## Purpose
+
+Architecture docs are stable references for repository boundaries, storage/model decisions, and service organization. Stage task files should not replace architecture docs.
+
+## Current architecture docs
+
+- [`ARCHITECTURE_RULES.md`](ARCHITECTURE_RULES.md) - current layer, facade, storage, and schema guardrails.
+- [`PROJECT_ARCHITECTURE_OVERVIEW.md`](PROJECT_ARCHITECTURE_OVERVIEW.md) - architecture snapshot; treat as a snapshot until refreshed.
+- [`CONTEXT_ENGINE_SPLIT_MAP.md`](CONTEXT_ENGINE_SPLIT_MAP.md) - context component split.
+- [`CONTEXT_RELATION_TABLES_DECISION.md`](CONTEXT_RELATION_TABLES_DECISION.md) - context relation table status.
+- [`DB_EXPORT_SERVICE_SPLIT_MAP.md`](DB_EXPORT_SERVICE_SPLIT_MAP.md) - DB export split.
+- [`EXPORT_SERVICE_SPLIT_MAP.md`](EXPORT_SERVICE_SPLIT_MAP.md) - export service split.
+- [`PRIVATE_ARCHIVE_SPLIT_MAP.md`](PRIVATE_ARCHIVE_SPLIT_MAP.md) - private archive split.
+- [`SQLITE_WRITE_PATH_SPLIT_MAP.md`](SQLITE_WRITE_PATH_SPLIT_MAP.md) - SQLite write path split.
+- [`STORAGE_CONTRACT_SPLIT_MAP.md`](STORAGE_CONTRACT_SPLIT_MAP.md) - storage contract split.
+- [`PAYLOADS_SPLIT_MAP.md`](PAYLOADS_SPLIT_MAP.md) - payload module split.
+
+## Channel export docs
+
+- [`STAGE_3C_CHANNEL_DISCUSSION_CONTEXT_EXPORT_DESIGN.md`](STAGE_3C_CHANNEL_DISCUSSION_CONTEXT_EXPORT_DESIGN.md) - discussion export architecture design.
+- Stage 3A/3B/3C completion records live under [`../stages/reports/`](../stages/reports/).
+
+## Dataset/state docs
+
+- Direct channel export dataset and state behavior are documented in [`../../README.md`](../../README.md), [`../../COMMANDS.md`](../../COMMANDS.md), and Stage 3A/3B/3C reports.
+- SQLite identity and link behavior are documented in [`SQLITE_MESSAGE_ID_AUDIT.md`](SQLITE_MESSAGE_ID_AUDIT.md).
+
+## Media/discussion docs
+
+- Media and discussion behavior is current in [`../../COMMANDS.md`](../../COMMANDS.md) and the Stage 3B/3C reports.
+- Discussion architecture details are in [`STAGE_3C_CHANNEL_DISCUSSION_CONTEXT_EXPORT_DESIGN.md`](STAGE_3C_CHANNEL_DISCUSSION_CONTEXT_EXPORT_DESIGN.md).
+
+## Rules for adding architecture docs
+
+- Put current architecture guidance here, not in active stage prompts.
+- Keep historical reports under `docs/stages/reports/`.
+- Update architecture docs when boundaries, formats, state files, schemas, storage contracts, or protected-file rules change.
+- Do not add analytics, OSINT, profiling, media analysis, schema migrations, or product features through architecture docs alone.

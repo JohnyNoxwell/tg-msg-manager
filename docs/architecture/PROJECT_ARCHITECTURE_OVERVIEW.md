@@ -4,7 +4,8 @@
 
 Источник анализа:
 - фактический код в `tg_msg_manager/`, `scripts/`, `tests/`
-- текущие docs: `README.md`, `COMMANDS.md`, `ROADMAP.md`, `backlog/archive/TODO.md`, `CHANGELOG.md`, `docs/ARCHITECTURE_RULES.md`, `docs/refactor/README.md`, `docs/refactor/*`
+- текущие docs на момент исходного snapshot: `README.md`, `COMMANDS.md`, `ROADMAP.md`, `backlog/archive/TODO.md`, `CHANGELOG.md`, `docs/ARCHITECTURE_RULES.md`, `docs/refactor/README.md`, `docs/refactor/*`
+- после Stage 3D.0 migration текущие docs живут под `docs/architecture/`, `docs/development/`, `docs/stages/`, `docs/roadmap/` и `docs/archive/`
 - локальная проверка тестов: `make test` -> `Ran 202 tests`, `OK`
 
 Важно:
@@ -951,7 +952,7 @@ Windows-путь:
 - `config.example.json` выровнен с `Settings`;
 - user-facing docs уже знают про `retry` и `report`;
 - в репо появилась offline fixture-based harness в `tg_msg_manager/testing/`.
-- Stage 0 добавил `docs/refactor/*` и `docs/ARCHITECTURE_RULES.md`.
+- Stage 0 добавил документы, которые после Stage 3D.0 migration разнесены по `docs/architecture/`, `docs/development/` и `docs/stages/reports/`.
 - Stage 3A добавил baseline/report pair для direct channel export.
 - Stage 3A.1 добавил отдельные baseline/report документы для operational hardening `export-channel`.
 

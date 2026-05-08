@@ -1,5 +1,8 @@
 # Commands
 
+Documentation map: [`docs/README.md`](docs/README.md)
+Coding-agent contract: [`AGENTS.md`](AGENTS.md)
+
 ## `export-channel`
 
 Export posts directly from a Telegram channel into a filesystem dataset.

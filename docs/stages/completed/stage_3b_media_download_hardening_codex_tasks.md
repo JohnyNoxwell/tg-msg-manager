@@ -1,5 +1,9 @@
 # STAGE 3B — MEDIA DOWNLOAD HARDENING — CODEX TASK FILE
 
+Status: completed
+Stage: 3B
+Scope: historical task instructions
+
 ## 0. PURPOSE
 
 This file is intended for Codex / AI coding agent.

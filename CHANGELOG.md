@@ -1,6 +1,18 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.26] - 2026-05-08
+
+### Changed (EN)
+- **Stage 3D.0 Documentation Governance**: Reorganized documentation into `docs/architecture/`, `docs/development/`, `docs/stages/active/`, `docs/stages/completed/`, `docs/stages/reports/`, `docs/roadmap/`, and `docs/archive/`.
+- **Agent Contract**: Rewrote `AGENTS.md` as the concise repository-level agent contract with protected boundaries, documentation map, stage workflow, and stop-and-report conditions.
+- **Root Documentation Alignment**: Added root links to the new documentation map without changing runtime behavior or CLI contracts.
+
+### Изменения (RU)
+- **Stage 3D.0 documentation governance**: Документация разнесена по `docs/architecture/`, `docs/development/`, `docs/stages/active/`, `docs/stages/completed/`, `docs/stages/reports/`, `docs/roadmap/` и `docs/archive/`.
+- **Agent contract**: `AGENTS.md` переписан как краткий repository-level contract для агентов с protected boundaries, documentation map, stage workflow и stop-and-report conditions.
+- **Выравнивание root docs**: В корневые документы добавлены ссылки на новую карту документации без изменений runtime behavior или CLI contracts.
+
 ## [4.2.25] - 2026-05-08
 
 ### Added (EN)
