@@ -1,18 +1,7 @@
 from typing import Any, Tuple
 
+from .errors import ChannelResolveError, InvalidChannelError
 from .models import ChannelIdentity
-
-
-class ChannelExportError(Exception):
-    pass
-
-
-class ChannelResolveError(ChannelExportError):
-    pass
-
-
-class InvalidChannelError(ChannelExportError):
-    pass
 
 
 class ChannelSourceResolver:

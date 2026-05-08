@@ -83,8 +83,9 @@ python3 -m tg_msg_manager.cli report
     Без `--json` команда пишет TXT; с `--json` — компактный AI-friendly JSONL.
 *   **Прямой экспорт канала**:
     `python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata`
-    Команда создаёт файловый dataset в `exports/channels/`. Stage 3A не делает analytics и не пишет channel posts в SQLite.
+    Команда создаёт файловый dataset в `exports/channels/`. Stage 3A/3A.1 не делает analytics и не пишет channel posts в SQLite.
     Поддерживаются только broadcast-каналы; группы и супергруппы не входят в `export-channel`.
+    После успешного запуска создаётся `channel_export_state.json`; повторный запуск без `--force` экспортирует только новые посты и дописывает dataset append-only.
     `--media full` пока не реализован и завершается явной ошибкой `not implemented yet`.
 *   **Полное удаление локальных данных**:
     `python3 -m tg_msg_manager.cli delete --user-id 123456789`
@@ -160,9 +161,9 @@ Legacy aliases still supported:
 
 * `--limit` ограничивает обработку в рамках одного `sync_chat`; при экспорте пользователя по нескольким диалогам лимит применяется к каждому диалогу отдельно.
 * `export-pm` пишет текстовый лог и медиа-структуру, но не восстанавливает Telegram-специфичные сущности как полноценный replay архива.
-* `export-channel` в Stage 3A является filesystem-first dataset projection pipeline: discussion group export, group source extraction и SQLite persistence для channel posts пока не реализованы.
+* `export-channel` в Stage 3A/3A.1 является filesystem-first dataset projection pipeline: discussion group export, group source extraction и SQLite persistence для channel posts пока не реализованы.
 * `export-channel --media full` пока не реализован; безопасный режим по умолчанию — `--media metadata`.
-* `export-channel` пока делает полный re-export в файловый dataset и не имеет отдельного incremental update режима для channel posts.
+* `export-channel` использует файловый `channel_export_state.json` и append-only incremental update для новых постов, но не делает partial rollback уже дописанных файлов при сбое посередине run.
 * Фоновая запись в SQLite остаётся чувствительной к очень большим deep-export проходам; основная оптимизация сейчас сделана на уровне пакетных сервисных вызовов.
 * Планировщик `schedule` сейчас ориентирован на macOS `launchd`.
 * `db-export --json` по умолчанию не включает полный `raw_payload`; если когда-нибудь понадобится полный Telethon-слепок, это потребует отдельного full-профиля экспорта.
@@ -273,8 +274,9 @@ Subcommands can be executed directly for automation:
     Without `--json`, the command writes TXT; with `--json`, it writes compact AI-friendly JSONL.
 *   **Direct Channel Export**:
     `python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata`
-    The command writes a filesystem dataset under `exports/channels/`. Stage 3A does not perform analytics and does not persist channel posts into SQLite.
+    The command writes a filesystem dataset under `exports/channels/`. Stage 3A/3A.1 does not perform analytics and does not persist channel posts into SQLite.
     Only broadcast channels are supported; groups and supergroups are out of scope for `export-channel`.
+    Successful runs create `channel_export_state.json`; later runs without `--force` append only newly discovered posts to the dataset.
     `--media full` is not implemented yet and exits with a clear CLI error.
 *   **Full Local Purge**:
     `python3 -m tg_msg_manager.cli delete --user-id 123456789`
@@ -350,9 +352,9 @@ Supported legacy aliases:
 
 * `--limit` caps work inside a single `sync_chat`; when exporting a user across multiple dialogs, the cap applies per dialog.
 * `export-pm` produces a text-and-media archive, not a full Telegram-native replayable backup.
-* `export-channel` in Stage 3A is a filesystem-first dataset projection pipeline; discussion group export, source extraction from groups, and SQLite persistence for channel posts are not implemented yet.
+* `export-channel` in Stage 3A/3A.1 is a filesystem-first dataset projection pipeline; discussion group export, source extraction from groups, and SQLite persistence for channel posts are not implemented yet.
 * `export-channel --media full` is not implemented yet; the safe default remains `--media metadata`.
-* `export-channel` currently performs a full re-export into the dataset directory and does not yet implement incremental channel updates.
+* `export-channel` now uses filesystem state plus append-only incremental updates for new posts, but it does not yet roll back already appended payload files if a run fails mid-write.
 * SQLite background writing is still most sensitive during very large deep-export passes; the current optimization focus is batched service-level writes.
 * The built-in `schedule` command currently targets macOS `launchd`.
 * `db-export --json` no longer includes the full `raw_payload` by default; a future explicit full-export profile would be needed for raw Telethon dumps.

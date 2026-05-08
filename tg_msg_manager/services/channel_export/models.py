@@ -3,6 +3,10 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+CHANNEL_EXPORT_RUN_MODE_FULL = "full"
+CHANNEL_EXPORT_RUN_MODE_INCREMENTAL = "incremental"
+CHANNEL_EXPORT_RUN_MODE_FORCE_FULL = "force_full"
+
 
 @dataclass(frozen=True)
 class ChannelIdentity:
@@ -63,17 +67,53 @@ class ChannelExportPlan:
     messages_jsonl_path: Path
     messages_txt_path: Path
     media_manifest_path: Path
+    state_path: Path
     media_dir: Path
+
+
+@dataclass(frozen=True)
+class ChannelExportState:
+    schema_version: str
+    channel_id: int
+    channel_username: Optional[str]
+    channel_title: Optional[str]
+    last_exported_message_id: Optional[int]
+    last_exported_at: Optional[datetime]
+    message_count_total: int
+    media_count_total: int
+    downloaded_media_count_total: int
+    skipped_media_count_total: int
+    last_run_status: str
+    updated_at: datetime
+    date_from: Optional[datetime] = None
+    date_to: Optional[datetime] = None
+    last_manifest_path: Optional[str] = None
+
+
+@dataclass(frozen=True)
+class ChannelExportRunStats:
+    mode: str
+    posts_exported: int
+    media_records_added: int
+    downloaded_media_count: int
+    skipped_media_count: int
+    date_from: Optional[datetime]
+    date_to: Optional[datetime]
+    last_exported_message_id: Optional[int]
 
 
 @dataclass(frozen=True)
 class ChannelExportResult:
     channel: ChannelIdentity
+    run_mode: str
     message_count: int
     media_count: int
+    posts_exported_this_run: int
+    media_records_added_this_run: int
     downloaded_media_count: int
     skipped_media_count: int
     manifest_path: Path
     messages_jsonl_path: Path
     messages_txt_path: Path
     media_manifest_path: Path
+    state_path: Path

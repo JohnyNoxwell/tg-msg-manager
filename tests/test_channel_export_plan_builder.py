@@ -65,6 +65,10 @@ class TestChannelExportPlanBuilder(unittest.TestCase):
                 plan.media_manifest_path,
                 plan.output_dir / "media_manifest.jsonl",
             )
+            self.assertEqual(
+                plan.state_path,
+                plan.output_dir / "channel_export_state.json",
+            )
             self.assertTrue(plan.media_dir.is_dir())
             for subdirectory in MEDIA_SUBDIRECTORIES:
                 self.assertTrue((plan.media_dir / subdirectory).is_dir())

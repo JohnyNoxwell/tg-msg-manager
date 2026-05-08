@@ -34,6 +34,7 @@ from .core.service_events import (
 )
 from .infrastructure.storage.records import PrimaryTarget
 from .i18n import _
+from .services.channel_export.event_emitter import ChannelExportEvents
 from .utils.ui import UI
 
 try:
@@ -277,6 +278,84 @@ def _render_private_archive_completed(payload: dict[str, Any]) -> None:
     sys.stdout.flush()
 
 
+def _render_channel_export_started(payload: dict[str, Any]) -> None:
+    if not UI.is_tty():
+        return
+    print(
+        f"\n{UI.section('Channel Export', icon='◆')}  "
+        f"{UI.muted('source')} {UI.paint(payload.get('channel', '?'), UI.CLR_CHAT, bold=True)}  "
+        f"{UI.muted('media')} {UI.paint(payload.get('media_mode', '?'), UI.CLR_STATS, bold=True)}"
+    )
+
+
+def _render_channel_export_channel_resolved(payload: dict[str, Any]) -> None:
+    if not UI.is_tty():
+        return
+    channel_id = payload.get("channel_id")
+    title = payload.get("channel_title") or payload.get("channel_username") or "channel"
+    print(
+        f"   {UI.muted('resolved')} {UI.paint(title, UI.CLR_CHAT)} "
+        f"{UI.muted('id')} {UI.paint(channel_id, UI.CLR_ID)}"
+    )
+
+
+def _render_channel_export_state_loaded(payload: dict[str, Any]) -> None:
+    run_mode = payload.get("run_mode") or "full"
+    state_present = bool(payload.get("state_present"))
+    last_message_id = payload.get("last_exported_message_id")
+    if UI.is_tty():
+        details = f"mode={run_mode}"
+        if state_present and last_message_id is not None:
+            details = f"{details} last_message_id={last_message_id}"
+        if payload.get("ignored"):
+            details = f"{details} state=ignored"
+        print(f"   {UI.muted('state')} {UI.paint(details, UI.CLR_MUTED)}")
+        return
+    print(
+        "Channel export state loaded: "
+        f"mode={run_mode}, state_present={state_present}, "
+        f"last_message_id={last_message_id}"
+    )
+
+
+def _render_channel_export_progress(payload: dict[str, Any]) -> None:
+    processed_posts = payload.get("processed_posts", 0)
+    media_records = payload.get("media_records", 0)
+    elapsed_seconds = float(payload.get("elapsed_seconds", 0.0) or 0.0)
+    extra = f"Media records: {media_records} | Elapsed: {elapsed_seconds:0.1f}s"
+    if UI.is_tty():
+        UI.print_status("Channel export", processed_posts, extra=extra)
+        return
+    print(f"Processed posts: {processed_posts} | {extra}")
+
+
+def _render_channel_export_no_new_posts(payload: dict[str, Any]) -> None:
+    total_known_posts = payload.get("total_known_posts", 0)
+    message = f"No new posts. Total known exported posts: {total_known_posts}"
+    if UI.is_tty():
+        print(
+            f"   {UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(message, UI.CLR_SUCCESS)}"
+        )
+        return
+    print(message)
+
+
+def _render_channel_export_completed(payload: dict[str, Any]) -> None:
+    if not UI.is_tty():
+        return
+    UI.print_status(
+        "Complete",
+        payload.get("posts_exported_this_run", 0),
+        extra=(
+            f"mode={payload.get('run_mode')} | "
+            f"media={payload.get('media_records_added_this_run', 0)} | "
+            f"total={payload.get('total_known_posts', 0)}"
+        ),
+    )
+    sys.stdout.write("\n")
+    sys.stdout.flush()
+
+
 _EVENT_RENDERERS: dict[str, Callable[[dict[str, Any]], None]] = {
     ExportEvents.SYNC_CHAT_STARTED: _render_export_sync_chat_started,
     ExportEvents.SYNC_PROGRESS: _render_export_sync_progress,
@@ -295,6 +374,12 @@ _EVENT_RENDERERS: dict[str, Callable[[dict[str, Any]], None]] = {
     PrivateArchiveEvents.PROGRESS: _render_private_archive_progress,
     PrivateArchiveEvents.MEDIA_SAVED: _render_private_archive_media_saved,
     PrivateArchiveEvents.COMPLETED: _render_private_archive_completed,
+    ChannelExportEvents.STARTED: _render_channel_export_started,
+    ChannelExportEvents.CHANNEL_RESOLVED: _render_channel_export_channel_resolved,
+    ChannelExportEvents.STATE_LOADED: _render_channel_export_state_loaded,
+    ChannelExportEvents.PROGRESS: _render_channel_export_progress,
+    ChannelExportEvents.NO_NEW_POSTS: _render_channel_export_no_new_posts,
+    ChannelExportEvents.COMPLETED: _render_channel_export_completed,
 }
 
 

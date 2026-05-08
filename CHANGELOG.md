@@ -1,6 +1,26 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.24] - 2026-05-07
+
+### Added (EN)
+- **Stage 3A.1 Channel Export State**: Added per-dataset `channel_export_state.json` with last exported message id, aggregate counters, and safe post-success state persistence for `export-channel`.
+- **Channel Export Progress Events**: Added dedicated `channel_export.started`, `channel_export.channel_resolved`, `channel_export.state_loaded`, `channel_export.progress`, `channel_export.no_new_posts`, `channel_export.completed`, and `channel_export.failed` service events plus CLI rendering.
+
+### Changed (EN)
+- **Incremental Channel Export**: `export-channel` now reuses filesystem state to append only new posts to `messages.jsonl`, `messages.txt`, and `media_manifest.jsonl` instead of always rebuilding the dataset.
+- **Force Re-export Semantics**: `export-channel --force` now ignores existing state, overwrites dataset payload files, and recreates state from a clean full export.
+- **Streaming Writer Path**: Channel export no longer materializes the full mapped-record list for full exports; payload writing now runs through a streaming session that tracks counters and progress.
+
+### Добавлено (RU)
+- **Stage 3A.1 состояние channel export**: Для `export-channel` добавлен per-dataset файл `channel_export_state.json` с last exported message id, агрегатными счётчиками и безопасным обновлением state только после успешного завершения записи.
+- **События прогресса channel export**: Добавлены отдельные service events `channel_export.started`, `channel_export.channel_resolved`, `channel_export.state_loaded`, `channel_export.progress`, `channel_export.no_new_posts`, `channel_export.completed` и `channel_export.failed` вместе с CLI-рендерингом.
+
+### Изменения (RU)
+- **Инкрементальный channel export**: `export-channel` теперь использует filesystem-state и append-only дописывает только новые посты в `messages.jsonl`, `messages.txt` и `media_manifest.jsonl`, а не всегда перестраивает dataset целиком.
+- **Семантика принудительного re-export**: `export-channel --force` теперь игнорирует существующий state, перезаписывает dataset payload-файлы и пересоздаёт state из чистого full export.
+- **Стриминговый writer path**: Для full export больше не материализуется полный список mapped-records; запись теперь идёт через streaming session с подсчётом статистики и progress callbacks.
+
 ## [4.2.23] - 2026-05-07
 
 ### Added (EN)

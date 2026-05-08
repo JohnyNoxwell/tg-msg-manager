@@ -67,5 +67,6 @@ class ChannelExportPlanBuilder:
             messages_jsonl_path=output_dir / "messages.jsonl",
             messages_txt_path=output_dir / "messages.txt",
             media_manifest_path=output_dir / "media_manifest.jsonl",
+            state_path=output_dir / "channel_export_state.json",
             media_dir=media_dir,
         )

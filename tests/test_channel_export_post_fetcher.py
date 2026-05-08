@@ -10,6 +10,23 @@ class FakeFetcherClient:
         self.messages = list(messages)
         self.calls = []
 
+    async def iter_messages(self, entity, limit=None, min_id=None):
+        self.calls.append({"entity": entity, "limit": limit, "min_id": min_id})
+        yielded = 0
+        for message in self.messages:
+            if min_id is not None and message.message_id <= min_id:
+                continue
+            yield message
+            yielded += 1
+            if limit is not None and yielded >= limit:
+                break
+
+
+class FakeFallbackFetcherClient:
+    def __init__(self, messages):
+        self.messages = list(messages)
+        self.calls = []
+
     async def iter_messages(self, entity, limit=None):
         self.calls.append({"entity": entity, "limit": limit})
         yielded = 0
@@ -67,6 +84,35 @@ class TestChannelPostFetcher(unittest.IsolatedAsyncioTestCase):
         posts = [message async for message in ChannelPostFetcher(client).iter_posts(7)]
 
         self.assertEqual(posts, [])
+
+    async def test_iter_posts_passes_min_id_when_supported(self):
+        client = FakeFetcherClient([make_message(1), make_message(2), make_message(3)])
+
+        posts = [
+            message.message_id
+            async for message in ChannelPostFetcher(client).iter_posts(
+                7,
+                min_message_id=1,
+            )
+        ]
+
+        self.assertEqual(posts, [2, 3])
+        self.assertEqual(client.calls[0]["min_id"], 1)
+
+    async def test_iter_posts_filters_locally_when_client_has_no_min_id(self):
+        client = FakeFallbackFetcherClient(
+            [make_message(1), make_message(2), make_message(3)]
+        )
+
+        posts = [
+            message.message_id
+            async for message in ChannelPostFetcher(client).iter_posts(
+                7,
+                min_message_id=1,
+            )
+        ]
+
+        self.assertEqual(posts, [2, 3])
 
 
 if __name__ == "__main__":

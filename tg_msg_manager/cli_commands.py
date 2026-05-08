@@ -174,9 +174,13 @@ async def _handle_export_channel_command(ctx, args: argparse.Namespace) -> None:
     except Exception as exc:
         raise SystemExit(f"Channel export failed: {exc}") from exc
     print("Channel export completed")
-    print(f"Messages: {result.message_count}")
-    print(f"Media records: {result.media_count}")
+    print(f"Mode: {result.run_mode}")
+    print(f"Posts exported this run: {result.posts_exported_this_run}")
+    print(f"Total known exported posts: {result.message_count}")
+    print(f"Media records added this run: {result.media_records_added_this_run}")
+    print(f"Total known media records: {result.media_count}")
     print(f"Manifest: {result.manifest_path}")
     print(f"JSONL: {result.messages_jsonl_path}")
     print(f"TXT: {result.messages_txt_path}")
     print(f"Media manifest: {result.media_manifest_path}")
+    print(f"State: {result.state_path}")

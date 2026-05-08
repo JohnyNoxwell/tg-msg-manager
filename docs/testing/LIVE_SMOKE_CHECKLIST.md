@@ -277,15 +277,21 @@ Expected:
 - `messages.txt` exists
 - `media_manifest.jsonl` exists
 - `media/` directory exists
+- `channel_export_state.json` exists
 - full media files are not downloaded in metadata mode
 - source is a broadcast channel, not a group/supergroup
+- rerunning the same command prints a clear `no new posts` / zero-new-work outcome or appends only genuinely new posts
+- `--force` recreates the dataset from scratch instead of appending duplicates
 
 Failure:
 
 - non-zero exit code
 - traceback
 - required dataset files missing
+- state file missing
 - metadata mode downloads full media unexpectedly
+- rerun appends duplicate posts without new channel content
+- `--force` leaves the old dataset appended instead of overwritten
 - command is pointed at a group/supergroup and is treated as a valid broadcast-channel export
 
 ### 13. Direct channel export with full media

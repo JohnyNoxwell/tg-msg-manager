@@ -67,12 +67,16 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
         ctx.channel_exporter = MagicMock()
         ctx.channel_exporter.export_channel = AsyncMock(
             return_value=MagicMock(
+                run_mode="incremental",
                 message_count=2,
                 media_count=1,
+                posts_exported_this_run=1,
+                media_records_added_this_run=1,
                 manifest_path=Path("/tmp/out/manifest.json"),
                 messages_jsonl_path=Path("/tmp/out/messages.jsonl"),
                 messages_txt_path=Path("/tmp/out/messages.txt"),
                 media_manifest_path=Path("/tmp/out/media_manifest.jsonl"),
+                state_path=Path("/tmp/out/channel_export_state.json"),
             )
         )
         args = Namespace(
@@ -92,6 +96,7 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(options.media_mode, "metadata")
         self.assertEqual(options.output_dir, Path(ctx.paths.channel_exports_dir))
         mock_print.assert_any_call("Channel export completed")
+        mock_print.assert_any_call("Mode: incremental")
 
     async def test_handler_rejects_full_media_until_implemented(self):
         ctx = MagicMock()

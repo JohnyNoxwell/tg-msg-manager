@@ -16,7 +16,7 @@ Arguments:
 - `--limit` optional. Maximum number of posts to export.
 - `--media` optional. `none`, `metadata`, or `full`.
 - `--output-dir` optional. Base directory for channel export datasets.
-- `--force` optional. Reserved re-export flag for future overwrite/policy handling.
+- `--force` optional. Ignore `channel_export_state.json`, rebuild the dataset from scratch, and recreate state.
 
 Dataset layout:
 
@@ -28,16 +28,19 @@ exports/
       messages.jsonl
       messages.txt
       media_manifest.jsonl
+      channel_export_state.json
       media/
 ```
 
 Notes:
 
-- Stage 3A is dataset projection only. No analytics are performed.
-- Stage 3A accepts broadcast channels only. Groups and supergroups are not supported by `export-channel`.
+- Stage 3A / 3A.1 is dataset projection only. No analytics are performed.
+- `export-channel` accepts broadcast channels only. Groups and supergroups are not supported.
 - Default media mode is `metadata`.
 - `--media full` is not implemented yet and currently returns a clear CLI error.
-- The command currently performs a full re-export into the dataset directory; it does not implement incremental channel updates yet.
+- Successful runs create/update `channel_export_state.json` with the last exported message id and aggregate counters.
+- A second run without `--force` exports only posts newer than `last_exported_message_id` and appends to `messages.jsonl`, `messages.txt`, and `media_manifest.jsonl`.
+- If there are no new posts, the command reports that state clearly and does not advance the export cursor.
 
 ## Interactive Menu
 

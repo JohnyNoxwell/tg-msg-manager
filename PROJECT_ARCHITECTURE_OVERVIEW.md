@@ -65,6 +65,7 @@
 
 - DB export active implementation: `tg_msg_manager/services/db_export/service.py`
 - Private archive active implementation: `tg_msg_manager/services/private_archive/service.py`
+- Direct channel export active implementation: `tg_msg_manager/services/channel_export/service.py`
 - Compatibility wrappers:
   - `tg_msg_manager/services/exporter.py`
   - `tg_msg_manager/services/context_engine.py`
@@ -75,6 +76,11 @@
 - Storage contracts: active service-facing protocols live in `tg_msg_manager/infrastructure/storage/contracts/`
 - Payload modules: primary service payload models live in `tg_msg_manager/core/models/payloads/`
 - Analytics boundary: reserved as read-only under `services/analytics/` and `infrastructure/storage/read/analytics/`
+- Channel export operational hardening:
+  - state manager: `tg_msg_manager/services/channel_export/state_manager.py`
+  - event emitter: `tg_msg_manager/services/channel_export/event_emitter.py`
+  - append/stream writer: `tg_msg_manager/services/channel_export/payload_writer.py`
+  - channel export remains filesystem-only and does not persist channel posts into SQLite
 - Context relation decision: `message_context_links` is documented as legacy compatibility, while `reply_to_id`, `context_group_id`, and `message_target_links` remain first-class hot-path relations
 - Test status on `2026-05-05`:
   - `make test` -> passed (`Ran 202 tests`)
@@ -116,6 +122,7 @@
 - `update` -> обновление всех зарегистрированных целей с per-user итогом вида `имя - без контекста X, с контекстом Y`, где `X/Y` относятся к текущему запуску `update`, а не к историческим totals в БД
 - `db-export` -> выгрузка накопленной локальной истории в TXT/JSONL
 - `export-pm` -> архив личной переписки с медиа-папками
+- `export-channel` -> прямой filesystem-first экспорт broadcast-канала с `channel_export_state.json`, append-only incremental update режимом и CLI progress events
 - `retry` -> повтор recoverable sync/archive задач из локальной retry queue
 - `report` -> read-only диагностика состояния БД, tracked targets, retry queue и export artifacts
 - `clean` -> удаление собственных сообщений из доступных диалогов
@@ -127,6 +134,7 @@
 - `delete` удаляет локальные данные, но не Telegram-сообщения
 - `clean` удаляет Telegram-сообщения, а затем синхронно чистит локальную БД
 - `export`/`update` читают Telegram и пополняют БД
+- `export-channel` читает Telegram напрямую, но пишет только в filesystem dataset под `exports/channels/`
 - `db-export` не ходит в Telegram вообще
 
 ## 5. Слои архитектуры
