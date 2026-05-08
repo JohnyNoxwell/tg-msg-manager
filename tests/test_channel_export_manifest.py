@@ -23,10 +23,16 @@ class TestChannelExportManifest(unittest.TestCase):
             message_count=10,
             media_count=4,
             downloaded_media_count=0,
+            already_existing_media_count=0,
             skipped_media_count=4,
+            skipped_by_size_count=2,
+            skipped_by_type_count=2,
+            failed_media_count=1,
             date_from=datetime(2026, 5, 1, 9, 0, tzinfo=timezone.utc),
             date_to=datetime(2026, 5, 2, 10, 0, tzinfo=timezone.utc),
             media_mode="metadata",
+            max_media_size=None,
+            media_types=None,
             included_files=(
                 "manifest.json",
                 "messages.jsonl",
@@ -43,7 +49,11 @@ class TestChannelExportManifest(unittest.TestCase):
         self.assertEqual(manifest["export"]["message_count"], 10)
         self.assertEqual(manifest["export"]["media_count"], 4)
         self.assertEqual(manifest["export"]["downloaded_media_count"], 0)
+        self.assertEqual(manifest["export"]["already_existing_media_count"], 0)
         self.assertEqual(manifest["export"]["skipped_media_count"], 4)
+        self.assertEqual(manifest["export"]["skipped_by_size_count"], 2)
+        self.assertEqual(manifest["export"]["skipped_by_type_count"], 2)
+        self.assertEqual(manifest["export"]["failed_media_count"], 1)
         self.assertEqual(
             manifest["export"]["date_from"],
             "2026-05-01T09:00:00+00:00",
@@ -70,10 +80,16 @@ class TestChannelExportManifest(unittest.TestCase):
             message_count=1,
             media_count=0,
             downloaded_media_count=0,
+            already_existing_media_count=0,
             skipped_media_count=0,
+            skipped_by_size_count=0,
+            skipped_by_type_count=0,
+            failed_media_count=0,
             date_from=None,
             date_to=None,
             media_mode="none",
+            max_media_size=None,
+            media_types=None,
             included_files=("manifest.json",),
         )
 

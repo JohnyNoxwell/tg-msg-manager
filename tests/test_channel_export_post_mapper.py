@@ -65,6 +65,7 @@ class TestChannelPostMapper(unittest.TestCase):
         self.assertEqual(len(record.media), 1)
         self.assertEqual(record.media[0].media_id, "12345_01")
         self.assertEqual(record.media[0].local_path, "media/photos/0000012345_01.jpg")
+        self.assertEqual(record.media[0].media_type, "photo")
         self.assertEqual(record.media[0].download_status, "metadata_only")
         self.assertEqual(record.views, 10)
         self.assertEqual(record.forwards, 2)

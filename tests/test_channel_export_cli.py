@@ -42,6 +42,54 @@ class TestChannelExportCLIParser(unittest.TestCase):
         self.assertEqual(parsed.media, "metadata")
         self.assertFalse(parsed.force)
 
+    def test_full_media_flags_are_parsed(self):
+        parser = build_cli_parser()
+        parsed = parser.parse_args(
+            [
+                "export-channel",
+                "--channel",
+                "@example",
+                "--media",
+                "full",
+                "--max-media-size",
+                "50MB",
+                "--media-types",
+                "photo,video",
+            ]
+        )
+
+        self.assertEqual(parsed.media, "full")
+        self.assertEqual(parsed.max_media_size, 50 * 1024 * 1024)
+        self.assertEqual(parsed.media_types, ("photo", "video"))
+
+    def test_invalid_media_size_is_rejected(self):
+        parser = build_cli_parser()
+
+        with self.assertRaises(SystemExit):
+            parser.parse_args(
+                [
+                    "export-channel",
+                    "--channel",
+                    "@example",
+                    "--max-media-size",
+                    "abc",
+                ]
+            )
+
+    def test_invalid_media_types_are_rejected(self):
+        parser = build_cli_parser()
+
+        with self.assertRaises(SystemExit):
+            parser.parse_args(
+                [
+                    "export-channel",
+                    "--channel",
+                    "@example",
+                    "--media-types",
+                    "photo,ocr",
+                ]
+            )
+
 
 class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
@@ -72,6 +120,11 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
                 media_count=1,
                 posts_exported_this_run=1,
                 media_records_added_this_run=1,
+                downloaded_media_count_this_run=0,
+                already_existing_media_count_this_run=0,
+                skipped_by_size_count_this_run=0,
+                skipped_by_type_count_this_run=0,
+                failed_media_count_this_run=0,
                 manifest_path=Path("/tmp/out/manifest.json"),
                 messages_jsonl_path=Path("/tmp/out/messages.jsonl"),
                 messages_txt_path=Path("/tmp/out/messages.txt"),
@@ -83,6 +136,8 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
             channel="@example",
             limit=5,
             media="metadata",
+            max_media_size=None,
+            media_types=None,
             output_dir=None,
             force=False,
         )
@@ -95,21 +150,10 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(options.limit, 5)
         self.assertEqual(options.media_mode, "metadata")
         self.assertEqual(options.output_dir, Path(ctx.paths.channel_exports_dir))
+        self.assertIsNone(options.max_media_size)
+        self.assertIsNone(options.media_types)
         mock_print.assert_any_call("Channel export completed")
         mock_print.assert_any_call("Mode: incremental")
-
-    async def test_handler_rejects_full_media_until_implemented(self):
-        ctx = MagicMock()
-        args = Namespace(
-            channel="@example",
-            limit=1,
-            media="full",
-            output_dir=None,
-            force=False,
-        )
-
-        with self.assertRaises(SystemExit):
-            await _handle_export_channel_command(ctx, args)
 
     async def test_handler_converts_domain_error_to_system_exit(self):
         ctx = MagicMock()
@@ -124,6 +168,8 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
             channel="-1001274306614",
             limit=100,
             media="metadata",
+            max_media_size=None,
+            media_types=None,
             output_dir=None,
             force=False,
         )
@@ -147,6 +193,8 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
             channel="@alekseevka_kharkiv",
             limit=100,
             media="metadata",
+            max_media_size=None,
+            media_types=None,
             output_dir=None,
             force=False,
         )

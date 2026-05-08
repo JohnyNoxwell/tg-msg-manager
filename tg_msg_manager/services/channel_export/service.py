@@ -1,9 +1,11 @@
+from dataclasses import replace
 from pathlib import Path
 from typing import Any, Optional
 
 from .event_emitter import ChannelExportEventEmitter
 from .jsonl_renderer import ChannelJsonlRenderer
 from .manifest_writer import ChannelManifestWriter, build_manifest
+from .media_downloader import ChannelMediaDownloader
 from .media_manifest_writer import ChannelMediaManifestWriter
 from .media_policy import validate_media_mode
 from .models import (
@@ -22,6 +24,7 @@ from .payload_writer import (
 from .plan_builder import ChannelExportPlanBuilder
 from .post_fetcher import ChannelPostFetcher
 from .post_mapper import ChannelPostMapper
+from .size_parser import DEFAULT_MAX_MEDIA_SIZE_BYTES
 from .source_resolver import ChannelSourceResolver
 from .state_manager import ChannelExportStateManager
 from .txt_renderer import ChannelTxtRenderer
@@ -43,6 +46,7 @@ class ChannelExportService:
         media_manifest_writer: Optional[ChannelMediaManifestWriter] = None,
         manifest_writer: Optional[ChannelManifestWriter] = None,
         payload_writer: Optional[ChannelPayloadWriter] = None,
+        media_downloader: Optional[ChannelMediaDownloader] = None,
         state_manager: Optional[ChannelExportStateManager] = None,
         event_emitter: Optional[ChannelExportEventEmitter] = None,
         progress_interval: int = 100,
@@ -60,14 +64,32 @@ class ChannelExportService:
         )
         self.manifest_writer = manifest_writer or ChannelManifestWriter()
         self.payload_writer = payload_writer or ChannelPayloadWriter()
+        self.media_downloader = media_downloader or ChannelMediaDownloader(client)
         self.state_manager = state_manager or ChannelExportStateManager()
         self.event_emitter = event_emitter or ChannelExportEventEmitter(event_sink)
         self.progress_interval = max(1, int(progress_interval))
+        self._media_progress_totals = {
+            "processed_media": 0,
+            "downloaded": 0,
+            "already_exists": 0,
+            "skipped_by_size": 0,
+            "skipped_by_type": 0,
+            "failed": 0,
+        }
 
     async def export_channel(
         self, options: ChannelExportOptions
     ) -> ChannelExportResult:
         media_mode = validate_media_mode(options.media_mode)
+        options = self._normalize_options(options, media_mode)
+        self._media_progress_totals = {
+            "processed_media": 0,
+            "downloaded": 0,
+            "already_exists": 0,
+            "skipped_by_size": 0,
+            "skipped_by_type": 0,
+            "failed": 0,
+        }
         plan = None
         channel_identity = None
         run_mode = None
@@ -175,13 +197,14 @@ class ChannelExportService:
                 entity,
                 limit=options.limit,
             ):
-                session.write_record(
-                    self.post_mapper.map_post(
-                        message,
-                        channel_identity,
-                        media_mode=media_mode,
-                    )
+                mapped_record = await self._prepare_record(
+                    message=message,
+                    channel_identity=channel_identity,
+                    options=options,
+                    media_mode=media_mode,
+                    output_dir=plan.output_dir,
                 )
+                session.write_record(mapped_record)
             run_stats = session.finish()
 
         completed_state = self.state_manager.build_completed_state(
@@ -192,6 +215,7 @@ class ChannelExportService:
         manifest = self._build_manifest(
             channel=channel_identity,
             state=completed_state,
+            options=options,
             media_mode=media_mode,
             included_files=self._included_files(options),
         )
@@ -200,6 +224,7 @@ class ChannelExportService:
         return self._build_result(
             channel=channel_identity,
             plan=plan,
+            options=options,
             run_mode=run_mode,
             state=completed_state,
             run_stats=run_stats,
@@ -222,10 +247,12 @@ class ChannelExportService:
             min_message_id=state.last_exported_message_id,
         ):
             mapped_records.append(
-                self.post_mapper.map_post(
-                    message,
-                    channel_identity,
+                await self._prepare_record(
+                    message=message,
+                    channel_identity=channel_identity,
+                    options=options,
                     media_mode=media_mode,
+                    output_dir=plan.output_dir,
                 )
             )
 
@@ -234,6 +261,7 @@ class ChannelExportService:
             manifest = self._build_manifest(
                 channel=channel_identity,
                 state=state,
+                options=options,
                 media_mode=media_mode,
                 included_files=self._included_files(options),
             )
@@ -249,7 +277,11 @@ class ChannelExportService:
                 posts_exported=0,
                 media_records_added=0,
                 downloaded_media_count=0,
+                already_existing_media_count=0,
                 skipped_media_count=0,
+                skipped_by_size_count=0,
+                skipped_by_type_count=0,
+                failed_media_count=0,
                 date_from=None,
                 date_to=None,
                 last_exported_message_id=state.last_exported_message_id,
@@ -257,6 +289,7 @@ class ChannelExportService:
             return self._build_result(
                 channel=channel_identity,
                 plan=plan,
+                options=options,
                 run_mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
                 state=state,
                 run_stats=empty_stats,
@@ -288,6 +321,7 @@ class ChannelExportService:
         manifest = self._build_manifest(
             channel=channel_identity,
             state=completed_state,
+            options=options,
             media_mode=media_mode,
             included_files=self._included_files(options),
         )
@@ -296,6 +330,7 @@ class ChannelExportService:
         return self._build_result(
             channel=channel_identity,
             plan=plan,
+            options=options,
             run_mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
             state=completed_state,
             run_stats=run_stats,
@@ -306,6 +341,7 @@ class ChannelExportService:
         *,
         channel: Any,
         state: ChannelExportState,
+        options: ChannelExportOptions,
         media_mode: str,
         included_files: tuple[str, ...],
     ) -> dict[str, Any]:
@@ -314,10 +350,16 @@ class ChannelExportService:
             message_count=state.message_count_total,
             media_count=state.media_count_total,
             downloaded_media_count=state.downloaded_media_count_total,
+            already_existing_media_count=state.already_existing_media_count_total,
             skipped_media_count=state.skipped_media_count_total,
+            skipped_by_size_count=state.skipped_by_size_count_total,
+            skipped_by_type_count=state.skipped_by_type_count_total,
+            failed_media_count=state.failed_media_count_total,
             date_from=state.date_from,
             date_to=state.date_to,
             media_mode=media_mode,
+            max_media_size=options.max_media_size,
+            media_types=options.media_types,
             included_files=included_files,
             status=state.last_run_status,
         )
@@ -327,6 +369,7 @@ class ChannelExportService:
         *,
         channel: Any,
         plan: Any,
+        options: ChannelExportOptions,
         run_mode: str,
         state: ChannelExportState,
         run_stats: ChannelExportRunStats,
@@ -334,12 +377,24 @@ class ChannelExportService:
         result = ChannelExportResult(
             channel=channel,
             run_mode=run_mode,
+            media_mode=options.media_mode,
+            max_media_size=options.max_media_size,
+            media_types=options.media_types,
             message_count=state.message_count_total,
             media_count=state.media_count_total,
             posts_exported_this_run=run_stats.posts_exported,
             media_records_added_this_run=run_stats.media_records_added,
+            downloaded_media_count_this_run=run_stats.downloaded_media_count,
+            already_existing_media_count_this_run=run_stats.already_existing_media_count,
+            skipped_by_size_count_this_run=run_stats.skipped_by_size_count,
+            skipped_by_type_count_this_run=run_stats.skipped_by_type_count,
+            failed_media_count_this_run=run_stats.failed_media_count,
             downloaded_media_count=state.downloaded_media_count_total,
+            already_existing_media_count=state.already_existing_media_count_total,
             skipped_media_count=state.skipped_media_count_total,
+            skipped_by_size_count=state.skipped_by_size_count_total,
+            skipped_by_type_count=state.skipped_by_type_count_total,
+            failed_media_count=state.failed_media_count_total,
             manifest_path=plan.manifest_path,
             messages_jsonl_path=plan.messages_jsonl_path,
             messages_txt_path=plan.messages_txt_path,
@@ -353,10 +408,95 @@ class ChannelExportService:
             total_known_posts=result.message_count,
             media_records_added_this_run=result.media_records_added_this_run,
             total_known_media=result.media_count,
+            downloaded_media_count_this_run=result.downloaded_media_count_this_run,
+            already_existing_media_count_this_run=result.already_existing_media_count_this_run,
+            skipped_by_size_count_this_run=result.skipped_by_size_count_this_run,
+            skipped_by_type_count_this_run=result.skipped_by_type_count_this_run,
+            failed_media_count_this_run=result.failed_media_count_this_run,
             manifest_path=str(result.manifest_path),
             state_path=str(result.state_path),
         )
         return result
+
+    async def _prepare_record(
+        self,
+        *,
+        message: Any,
+        channel_identity: Any,
+        options: ChannelExportOptions,
+        media_mode: str,
+        output_dir: Path,
+    ):
+        record = self.post_mapper.map_post(
+            message,
+            channel_identity,
+            media_mode=media_mode,
+        )
+        if media_mode != "full" or not record.media:
+            return record
+
+        updated_media = []
+        for media_record in record.media:
+            updated_record = await self.media_downloader.download(
+                record=media_record,
+                media_ref=getattr(message, "media_ref", None),
+                output_dir=output_dir,
+                max_media_size=options.max_media_size,
+                allowed_media_types=options.media_types,
+            )
+            updated_media.append(updated_record)
+            self._emit_media_event(updated_record)
+        if updated_media:
+            self._emit_media_progress(updated_media)
+        return replace(record, media=tuple(updated_media))
+
+    @staticmethod
+    def _normalize_options(
+        options: ChannelExportOptions,
+        media_mode: str,
+    ) -> ChannelExportOptions:
+        if media_mode == "full" and options.max_media_size is None:
+            return replace(options, max_media_size=DEFAULT_MAX_MEDIA_SIZE_BYTES)
+        return options
+
+    def _emit_media_event(self, record) -> None:
+        payload = {
+            "message_id": record.message_id,
+            "media_id": record.media_id,
+            "media_type": record.media_type,
+            "status": record.download_status,
+            "local_path": record.local_path,
+            "error": record.error,
+        }
+        if record.download_status in ("downloaded", "already_exists"):
+            self.event_emitter.emit_media_downloaded(**payload)
+        elif record.download_status == "failed":
+            self.event_emitter.emit_media_failed(**payload)
+        else:
+            self.event_emitter.emit_media_skipped(**payload)
+
+    def _emit_media_progress(self, media_records) -> None:
+        for record in media_records:
+            self._media_progress_totals["processed_media"] += 1
+            if record.download_status == "downloaded":
+                self._media_progress_totals["downloaded"] += 1
+            elif record.download_status == "already_exists":
+                self._media_progress_totals["already_exists"] += 1
+            elif record.download_status == "skipped_by_size":
+                self._media_progress_totals["skipped_by_size"] += 1
+            elif record.download_status == "skipped_by_type":
+                self._media_progress_totals["skipped_by_type"] += 1
+            elif record.download_status == "failed":
+                self._media_progress_totals["failed"] += 1
+        self.event_emitter.emit_media_progress(
+            processed_media=self._media_progress_totals["processed_media"],
+            downloaded=self._media_progress_totals["downloaded"],
+            already_exists=self._media_progress_totals["already_exists"],
+            skipped_by_size=self._media_progress_totals["skipped_by_size"],
+            skipped_by_type=self._media_progress_totals["skipped_by_type"],
+            failed=self._media_progress_totals["failed"],
+            elapsed_seconds=round(self.event_emitter.elapsed_seconds(), 3),
+        )
 
     def _emit_progress(self, payload: dict[str, object]) -> None:
         event_payload = dict(payload)
@@ -373,4 +513,6 @@ class ChannelExportService:
             included.append("messages.jsonl")
         if options.include_txt:
             included.append("messages.txt")
+        if options.media_mode == "full":
+            included.append("media/")
         return tuple(included)

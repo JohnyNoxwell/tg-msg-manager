@@ -6,8 +6,11 @@ from tg_msg_manager.services.channel_export.media_policy import (
     MEDIA_MODE_NONE,
     build_media_relative_path,
     extension_for_media,
+    full_mode_pre_download_status,
     initial_download_status,
+    is_media_type_allowed,
     media_category,
+    should_skip_by_size,
     validate_media_mode,
 )
 
@@ -61,6 +64,56 @@ class TestChannelExportMediaPolicy(unittest.TestCase):
         self.assertEqual(initial_download_status("none"), "skipped_by_mode")
         self.assertEqual(initial_download_status("metadata"), "metadata_only")
         self.assertEqual(initial_download_status("full"), "pending")
+
+    def test_full_mode_pre_download_status_respects_size_and_type(self):
+        self.assertEqual(
+            full_mode_pre_download_status(
+                media_type="photo",
+                mime_type="image/jpeg",
+                file_size=2048,
+                max_media_size=1024,
+                allowed_media_types=None,
+            ),
+            "skipped_by_size",
+        )
+        self.assertEqual(
+            full_mode_pre_download_status(
+                media_type="document",
+                mime_type="application/pdf",
+                file_size=512,
+                max_media_size=None,
+                allowed_media_types=("photo",),
+            ),
+            "skipped_by_type",
+        )
+        self.assertEqual(
+            full_mode_pre_download_status(
+                media_type="photo",
+                mime_type="image/jpeg",
+                file_size=512,
+                max_media_size=1024,
+                allowed_media_types=("photo",),
+            ),
+            "pending",
+        )
+
+    def test_media_type_allowlist_and_size_helpers(self):
+        self.assertTrue(
+            is_media_type_allowed(
+                media_type="photo",
+                mime_type="image/jpeg",
+                allowed_media_types=("photo",),
+            )
+        )
+        self.assertFalse(
+            is_media_type_allowed(
+                media_type="thumbnail",
+                mime_type="image/jpeg",
+                allowed_media_types=None,
+            )
+        )
+        self.assertTrue(should_skip_by_size(file_size=200, max_media_size=100))
+        self.assertFalse(should_skip_by_size(file_size=None, max_media_size=100))
 
 
 if __name__ == "__main__":

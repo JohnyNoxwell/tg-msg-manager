@@ -329,6 +329,37 @@ def _render_channel_export_progress(payload: dict[str, Any]) -> None:
     print(f"Processed posts: {processed_posts} | {extra}")
 
 
+def _render_channel_export_media_progress(payload: dict[str, Any]) -> None:
+    processed_media = payload.get("processed_media", 0)
+    elapsed_seconds = float(payload.get("elapsed_seconds", 0.0) or 0.0)
+    extra = (
+        f"downloaded={payload.get('downloaded', 0)} | "
+        f"exists={payload.get('already_exists', 0)} | "
+        f"size={payload.get('skipped_by_size', 0)} | "
+        f"type={payload.get('skipped_by_type', 0)} | "
+        f"failed={payload.get('failed', 0)} | "
+        f"elapsed={elapsed_seconds:0.1f}s"
+    )
+    if UI.is_tty():
+        UI.print_status("Channel media", processed_media, extra=extra)
+        return
+    print(f"Processed media: {processed_media} | {extra}")
+
+
+def _render_channel_export_media_failed(payload: dict[str, Any]) -> None:
+    if UI.is_tty():
+        print(
+            f"   {UI.paint('!', UI.CLR_WARN, bold=True)} "
+            f"{UI.paint('media failed', UI.CLR_WARN)} "
+            f"{UI.muted(payload.get('media_id', '?'))}"
+        )
+        return
+    print(
+        f"Media failed: {payload.get('media_id', '?')} | "
+        f"{payload.get('error', 'unknown error')}"
+    )
+
+
 def _render_channel_export_no_new_posts(payload: dict[str, Any]) -> None:
     total_known_posts = payload.get("total_known_posts", 0)
     message = f"No new posts. Total known exported posts: {total_known_posts}"
@@ -378,6 +409,8 @@ _EVENT_RENDERERS: dict[str, Callable[[dict[str, Any]], None]] = {
     ChannelExportEvents.CHANNEL_RESOLVED: _render_channel_export_channel_resolved,
     ChannelExportEvents.STATE_LOADED: _render_channel_export_state_loaded,
     ChannelExportEvents.PROGRESS: _render_channel_export_progress,
+    ChannelExportEvents.MEDIA_PROGRESS: _render_channel_export_media_progress,
+    ChannelExportEvents.MEDIA_FAILED: _render_channel_export_media_failed,
     ChannelExportEvents.NO_NEW_POSTS: _render_channel_export_no_new_posts,
     ChannelExportEvents.COMPLETED: _render_channel_export_completed,
 }

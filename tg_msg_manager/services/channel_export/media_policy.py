@@ -2,6 +2,8 @@ import mimetypes
 from pathlib import Path
 from typing import Optional
 
+from .media_types import normalize_media_type
+
 MEDIA_MODE_NONE = "none"
 MEDIA_MODE_METADATA = "metadata"
 MEDIA_MODE_FULL = "full"
@@ -106,3 +108,46 @@ def initial_download_status(media_mode: str) -> str:
     if normalized == MEDIA_MODE_FULL:
         return "pending"
     return "metadata_only"
+
+
+def should_skip_by_size(
+    *,
+    file_size: Optional[int],
+    max_media_size: Optional[int],
+) -> bool:
+    if file_size is None or max_media_size is None:
+        return False
+    return int(file_size) > int(max_media_size)
+
+
+def is_media_type_allowed(
+    *,
+    media_type: Optional[str],
+    mime_type: Optional[str],
+    allowed_media_types: Optional[tuple[str, ...]],
+) -> bool:
+    normalized_media_type = normalize_media_type(media_type, mime_type)
+    if normalized_media_type is None:
+        return False
+    if allowed_media_types is None:
+        return True
+    return normalized_media_type in allowed_media_types
+
+
+def full_mode_pre_download_status(
+    *,
+    media_type: Optional[str],
+    mime_type: Optional[str],
+    file_size: Optional[int],
+    max_media_size: Optional[int],
+    allowed_media_types: Optional[tuple[str, ...]],
+) -> str:
+    if not is_media_type_allowed(
+        media_type=media_type,
+        mime_type=mime_type,
+        allowed_media_types=allowed_media_types,
+    ):
+        return "skipped_by_type"
+    if should_skip_by_size(file_size=file_size, max_media_size=max_media_size):
+        return "skipped_by_size"
+    return "pending"

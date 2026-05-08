@@ -9,6 +9,10 @@ class ChannelExportEvents:
     CHANNEL_RESOLVED = "channel_export.channel_resolved"
     STATE_LOADED = "channel_export.state_loaded"
     PROGRESS = "channel_export.progress"
+    MEDIA_PROGRESS = "channel_export.media_progress"
+    MEDIA_DOWNLOADED = "channel_export.media_downloaded"
+    MEDIA_SKIPPED = "channel_export.media_skipped"
+    MEDIA_FAILED = "channel_export.media_failed"
     NO_NEW_POSTS = "channel_export.no_new_posts"
     COMPLETED = "channel_export.completed"
     FAILED = "channel_export.failed"
@@ -42,6 +46,18 @@ class ChannelExportEventEmitter:
 
     def emit_progress(self, **payload: Any) -> None:
         self._emit(ChannelExportEvents.PROGRESS, **payload)
+
+    def emit_media_progress(self, **payload: Any) -> None:
+        self._emit(ChannelExportEvents.MEDIA_PROGRESS, **payload)
+
+    def emit_media_downloaded(self, **payload: Any) -> None:
+        self._emit(ChannelExportEvents.MEDIA_DOWNLOADED, **payload)
+
+    def emit_media_skipped(self, **payload: Any) -> None:
+        self._emit(ChannelExportEvents.MEDIA_SKIPPED, **payload)
+
+    def emit_media_failed(self, **payload: Any) -> None:
+        self._emit(ChannelExportEvents.MEDIA_FAILED, **payload)
 
     def emit_no_new_posts(self, **payload: Any) -> None:
         self._emit(ChannelExportEvents.NO_NEW_POSTS, **payload)

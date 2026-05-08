@@ -77,8 +77,20 @@ class ChannelExportStateManager:
                 downloaded_media_count_total=int(
                     payload.get("downloaded_media_count_total", 0) or 0
                 ),
+                already_existing_media_count_total=int(
+                    payload.get("already_existing_media_count_total", 0) or 0
+                ),
                 skipped_media_count_total=int(
                     payload.get("skipped_media_count_total", 0) or 0
+                ),
+                skipped_by_size_count_total=int(
+                    payload.get("skipped_by_size_count_total", 0) or 0
+                ),
+                skipped_by_type_count_total=int(
+                    payload.get("skipped_by_type_count_total", 0) or 0
+                ),
+                failed_media_count_total=int(
+                    payload.get("failed_media_count_total", 0) or 0
                 ),
                 last_run_status=str(payload.get("last_run_status") or "completed"),
                 updated_at=_parse_iso_datetime(payload.get("updated_at"))
@@ -115,7 +127,11 @@ class ChannelExportStateManager:
             "message_count_total": state.message_count_total,
             "media_count_total": state.media_count_total,
             "downloaded_media_count_total": state.downloaded_media_count_total,
+            "already_existing_media_count_total": state.already_existing_media_count_total,
             "skipped_media_count_total": state.skipped_media_count_total,
+            "skipped_by_size_count_total": state.skipped_by_size_count_total,
+            "skipped_by_type_count_total": state.skipped_by_type_count_total,
+            "failed_media_count_total": state.failed_media_count_total,
             "last_run_status": state.last_run_status,
             "updated_at": _isoformat_or_none(state.updated_at),
             "date_from": _isoformat_or_none(state.date_from),
@@ -165,8 +181,21 @@ class ChannelExportStateManager:
                 previous_state.downloaded_media_count_total
                 + stats.downloaded_media_count
             )
+            already_existing_media_count_total = (
+                previous_state.already_existing_media_count_total
+                + stats.already_existing_media_count
+            )
             skipped_media_count_total = (
                 previous_state.skipped_media_count_total + stats.skipped_media_count
+            )
+            skipped_by_size_count_total = (
+                previous_state.skipped_by_size_count_total + stats.skipped_by_size_count
+            )
+            skipped_by_type_count_total = (
+                previous_state.skipped_by_type_count_total + stats.skipped_by_type_count
+            )
+            failed_media_count_total = (
+                previous_state.failed_media_count_total + stats.failed_media_count
             )
             date_from = self._merge_date_from(previous_state.date_from, stats.date_from)
             date_to = self._merge_date_to(previous_state.date_to, stats.date_to)
@@ -179,7 +208,11 @@ class ChannelExportStateManager:
             message_count_total = stats.posts_exported
             media_count_total = stats.media_records_added
             downloaded_media_count_total = stats.downloaded_media_count
+            already_existing_media_count_total = stats.already_existing_media_count
             skipped_media_count_total = stats.skipped_media_count
+            skipped_by_size_count_total = stats.skipped_by_size_count
+            skipped_by_type_count_total = stats.skipped_by_type_count
+            failed_media_count_total = stats.failed_media_count
             date_from = stats.date_from
             date_to = stats.date_to
             last_exported_message_id = stats.last_exported_message_id
@@ -194,7 +227,11 @@ class ChannelExportStateManager:
             message_count_total=message_count_total,
             media_count_total=media_count_total,
             downloaded_media_count_total=downloaded_media_count_total,
+            already_existing_media_count_total=already_existing_media_count_total,
             skipped_media_count_total=skipped_media_count_total,
+            skipped_by_size_count_total=skipped_by_size_count_total,
+            skipped_by_type_count_total=skipped_by_type_count_total,
+            failed_media_count_total=failed_media_count_total,
             last_run_status="completed",
             updated_at=now,
             date_from=date_from,

@@ -1,6 +1,26 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.25] - 2026-05-08
+
+### Added (EN)
+- **Stage 3B Media Download Hardening**: Added `ChannelMediaDownloader` under `services/channel_export/` with file hashing, existing-file reuse, size/type guardrails, and per-media failure recording for direct channel export.
+- **Channel Export Media Controls**: Added `--max-media-size` and `--media-types` for `export-channel`, while keeping `--media metadata` as the default and requiring explicit `--media full` for downloads.
+- **Media Download Event Surface**: Added `channel_export.media_progress`, `channel_export.media_downloaded`, `channel_export.media_skipped`, and `channel_export.media_failed` events plus CLI progress rendering.
+
+### Changed (EN)
+- **Direct Channel Export Full Media**: `export-channel --media full` now downloads media into `media/`, computes `sha256`, skips reusable files as `already_exists`, and records final statuses in `media_manifest.jsonl`.
+- **Manifest / State Media Summary**: Channel export manifest/state now track detailed media counters for downloaded, existing, skipped-by-size, skipped-by-type, and failed media records.
+
+### Добавлено (RU)
+- **Stage 3B Media Download Hardening**: Для direct channel export добавлен `ChannelMediaDownloader` в `services/channel_export/` с file hashing, reuse существующих файлов, size/type guardrails и фиксацией per-media failures.
+- **Media controls для channel export**: Для `export-channel` добавлены `--max-media-size` и `--media-types`, при этом default остаётся `--media metadata`, а загрузка файлов требует явного `--media full`.
+- **Event surface для media download**: Добавлены события `channel_export.media_progress`, `channel_export.media_downloaded`, `channel_export.media_skipped` и `channel_export.media_failed` вместе с CLI progress rendering.
+
+### Изменения (RU)
+- **Full media в direct channel export**: `export-channel --media full` теперь скачивает media в `media/`, считает `sha256`, переиспользует существующие файлы как `already_exists` и пишет финальные статусы в `media_manifest.jsonl`.
+- **Детальный media summary в manifest/state**: Manifest и filesystem-state channel export теперь хранят отдельные счётчики для downloaded, existing, skipped-by-size, skipped-by-type и failed media records.
+
 ## [4.2.24] - 2026-05-07
 
 ### Added (EN)
@@ -29,7 +49,7 @@ All notable changes to this project will be documented in this file in both Engl
 - **Stage 3A Docs and Smoke Guidance**: Added command/docs coverage, live smoke guidance, and a dedicated Stage 3A report for direct channel export.
 
 ### Changed (EN)
-- **Media Mode Safety**: Stage 3A keeps `metadata` as the safe default; `--media full` is exposed but currently fails clearly as not implemented instead of pretending to download media.
+- **Media Mode Safety**: Stage 3A keeps `metadata` as the safe default; `--media full` is exposed for future hardening without changing the default dataset-projection path.
 - **Verification Stability**: Final Stage 3A verification now runs green after tightening SQLite migration idempotency, avoiding WAL reconfiguration on read-only connections, and cleaning up test database sidecar files more reliably.
 - **Interactive Menu Surface**: The `tg` control center now exposes `export-channel` and uses two-digit menu numbering with backward-compatible short inputs.
 - **Channel Export Guardrails**: `export-channel` now fails with explicit messages for groups/supergroups, keeps Stage 3A scoped to broadcast channels, and normalizes nested datetime values in JSONL export payloads.
@@ -40,7 +60,7 @@ All notable changes to this project will be documented in this file in both Engl
 - **Документация и live smoke для Stage 3A**: Добавлены command/docs coverage, live smoke guidance и отдельный Stage 3A report для прямого экспорта каналов.
 
 ### Изменения (RU)
-- **Безопасность media mode**: В Stage 3A безопасным default остаётся `metadata`; `--media full` виден в CLI, но сейчас завершается явной ошибкой `not implemented yet`, а не делает вид, что media были скачаны.
+- **Безопасность media mode**: В Stage 3A безопасным default остаётся `metadata`; `--media full` виден в CLI как явный opt-in для следующего этапа hardening без изменения default-поведения dataset export.
 - **Стабильность verification**: Финальный verification Stage 3A теперь проходит в зелёном статусе после усиления идемпотентности SQLite-миграции, отказа от WAL reconfiguration на read-only connections и более надёжной очистки sidecar-файлов тестовых БД.
 - **Interactive menu surface**: В `tg` control center добавлен `export-channel`, а главное меню переведено на двузначную нумерацию с сохранением backward-compatible коротких вводов.
 - **Guardrails для channel export**: `export-channel` теперь выдаёт явные ошибки для groups/supergroups, сохраняет Stage 3A в пределах broadcast channels и нормализует вложенные `datetime` значения в JSONL payload.

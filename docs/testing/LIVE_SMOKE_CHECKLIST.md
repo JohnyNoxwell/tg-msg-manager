@@ -296,24 +296,47 @@ Failure:
 
 ### 13. Direct channel export with full media
 
-Non-routine test. In Stage 3A this command is expected to fail clearly because full media download is not implemented yet.
+Non-routine test. Stage 3B enables controlled full media download; keep this smoke scoped and small.
 
 Command:
 
 ```bash
-python3 -m tg_msg_manager.cli export-channel --channel "$TEST_CHANNEL" --limit 1 --media full
+python3 -m tg_msg_manager.cli export-channel --channel "$TEST_CHANNEL" --limit 1 --media full --max-media-size 50MB
 ```
 
 Expected:
 
-- explicit `not implemented yet` failure in Stage 3A
-- no silent fallback pretending media was downloaded
+- exit code `0`
+- media file downloaded or explicitly marked `already_exists`
+- `media_manifest.jsonl` row contains final status and `sha256` for downloaded/existing files
+- no silent fallback to metadata-only behavior
 
 Failure:
 
-- silent success without full media download behavior
-- ambiguous or missing error output
-- missing expected report sections
+- non-zero exit code
+- silent success without media file / final media status
+- missing `sha256` for `downloaded` or `already_exists`
+
+### 14. Direct channel export full media with type/size guardrails
+
+Command:
+
+```bash
+python3 -m tg_msg_manager.cli export-channel --channel "$TEST_CHANNEL" --limit 3 --media full --media-types photo --max-media-size 1MB
+```
+
+Expected:
+
+- exit code `0`
+- disallowed or oversized media are recorded as `skipped_by_type` / `skipped_by_size`
+- rerunning the same command or `--force` on the same dataset does not create duplicate payload rows
+- existing media files are reused as `already_exists` instead of being downloaded again
+
+Failure:
+
+- unexpected media download outside allowlist/size policy
+- duplicate payload rows after rerun
+- existing files re-downloaded instead of marked `already_exists`
 
 ## Result table
 

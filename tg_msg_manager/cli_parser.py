@@ -1,5 +1,24 @@
 import argparse
 
+from .services.channel_export.media_types import parse_media_types
+from .services.channel_export.size_parser import parse_media_size
+
+
+def _parse_media_size_argument(value: str) -> int:
+    try:
+        parsed = parse_media_size(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+    assert parsed is not None
+    return parsed
+
+
+def _parse_media_types_argument(value: str):
+    try:
+        return parse_media_types(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
 
 def build_cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="TG_MSG_MNGR CLI")
@@ -46,6 +65,18 @@ def build_cli_parser() -> argparse.ArgumentParser:
         "--media",
         choices=("none", "metadata", "full"),
         default="metadata",
+    )
+    export_channel_parser.add_argument(
+        "--max-media-size",
+        type=_parse_media_size_argument,
+        default=None,
+        help="Maximum media file size for --media full, e.g. 50MB",
+    )
+    export_channel_parser.add_argument(
+        "--media-types",
+        type=_parse_media_types_argument,
+        default=None,
+        help="Comma-separated allowlist for --media full: photo,video,document,audio,voice,animation",
     )
     export_channel_parser.add_argument("--output-dir", default=None)
     export_channel_parser.add_argument("--force", action="store_true", default=False)

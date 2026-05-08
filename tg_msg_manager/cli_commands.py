@@ -150,11 +150,6 @@ async def _handle_export_pm_command(ctx, args: argparse.Namespace) -> None:
 
 
 async def _handle_export_channel_command(ctx, args: argparse.Namespace) -> None:
-    if args.media == "full":
-        raise SystemExit(
-            "export-channel: --media full is not implemented yet; use --media metadata or --media none"
-        )
-
     output_dir = (
         Path(args.output_dir)
         if args.output_dir
@@ -165,6 +160,8 @@ async def _handle_export_channel_command(ctx, args: argparse.Namespace) -> None:
         limit=args.limit,
         media_mode=args.media,
         output_dir=output_dir,
+        max_media_size=args.max_media_size,
+        media_types=args.media_types,
         force=args.force,
     )
     try:
@@ -179,6 +176,13 @@ async def _handle_export_channel_command(ctx, args: argparse.Namespace) -> None:
     print(f"Total known exported posts: {result.message_count}")
     print(f"Media records added this run: {result.media_records_added_this_run}")
     print(f"Total known media records: {result.media_count}")
+    print(f"Downloaded media this run: {result.downloaded_media_count_this_run}")
+    print(
+        f"Already existing media this run: {result.already_existing_media_count_this_run}"
+    )
+    print(f"Skipped by size this run: {result.skipped_by_size_count_this_run}")
+    print(f"Skipped by type this run: {result.skipped_by_type_count_this_run}")
+    print(f"Failed media this run: {result.failed_media_count_this_run}")
     print(f"Manifest: {result.manifest_path}")
     print(f"JSONL: {result.messages_jsonl_path}")
     print(f"TXT: {result.messages_txt_path}")

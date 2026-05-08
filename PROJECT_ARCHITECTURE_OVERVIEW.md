@@ -66,6 +66,10 @@
 - DB export active implementation: `tg_msg_manager/services/db_export/service.py`
 - Private archive active implementation: `tg_msg_manager/services/private_archive/service.py`
 - Direct channel export active implementation: `tg_msg_manager/services/channel_export/service.py`
+- Direct channel export media hardening:
+  - media downloader: `tg_msg_manager/services/channel_export/media_downloader.py`
+  - size parser: `tg_msg_manager/services/channel_export/size_parser.py`
+  - media type allowlist: `tg_msg_manager/services/channel_export/media_types.py`
 - Compatibility wrappers:
   - `tg_msg_manager/services/exporter.py`
   - `tg_msg_manager/services/context_engine.py`
@@ -80,6 +84,7 @@
   - state manager: `tg_msg_manager/services/channel_export/state_manager.py`
   - event emitter: `tg_msg_manager/services/channel_export/event_emitter.py`
   - append/stream writer: `tg_msg_manager/services/channel_export/payload_writer.py`
+  - controlled full-media path with sha256/status tracking under `services/channel_export/`
   - channel export remains filesystem-only and does not persist channel posts into SQLite
 - Context relation decision: `message_context_links` is documented as legacy compatibility, while `reply_to_id`, `context_group_id`, and `message_target_links` remain first-class hot-path relations
 - Test status on `2026-05-05`:

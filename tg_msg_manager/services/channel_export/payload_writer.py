@@ -40,7 +40,11 @@ class ChannelPayloadWriteSession:
         self.message_count = 0
         self.media_count = 0
         self.downloaded_media_count = 0
+        self.already_existing_media_count = 0
         self.skipped_media_count = 0
+        self.skipped_by_size_count = 0
+        self.skipped_by_type_count = 0
+        self.failed_media_count = 0
         self.date_from: Optional[datetime] = None
         self.date_to: Optional[datetime] = None
         self.last_exported_message_id: Optional[int] = None
@@ -106,8 +110,20 @@ class ChannelPayloadWriteSession:
             self.media_count += 1
             if media_record.download_status == "downloaded":
                 self.downloaded_media_count += 1
-            if media_record.download_status == "skipped_by_mode":
+            if media_record.download_status == "already_exists":
+                self.already_existing_media_count += 1
+            if media_record.download_status in (
+                "skipped_by_mode",
+                "skipped_by_size",
+                "skipped_by_type",
+            ):
                 self.skipped_media_count += 1
+            if media_record.download_status == "skipped_by_size":
+                self.skipped_by_size_count += 1
+            if media_record.download_status == "skipped_by_type":
+                self.skipped_by_type_count += 1
+            if media_record.download_status == "failed":
+                self.failed_media_count += 1
             self._media_handle.write(
                 self.media_manifest_writer.render_line(media_record) + "\n"
             )
@@ -126,7 +142,11 @@ class ChannelPayloadWriteSession:
             posts_exported=self.message_count,
             media_records_added=self.media_count,
             downloaded_media_count=self.downloaded_media_count,
+            already_existing_media_count=self.already_existing_media_count,
             skipped_media_count=self.skipped_media_count,
+            skipped_by_size_count=self.skipped_by_size_count,
+            skipped_by_type_count=self.skipped_by_type_count,
+            failed_media_count=self.failed_media_count,
             date_from=self.date_from,
             date_to=self.date_to,
             last_exported_message_id=self.last_exported_message_id,

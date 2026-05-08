@@ -67,6 +67,7 @@ class TestChannelPayloadWriter(unittest.TestCase):
             local_path="media/photos/0000000001_01.jpg",
             sha256=None,
             download_status="metadata_only",
+            error=None,
         )
 
     def test_write_session_writes_files_and_counts_messages_and_media(self):
@@ -103,6 +104,8 @@ class TestChannelPayloadWriter(unittest.TestCase):
 
             self.assertEqual(stats.posts_exported, 2)
             self.assertEqual(stats.media_records_added, 1)
+            self.assertEqual(stats.already_existing_media_count, 0)
+            self.assertEqual(stats.failed_media_count, 0)
             self.assertEqual(stats.date_from.isoformat(), "2026-05-07T10:00:00+00:00")
             self.assertEqual(stats.date_to.isoformat(), "2026-05-07T11:00:00+00:00")
             jsonl_lines = plan.messages_jsonl_path.read_text(
@@ -182,6 +185,57 @@ class TestChannelPayloadWriter(unittest.TestCase):
             self.assertEqual(plan.messages_jsonl_path.read_text(encoding="utf-8"), "")
             self.assertEqual(plan.messages_txt_path.read_text(encoding="utf-8"), "")
             self.assertEqual(plan.media_manifest_path.read_text(encoding="utf-8"), "")
+
+    def test_write_session_tracks_media_status_counters(self):
+        downloaded = ChannelMediaRecord(
+            **{**self._media_record().__dict__, "download_status": "downloaded"}
+        )
+        already_exists = ChannelMediaRecord(
+            **{
+                **downloaded.__dict__,
+                "media_id": "2_01",
+                "download_status": "already_exists",
+            }
+        )
+        skipped_by_size = ChannelMediaRecord(
+            **{
+                **downloaded.__dict__,
+                "media_id": "3_01",
+                "download_status": "skipped_by_size",
+            }
+        )
+        failed = ChannelMediaRecord(
+            **{
+                **downloaded.__dict__,
+                "media_id": "4_01",
+                "download_status": "failed",
+                "error": "boom",
+            }
+        )
+
+        with tempfile.TemporaryDirectory(prefix="tg_channel_writer_status_") as tmpdir:
+            plan = self._build_plan(tmpdir)
+            with ChannelPayloadWriter().open_session(
+                plan=plan,
+                jsonl_renderer=ChannelJsonlRenderer(),
+                txt_renderer=ChannelTxtRenderer(),
+                media_manifest_writer=ChannelMediaManifestWriter(),
+                run_mode=CHANNEL_EXPORT_RUN_MODE_FULL,
+            ) as session:
+                session.write_record(
+                    make_post(
+                        message_id=1,
+                        text="Hello",
+                        timestamp=datetime(2026, 5, 7, 10, 0, tzinfo=timezone.utc),
+                        media=(downloaded, already_exists, skipped_by_size, failed),
+                    )
+                )
+                stats = session.finish()
+
+            self.assertEqual(stats.downloaded_media_count, 1)
+            self.assertEqual(stats.already_existing_media_count, 1)
+            self.assertEqual(stats.skipped_by_size_count, 1)
+            self.assertEqual(stats.failed_media_count, 1)
 
 
 if __name__ == "__main__":

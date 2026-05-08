@@ -27,6 +27,8 @@ This directory stores refactor baselines, split maps, audits, and final stage re
 - Stage 3A.1:
   - `STAGE_3A_1_BASELINE.md`
   - `STAGE_3A_1_CHANNEL_EXPORT_OPERATIONAL_HARDENING_REPORT.md`
+- Stage 3B:
+  - `STAGE_3B_MEDIA_DOWNLOAD_HARDENING_REPORT.md`
 
 ## Supporting Notes
 
@@ -52,3 +54,4 @@ This directory stores refactor baselines, split maps, audits, and final stage re
 3. `STAGE_2_READINESS_REPORT.md`
 4. `STAGE_3A_DIRECT_CHANNEL_EXPORT_REPORT.md`
 5. `STAGE_3A_1_CHANNEL_EXPORT_OPERATIONAL_HARDENING_REPORT.md`
+6. `STAGE_3B_MEDIA_DOWNLOAD_HARDENING_REPORT.md`

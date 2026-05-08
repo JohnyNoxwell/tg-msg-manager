@@ -46,7 +46,25 @@ class FakeChannelClient:
 
     async def download_media(self, media, file=None):
         self.download_media_calls += 1
-        return None
+        if media is None:
+            return None
+        payload = media if isinstance(media, dict) else {"content": str(media)}
+        if payload.get("raise_error"):
+            raise RuntimeError(payload["raise_error"])
+        if payload.get("return_none"):
+            return None
+
+        target_path = Path(file)
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        content = payload.get("content", "")
+        binary = payload.get("binary", False)
+        if binary:
+            target_path.write_bytes(
+                content if isinstance(content, bytes) else str(content).encode("utf-8")
+            )
+        else:
+            target_path.write_text(str(content), encoding="utf-8")
+        return str(target_path)
 
 
 class FailingManifestWriter:
@@ -335,6 +353,200 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
                 if event.name == "channel_export.progress"
             ]
             self.assertEqual(progress_payloads[-1]["processed_posts"], 3)
+
+    async def test_full_media_mode_downloads_media_and_records_sha256(self):
+        entity = FakeChannelEntity()
+        client = FakeChannelClient(
+            entity,
+            [
+                make_message(
+                    1,
+                    text="Photo",
+                    media_type="Photo",
+                    media_ref={
+                        "mime_type": "image/jpeg",
+                        "file_name": "a.jpg",
+                        "content": "hello-media",
+                    },
+                )
+            ],
+        )
+
+        with tempfile.TemporaryDirectory(prefix="tg_channel_service_full_") as tmpdir:
+            service = ChannelExportService(client=client, base_dir=Path(tmpdir))
+            result = await service.export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="full",
+                    output_dir=Path(tmpdir),
+                )
+            )
+
+            manifest_rows = [
+                json.loads(line)
+                for line in result.media_manifest_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+            self.assertEqual(client.download_media_calls, 1)
+            self.assertEqual(result.downloaded_media_count_this_run, 1)
+            self.assertEqual(manifest_rows[0]["download_status"], "downloaded")
+            self.assertTrue(manifest_rows[0]["sha256"])
+            self.assertIsNone(manifest_rows[0]["error"])
+
+    async def test_full_media_mode_skips_existing_file(self):
+        entity = FakeChannelEntity()
+        client = FakeChannelClient(
+            entity,
+            [
+                make_message(
+                    1,
+                    text="Photo",
+                    media_type="Photo",
+                    media_ref={
+                        "mime_type": "image/jpeg",
+                        "file_name": "a.jpg",
+                        "content": "first",
+                    },
+                )
+            ],
+        )
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_existing_"
+        ) as tmpdir:
+            output_dir = Path(tmpdir)
+            await ChannelExportService(
+                client=client, base_dir=output_dir
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="full",
+                    output_dir=output_dir,
+                )
+            )
+            second_client = FakeChannelClient(entity, client.messages)
+            result = await ChannelExportService(
+                client=second_client,
+                base_dir=output_dir,
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="full",
+                    output_dir=output_dir,
+                    force=True,
+                )
+            )
+
+            rows = [
+                json.loads(line)
+                for line in result.media_manifest_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+            self.assertEqual(rows[0]["download_status"], "already_exists")
+            self.assertEqual(result.already_existing_media_count_this_run, 1)
+
+    async def test_full_media_mode_skips_by_size_and_type(self):
+        entity = FakeChannelEntity()
+        client = FakeChannelClient(
+            entity,
+            [
+                make_message(
+                    1,
+                    text="Video",
+                    media_type="Video",
+                    media_ref={
+                        "mime_type": "video/mp4",
+                        "file_name": "clip.mp4",
+                        "file_size": 10_000_000,
+                        "content": "video",
+                    },
+                ),
+                make_message(
+                    2,
+                    text="Doc",
+                    media_type="Document",
+                    media_ref={
+                        "mime_type": "application/pdf",
+                        "file_name": "report.pdf",
+                        "file_size": 512,
+                        "content": "pdf",
+                    },
+                ),
+            ],
+        )
+
+        with tempfile.TemporaryDirectory(prefix="tg_channel_service_skip_") as tmpdir:
+            result = await ChannelExportService(
+                client=client, base_dir=Path(tmpdir)
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="full",
+                    output_dir=Path(tmpdir),
+                    max_media_size=1024,
+                    media_types=("video",),
+                )
+            )
+
+            rows = [
+                json.loads(line)
+                for line in result.media_manifest_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+            self.assertEqual(rows[0]["download_status"], "skipped_by_size")
+            self.assertEqual(rows[1]["download_status"], "skipped_by_type")
+            self.assertEqual(result.skipped_by_size_count_this_run, 1)
+            self.assertEqual(result.skipped_by_type_count_this_run, 1)
+            self.assertEqual(client.download_media_calls, 0)
+
+    async def test_media_download_failure_is_recorded_without_failing_export(self):
+        entity = FakeChannelEntity()
+        client = FakeChannelClient(
+            entity,
+            [
+                make_message(
+                    1,
+                    text="Broken",
+                    media_type="Photo",
+                    media_ref={
+                        "mime_type": "image/jpeg",
+                        "file_name": "bad.jpg",
+                        "raise_error": "network down",
+                    },
+                )
+            ],
+        )
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_failure_media_"
+        ) as tmpdir:
+            result = await ChannelExportService(
+                client=client, base_dir=Path(tmpdir)
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="full",
+                    output_dir=Path(tmpdir),
+                )
+            )
+
+            rows = [
+                json.loads(line)
+                for line in result.media_manifest_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+            self.assertEqual(result.failed_media_count_this_run, 1)
+            self.assertEqual(rows[0]["download_status"], "failed")
+            self.assertEqual(rows[0]["error"], "network down")
 
     async def test_export_channel_does_not_download_media_in_metadata_mode(self):
         entity = FakeChannelEntity()

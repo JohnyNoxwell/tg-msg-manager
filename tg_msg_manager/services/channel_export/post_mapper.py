@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any, Dict, Optional, Tuple
 
+from .media_types import normalize_media_type
 from .media_policy import (
     MEDIA_MODE_NONE,
     build_media_relative_path,
@@ -139,12 +140,15 @@ class ChannelPostMapper:
             mime_type=mime_type,
             file_name=file_name,
         )
+        normalized_media_type = (
+            normalize_media_type(media_type, mime_type) or media_type
+        )
         return (
             ChannelMediaRecord(
                 media_id=f"{message_id}_{media_index:02d}",
                 message_id=message_id,
                 media_index=media_index,
-                media_type=media_type,
+                media_type=normalized_media_type,
                 mime_type=mime_type,
                 file_name=file_name,
                 file_size=file_size,
