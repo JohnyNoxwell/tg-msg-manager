@@ -394,6 +394,7 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(manifest_rows[0]["download_status"], "downloaded")
             self.assertTrue(manifest_rows[0]["sha256"])
             self.assertIsNone(manifest_rows[0]["error"])
+            self.assertNotEqual(manifest_rows[0]["download_status"], "pending")
 
     async def test_full_media_mode_skips_existing_file(self):
         entity = FakeChannelEntity()
@@ -547,6 +548,107 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result.failed_media_count_this_run, 1)
             self.assertEqual(rows[0]["download_status"], "failed")
             self.assertEqual(rows[0]["error"], "network down")
+            self.assertIsNone(rows[0]["sha256"])
+
+    async def test_missing_media_ref_becomes_failed_without_pending_status(self):
+        entity = FakeChannelEntity()
+        client = FakeChannelClient(
+            entity,
+            [
+                make_message(
+                    1,
+                    text="Missing ref",
+                    media_type="Photo",
+                    media_ref=None,
+                )
+            ],
+        )
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_missing_ref_"
+        ) as tmpdir:
+            result = await ChannelExportService(
+                client=client, base_dir=Path(tmpdir)
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="full",
+                    output_dir=Path(tmpdir),
+                )
+            )
+
+            rows = [
+                json.loads(line)
+                for line in result.media_manifest_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+            self.assertEqual(result.failed_media_count_this_run, 1)
+            self.assertEqual(rows[0]["download_status"], "failed")
+            self.assertEqual(
+                rows[0]["error"],
+                "Media reference is unavailable for download",
+            )
+            self.assertIsNone(rows[0]["sha256"])
+
+    async def test_full_media_emits_media_progress_and_failure_events(self):
+        entity = FakeChannelEntity()
+        client = FakeChannelClient(
+            entity,
+            [
+                make_message(
+                    1,
+                    text="Photo",
+                    media_type="Photo",
+                    media_ref={
+                        "mime_type": "image/jpeg",
+                        "file_name": "a.jpg",
+                        "content": "hello-media",
+                    },
+                ),
+                make_message(
+                    2,
+                    text="Broken",
+                    media_type="Photo",
+                    media_ref={
+                        "mime_type": "image/jpeg",
+                        "file_name": "bad.jpg",
+                        "raise_error": "network down",
+                    },
+                ),
+            ],
+        )
+        events = []
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_media_events_"
+        ) as tmpdir:
+            await ChannelExportService(
+                client=client,
+                base_dir=Path(tmpdir),
+                event_sink=events.append,
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="full",
+                    output_dir=Path(tmpdir),
+                )
+            )
+
+            event_names = [event.name for event in events]
+            self.assertIn("channel_export.media_progress", event_names)
+            self.assertIn("channel_export.media_downloaded", event_names)
+            self.assertIn("channel_export.media_failed", event_names)
+            progress_payloads = [
+                event.payload
+                for event in events
+                if event.name == "channel_export.media_progress"
+            ]
+            self.assertEqual(progress_payloads[-1]["processed_media"], 2)
+            self.assertEqual(progress_payloads[-1]["downloaded"], 1)
+            self.assertEqual(progress_payloads[-1]["failed"], 1)
 
     async def test_export_channel_does_not_download_media_in_metadata_mode(self):
         entity = FakeChannelEntity()

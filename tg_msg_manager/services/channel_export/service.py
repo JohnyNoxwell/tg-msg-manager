@@ -7,6 +7,7 @@ from .jsonl_renderer import ChannelJsonlRenderer
 from .manifest_writer import ChannelManifestWriter, build_manifest
 from .media_downloader import ChannelMediaDownloader
 from .media_manifest_writer import ChannelMediaManifestWriter
+from .media_processor import ChannelExportMediaProcessor
 from .media_policy import validate_media_mode
 from .models import (
     CHANNEL_EXPORT_RUN_MODE_FORCE_FULL,
@@ -67,29 +68,18 @@ class ChannelExportService:
         self.media_downloader = media_downloader or ChannelMediaDownloader(client)
         self.state_manager = state_manager or ChannelExportStateManager()
         self.event_emitter = event_emitter or ChannelExportEventEmitter(event_sink)
+        self.media_processor = ChannelExportMediaProcessor(
+            media_downloader=self.media_downloader,
+            event_emitter=self.event_emitter,
+        )
         self.progress_interval = max(1, int(progress_interval))
-        self._media_progress_totals = {
-            "processed_media": 0,
-            "downloaded": 0,
-            "already_exists": 0,
-            "skipped_by_size": 0,
-            "skipped_by_type": 0,
-            "failed": 0,
-        }
 
     async def export_channel(
         self, options: ChannelExportOptions
     ) -> ChannelExportResult:
         media_mode = validate_media_mode(options.media_mode)
         options = self._normalize_options(options, media_mode)
-        self._media_progress_totals = {
-            "processed_media": 0,
-            "downloaded": 0,
-            "already_exists": 0,
-            "skipped_by_size": 0,
-            "skipped_by_type": 0,
-            "failed": 0,
-        }
+        self.media_processor.reset_progress()
         plan = None
         channel_identity = None
         run_mode = None
@@ -427,28 +417,19 @@ class ChannelExportService:
         media_mode: str,
         output_dir: Path,
     ):
-        record = self.post_mapper.map_post(
+        mapped_record = self.post_mapper.map_post(
             message,
             channel_identity,
             media_mode=media_mode,
         )
-        if media_mode != "full" or not record.media:
-            return record
-
-        updated_media = []
-        for media_record in record.media:
-            updated_record = await self.media_downloader.download(
-                record=media_record,
-                media_ref=getattr(message, "media_ref", None),
-                output_dir=output_dir,
-                max_media_size=options.max_media_size,
-                allowed_media_types=options.media_types,
-            )
-            updated_media.append(updated_record)
-            self._emit_media_event(updated_record)
-        if updated_media:
-            self._emit_media_progress(updated_media)
-        return replace(record, media=tuple(updated_media))
+        return await self.media_processor.prepare_record(
+            record=mapped_record,
+            media_mode=media_mode,
+            media_ref=getattr(message, "media_ref", None),
+            output_dir=output_dir,
+            max_media_size=options.max_media_size,
+            media_types=options.media_types,
+        )
 
     @staticmethod
     def _normalize_options(
@@ -458,45 +439,6 @@ class ChannelExportService:
         if media_mode == "full" and options.max_media_size is None:
             return replace(options, max_media_size=DEFAULT_MAX_MEDIA_SIZE_BYTES)
         return options
-
-    def _emit_media_event(self, record) -> None:
-        payload = {
-            "message_id": record.message_id,
-            "media_id": record.media_id,
-            "media_type": record.media_type,
-            "status": record.download_status,
-            "local_path": record.local_path,
-            "error": record.error,
-        }
-        if record.download_status in ("downloaded", "already_exists"):
-            self.event_emitter.emit_media_downloaded(**payload)
-        elif record.download_status == "failed":
-            self.event_emitter.emit_media_failed(**payload)
-        else:
-            self.event_emitter.emit_media_skipped(**payload)
-
-    def _emit_media_progress(self, media_records) -> None:
-        for record in media_records:
-            self._media_progress_totals["processed_media"] += 1
-            if record.download_status == "downloaded":
-                self._media_progress_totals["downloaded"] += 1
-            elif record.download_status == "already_exists":
-                self._media_progress_totals["already_exists"] += 1
-            elif record.download_status == "skipped_by_size":
-                self._media_progress_totals["skipped_by_size"] += 1
-            elif record.download_status == "skipped_by_type":
-                self._media_progress_totals["skipped_by_type"] += 1
-            elif record.download_status == "failed":
-                self._media_progress_totals["failed"] += 1
-        self.event_emitter.emit_media_progress(
-            processed_media=self._media_progress_totals["processed_media"],
-            downloaded=self._media_progress_totals["downloaded"],
-            already_exists=self._media_progress_totals["already_exists"],
-            skipped_by_size=self._media_progress_totals["skipped_by_size"],
-            skipped_by_type=self._media_progress_totals["skipped_by_type"],
-            failed=self._media_progress_totals["failed"],
-            elapsed_seconds=round(self.event_emitter.elapsed_seconds(), 3),
-        )
 
     def _emit_progress(self, payload: dict[str, object]) -> None:
         event_payload = dict(payload)
