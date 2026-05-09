@@ -133,3 +133,51 @@ def test_export_service_writes_readable_output_when_requested(tmp_path):
 
     assert "CONTEXT BLOCK #0001" in content
     assert "[TARGET MESSAGE]" in content
+
+
+def test_export_service_readable_output_preserves_ungrouped_context(tmp_path):
+    storage = MagicMock()
+    storage.start_export_run.return_value = None
+    storage.get_user_messages.return_value = [
+        _message(
+            1,
+            user_id=20,
+            author_name="Bob",
+            text="EXPORT_BEFORE_UNGROUPED_MARKER",
+            context_group_id=None,
+        ),
+        _message(
+            2,
+            user_id=10,
+            author_name="Alice",
+            text="EXPORT_TARGET_UNGROUPED_MARKER",
+            context_group_id=None,
+        ),
+        _message(
+            3,
+            user_id=30,
+            author_name="Carol",
+            text="EXPORT_AFTER_UNGROUPED_MARKER",
+            context_group_id=None,
+        ),
+    ]
+    storage.get_user.return_value = {"user_id": 10, "first_name": "Alice"}
+    storage.get_export_target.return_value = None
+
+    output_path = asyncio.run(
+        DBExportService(storage).export_user_messages(
+            10,
+            output_dir=str(tmp_path),
+            as_json=False,
+            txt_profile="context-readable",
+        )
+    )
+    content = open(output_path, encoding="utf-8").read()
+
+    assert content.count("CONTEXT BLOCK #") == 1
+    assert "[CONTEXT BEFORE]" in content
+    assert "[TARGET MESSAGE]" in content
+    assert "[CONTEXT AFTER]" in content
+    assert "EXPORT_BEFORE_UNGROUPED_MARKER" in content
+    assert "EXPORT_TARGET_UNGROUPED_MARKER" in content
+    assert "EXPORT_AFTER_UNGROUPED_MARKER" in content

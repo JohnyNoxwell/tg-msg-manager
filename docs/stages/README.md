@@ -29,6 +29,11 @@ Current completed prompt groups:
 - Stage 3E.5 interactive channel export options parity task prompt.
 - Stage 4A dataset validation / inspection task prompts.
 - Stage 4A.5 context-readable TXT export profile task prompts.
+- Stage 4A.6 context-readable TXT fallback hardening task prompt.
+
+Stage 4A.6 completed task files:
+
+- [`completed/stage_4a_6_context_group_id_fallback_hardening.md`](completed/stage_4a_6_context_group_id_fallback_hardening.md)
 
 Stage 4A.5 completed task files:
 
@@ -93,7 +98,7 @@ Archived launch prompts and prompt packs:
 
 Reports under [`reports/`](reports/) are factual completion records. They can contain time-bound claims that were true for a specific stage.
 
-Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, Stage 3E.4, Stage 3E.5, Stage 4A, and Stage 4A.5 records:
+Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, Stage 3E.4, Stage 3E.5, Stage 4A, Stage 4A.5, and Stage 4A.6 records:
 
 - [`reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md`](reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md)
 - [`reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md`](reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md)
@@ -111,6 +116,7 @@ Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, 
 - [`reports/STAGE_3E_5_INTERACTIVE_CHANNEL_EXPORT_OPTIONS_PARITY_REPORT.md`](reports/STAGE_3E_5_INTERACTIVE_CHANNEL_EXPORT_OPTIONS_PARITY_REPORT.md)
 - [`reports/STAGE_4A_DATASET_VALIDATION_INSPECTION_REPORT.md`](reports/STAGE_4A_DATASET_VALIDATION_INSPECTION_REPORT.md)
 - [`reports/STAGE_4A_5_CONTEXT_READABLE_TXT_PROFILE_REPORT.md`](reports/STAGE_4A_5_CONTEXT_READABLE_TXT_PROFILE_REPORT.md)
+- [`reports/STAGE_4A_6_CONTEXT_GROUP_ID_FALLBACK_HARDENING_REPORT.md`](reports/STAGE_4A_6_CONTEXT_GROUP_ID_FALLBACK_HARDENING_REPORT.md)
 
 ## Stage lifecycle
 

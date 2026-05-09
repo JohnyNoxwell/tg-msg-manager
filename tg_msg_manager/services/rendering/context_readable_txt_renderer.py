@@ -61,9 +61,15 @@ class ContextReadableTxtRenderer:
                 fallback_messages.append(message)
 
         groups = list(grouped.values())
-        for message in fallback_messages:
-            if target_user_id is None or message.user_id == target_user_id:
-                groups.append([message])
+        if fallback_messages:
+            if target_user_id is None:
+                groups.append(fallback_messages)
+            elif any(
+                message.user_id == target_user_id for message in fallback_messages
+            ):
+                groups.append(fallback_messages)
+            elif not groups:
+                groups.append(fallback_messages)
 
         if not groups and messages:
             groups.append(messages)

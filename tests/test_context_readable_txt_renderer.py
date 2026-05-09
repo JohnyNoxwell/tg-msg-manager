@@ -164,3 +164,189 @@ def test_context_readable_renderer_groups_by_context_group_and_falls_back_per_ta
     )
 
     assert rendered.count("CONTEXT BLOCK #") == 3
+
+
+def test_context_readable_renderer_preserves_ungrouped_before_target_after():
+    rendered = ContextReadableTxtRenderer().render(
+        [
+            _message(
+                10,
+                user_id=20,
+                author_name="Bob",
+                minute=10,
+                text="BEFORE_UNGROUPED_MARKER",
+                context_group_id=None,
+            ),
+            _message(
+                11,
+                user_id=10,
+                author_name="Alice",
+                minute=11,
+                text="TARGET_UNGROUPED_MARKER",
+                context_group_id=None,
+            ),
+            _message(
+                12,
+                user_id=30,
+                author_name="Carol",
+                minute=12,
+                text="AFTER_UNGROUPED_MARKER",
+                context_group_id=None,
+            ),
+        ],
+        TxtRenderOptions(profile="context-readable", target_user_id=10),
+    )
+
+    assert rendered.count("CONTEXT BLOCK #") == 1
+    assert "[CONTEXT BEFORE]" in rendered
+    assert "[TARGET MESSAGE]" in rendered
+    assert "[CONTEXT AFTER]" in rendered
+    assert "BEFORE_UNGROUPED_MARKER" in rendered
+    assert "TARGET_UNGROUPED_MARKER" in rendered
+    assert "AFTER_UNGROUPED_MARKER" in rendered
+    assert rendered.index("[CONTEXT BEFORE]") < rendered.index(
+        "BEFORE_UNGROUPED_MARKER"
+    )
+    assert rendered.index("[TARGET MESSAGE]") < rendered.index(
+        "TARGET_UNGROUPED_MARKER"
+    )
+    assert rendered.index("[CONTEXT AFTER]") < rendered.index("AFTER_UNGROUPED_MARKER")
+
+
+def test_context_readable_renderer_preserves_grouped_context_group_behavior():
+    rendered = ContextReadableTxtRenderer().render(
+        [
+            _message(
+                20,
+                user_id=20,
+                author_name="Bob",
+                minute=20,
+                text="grouped before",
+                context_group_id="stable-group",
+            ),
+            _message(
+                21,
+                user_id=10,
+                author_name="Alice",
+                minute=21,
+                text="grouped target",
+                context_group_id="stable-group",
+            ),
+            _message(
+                22,
+                user_id=30,
+                author_name="Carol",
+                minute=22,
+                text="grouped after",
+                context_group_id="stable-group",
+            ),
+        ],
+        TxtRenderOptions(profile="context-readable", target_user_id=10),
+    )
+
+    assert rendered.count("CONTEXT BLOCK #") == 1
+    assert rendered.index("[CONTEXT BEFORE]") < rendered.index("grouped before")
+    assert rendered.index("[TARGET MESSAGE]") < rendered.index("grouped target")
+    assert rendered.index("[CONTEXT AFTER]") < rendered.index("grouped after")
+
+
+def test_context_readable_renderer_keeps_mixed_grouped_and_ungrouped_blocks_ordered():
+    rendered = ContextReadableTxtRenderer().render(
+        [
+            _message(
+                30,
+                user_id=20,
+                author_name="Bob",
+                minute=30,
+                text="grouped context before",
+                context_group_id="grouped",
+            ),
+            _message(
+                31,
+                user_id=10,
+                author_name="Alice",
+                minute=31,
+                text="grouped target",
+                context_group_id="grouped",
+            ),
+            _message(
+                40,
+                user_id=20,
+                author_name="Bob",
+                minute=40,
+                text="ungrouped context before",
+                context_group_id=None,
+            ),
+            _message(
+                41,
+                user_id=10,
+                author_name="Alice",
+                minute=41,
+                text="ungrouped target",
+                context_group_id=None,
+            ),
+            _message(
+                42,
+                user_id=30,
+                author_name="Carol",
+                minute=42,
+                text="ungrouped context after",
+                context_group_id=None,
+            ),
+        ],
+        TxtRenderOptions(profile="context-readable", target_user_id=10),
+    )
+
+    assert rendered.count("CONTEXT BLOCK #") == 2
+    assert rendered.index("CONTEXT BLOCK #0001") < rendered.index("grouped target")
+    assert rendered.index("CONTEXT BLOCK #0002") < rendered.index("ungrouped target")
+    assert rendered.index("grouped target") < rendered.index("ungrouped target")
+    assert "ungrouped context before" in rendered
+    assert "ungrouped context after" in rendered
+
+
+def test_context_readable_renderer_omits_mixed_ungrouped_non_target_only_block():
+    rendered = ContextReadableTxtRenderer().render(
+        [
+            _message(
+                50,
+                user_id=10,
+                author_name="Alice",
+                minute=50,
+                text="grouped target only",
+                context_group_id="grouped",
+            ),
+            _message(
+                51,
+                user_id=20,
+                author_name="Bob",
+                minute=51,
+                text="NON_TARGET_ONLY_UNGROUPED_MARKER",
+                context_group_id=None,
+            ),
+        ],
+        TxtRenderOptions(profile="context-readable", target_user_id=10),
+    )
+
+    assert rendered.count("CONTEXT BLOCK #") == 1
+    assert "grouped target only" in rendered
+    assert "NON_TARGET_ONLY_UNGROUPED_MARKER" not in rendered
+
+
+def test_context_readable_renderer_renders_ungrouped_non_target_only_without_groups():
+    rendered = ContextReadableTxtRenderer().render(
+        [
+            _message(
+                60,
+                user_id=20,
+                author_name="Bob",
+                minute=50,
+                text="NON_TARGET_ONLY_NO_GROUP_MARKER",
+                context_group_id=None,
+            ),
+        ],
+        TxtRenderOptions(profile="context-readable", target_user_id=10),
+    )
+
+    assert rendered.count("CONTEXT BLOCK #") == 1
+    assert "NON_TARGET_ONLY_NO_GROUP_MARKER" in rendered

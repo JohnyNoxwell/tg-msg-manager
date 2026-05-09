@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.30] - 2026-05-09
+
+### Fixed (EN)
+- **Stage 4A.6 Context-Readable TXT Fallback**: Preserved already-provided ungrouped before/target/after context records when `context_group_id` is missing.
+
+### Changed (EN)
+- **Renderer-Only Hardening**: Grouped `context_group_id` behavior remains unchanged; no Telegram fetching, context extraction, JSONL schema, dataset/state schema, or SQLite behavior changed.
+
+### Исправлено (RU)
+- **Stage 4A.6 fallback для context-readable TXT**: Уже переданные ungrouped before/target/after context records теперь сохраняются в выводе, если `context_group_id` отсутствует.
+
+### Изменения (RU)
+- **Только hardening renderer**: Поведение группировки по `context_group_id` не изменено; Telegram fetching, context extraction, JSONL schema, dataset/state schema и SQLite behavior не изменялись.
+
 ## [4.2.29] - 2026-05-09
 
 ### Added (EN)
