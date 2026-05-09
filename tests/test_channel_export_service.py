@@ -12,6 +12,9 @@ from tg_msg_manager.services.channel_export import (
 from tg_msg_manager.services.channel_export.discussions.exporter import (
     ChannelDiscussionExporter,
 )
+from tg_msg_manager.services.channel_export.discussions.resolver import (
+    ChannelDiscussionResolver,
+)
 from tg_msg_manager.services.channel_export.discussions.models import (
     DISCUSSION_SOURCE_STATUS_RESOLVED,
     ChannelDiscussionFetchResult,
@@ -107,8 +110,8 @@ class CountingDiscussionResolver:
         self.source = source
         self.calls = []
 
-    async def resolve(self, entity):
-        self.calls.append(entity)
+    async def resolve(self, entity, posts=None):
+        self.calls.append((entity, posts))
         return self.source
 
 
@@ -147,7 +150,13 @@ class FailingDiscussionExporter:
 
 
 def make_message(
-    message_id, *, text, media_type=None, media_ref=None, is_service=False
+    message_id,
+    *,
+    text,
+    media_type=None,
+    media_ref=None,
+    is_service=False,
+    raw_payload=None,
 ):
     return MessageData(
         message_id=message_id,
@@ -160,7 +169,7 @@ def make_message(
         reply_to_id=None,
         fwd_from_id=None,
         context_group_id=None,
-        raw_payload={},
+        raw_payload=raw_payload or {},
         is_service=is_service,
         media_ref=media_ref,
     )
@@ -349,6 +358,132 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
                 manifest["export"]["included_files"],
             )
             self.assertEqual(discussion_state["comment_count_total"], 2)
+
+    async def test_discussion_metadata_writes_metadata_without_fetching_comments(self):
+        entity = FakeChannelEntity()
+        client = FakeChannelClient(
+            entity,
+            [
+                make_message(
+                    1,
+                    text="First",
+                    raw_payload={
+                        "replies": {
+                            "comments": True,
+                            "channel_id": 222,
+                            "replies": "90",
+                        }
+                    },
+                )
+            ],
+        )
+        resolver = CountingDiscussionResolver(resolved_discussion_source())
+        fetcher = FakeDiscussionFetcher({})
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_discussion_metadata_"
+        ) as tmpdir:
+            result = await ChannelExportService(
+                client=client,
+                base_dir=Path(tmpdir),
+                discussion_resolver=resolver,
+                discussion_exporter=ChannelDiscussionExporter(fetcher=fetcher),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                    discussion_mode="metadata",
+                )
+            )
+
+            manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+            metadata = [
+                json.loads(line)
+                for line in result.discussion_metadata_jsonl_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+
+            self.assertEqual(resolver.calls, [])
+            self.assertEqual(fetcher.calls, [])
+            self.assertEqual(result.discussion_mode, "metadata")
+            self.assertEqual(result.discussion_metadata_count_this_run, 1)
+            self.assertEqual(result.discussion_comment_count_this_run, 0)
+            self.assertEqual(result.discussion_chat_id, 222)
+            self.assertEqual(metadata[0]["channel_message_id"], 1)
+            self.assertTrue(metadata[0]["has_comments"])
+            self.assertEqual(metadata[0]["discussion_chat_id"], 222)
+            self.assertEqual(metadata[0]["replies_count"], 90)
+            self.assertFalse(metadata[0]["comments_exported"])
+            self.assertEqual(manifest["discussion"]["mode"], "metadata")
+            self.assertEqual(manifest["discussion"]["metadata_count"], 1)
+            self.assertFalse(manifest["discussion"]["comments_exported"])
+            self.assertIn(
+                "discussion_metadata.jsonl",
+                manifest["export"]["included_files"],
+            )
+            self.assertFalse(
+                (result.manifest_path.parent / "discussion_comments.jsonl").exists()
+            )
+            self.assertIsNone(result.discussion_state_path)
+
+    async def test_discussion_full_uses_per_post_replies_metadata_fallback(self):
+        entity = FakeChannelEntity()
+        client = FakeChannelClient(
+            entity,
+            [
+                make_message(
+                    1,
+                    text="First",
+                    raw_payload={
+                        "replies": {
+                            "comments": True,
+                            "channel_id": 222,
+                            "replies": 3,
+                        }
+                    },
+                )
+            ],
+        )
+        fetcher = FakeDiscussionFetcher(
+            {
+                1: ChannelDiscussionFetchResult(comments=(), has_more=False),
+            }
+        )
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_discussion_fallback_"
+        ) as tmpdir:
+            result = await ChannelExportService(
+                client=client,
+                base_dir=Path(tmpdir),
+                discussion_resolver=ChannelDiscussionResolver(client),
+                discussion_exporter=ChannelDiscussionExporter(fetcher=fetcher),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                    discussion_mode="full",
+                )
+            )
+
+            threads = [
+                json.loads(line)
+                for line in result.discussion_threads_jsonl_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+
+            self.assertEqual(result.discussion_chat_id, 222)
+            self.assertEqual(fetcher.calls, [(1, 100)])
+            self.assertEqual(threads[0]["discussion_chat_id"], 222)
+            self.assertEqual(threads[0]["status"], "no_comments")
+            self.assertEqual(threads[0]["comments_count"], 3)
+            self.assertNotEqual(threads[0]["status"], "not_linked")
 
     async def test_discussion_incremental_exports_only_new_posts(self):
         entity = FakeChannelEntity()

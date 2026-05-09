@@ -66,6 +66,17 @@ class TelethonClientWrapper(TelegramClientInterface):
                 "telegram.get_entity.total", perf_counter() - started_at
             )
 
+    async def request(self, request: Any) -> Any:
+        started_at = perf_counter()
+        await self.throttler.throttle()
+        telemetry.track_request()
+        try:
+            return await self.client(request)
+        finally:
+            telemetry.track_duration(
+                "telegram.request.total", perf_counter() - started_at
+            )
+
     async def get_messages(
         self,
         entity,

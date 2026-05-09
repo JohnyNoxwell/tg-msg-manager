@@ -39,6 +39,15 @@ def _coerce_plain_reactions(value: Any) -> Dict[str, Any]:
     return {}
 
 
+def _coerce_optional_int(value: Any) -> Optional[int]:
+    if isinstance(value, bool) or value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
 def _extract_media_metadata(message: Any) -> Optional[Dict[str, Any]]:
     media_ref = getattr(message, "media_ref", None)
     if isinstance(media_ref, dict):
@@ -85,6 +94,10 @@ class ChannelPostMapper:
         replies_count = getattr(message, "replies_count", None)
         if replies_count is None:
             replies_count = raw_payload.get("replies_count")
+        replies_payload = raw_payload.get("replies")
+        if replies_count is None and isinstance(replies_payload, dict):
+            replies_count = replies_payload.get("replies")
+        replies_count = _coerce_optional_int(replies_count)
         reactions = _coerce_plain_reactions(
             getattr(message, "reactions", None) or raw_payload.get("reactions")
         )

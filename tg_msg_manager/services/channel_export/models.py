@@ -87,6 +87,7 @@ class ChannelExportPlan:
     discussion_comments_jsonl_path: Path
     discussion_comments_txt_path: Path
     discussion_threads_jsonl_path: Path
+    discussion_metadata_jsonl_path: Path
     discussion_state_path: Path
 
 
@@ -160,8 +161,10 @@ class ChannelExportResult:
     discussion_chat_id: Optional[int] = None
     discussion_thread_count_this_run: int = 0
     discussion_comment_count_this_run: int = 0
+    discussion_metadata_count_this_run: int = 0
     failed_discussion_thread_count_this_run: int = 0
     discussion_comments_jsonl_path: Optional[Path] = None
     discussion_comments_txt_path: Optional[Path] = None
     discussion_threads_jsonl_path: Optional[Path] = None
+    discussion_metadata_jsonl_path: Optional[Path] = None
     discussion_state_path: Optional[Path] = None

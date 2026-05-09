@@ -13,6 +13,9 @@ class TestChannelDiscussionOptions(unittest.TestCase):
     def test_validate_discussion_mode_accepts_full(self):
         self.assertEqual(validate_discussion_mode("full"), "full")
 
+    def test_validate_discussion_mode_accepts_metadata(self):
+        self.assertEqual(validate_discussion_mode("metadata"), "metadata")
+
     def test_validate_discussion_mode_normalizes_input(self):
         self.assertEqual(validate_discussion_mode(" FULL "), "full")
 

@@ -9,10 +9,12 @@ from tg_msg_manager.services.channel_export.discussions.jsonl_renderer import (
 )
 from tg_msg_manager.services.channel_export.discussions.models import (
     ChannelDiscussionCommentRecord,
+    ChannelDiscussionMetadataRecord,
     ChannelDiscussionThreadRecord,
 )
 from tg_msg_manager.services.channel_export.discussions.payload_writer import (
     WRITE_MODE_APPEND,
+    ChannelDiscussionMetadataPayloadWriter,
     ChannelDiscussionPayloadWriter,
 )
 from tg_msg_manager.services.channel_export.discussions.txt_renderer import (
@@ -186,6 +188,51 @@ class TestChannelDiscussionPayloadWriter(unittest.TestCase):
 
             self.assertEqual(stats.thread_count, 1)
             self.assertEqual(stats.failed_thread_count, 1)
+
+    def test_metadata_writer_writes_compact_jsonl_only(self):
+        with tempfile.TemporaryDirectory(
+            prefix="tg_discussion_metadata_writer_"
+        ) as tmpdir:
+            output_dir = Path(tmpdir)
+            with ChannelDiscussionMetadataPayloadWriter().open_session(
+                metadata_jsonl_path=output_dir / "discussion_metadata.jsonl",
+                jsonl_renderer=ChannelDiscussionJsonlRenderer(),
+                run_mode="metadata",
+            ) as session:
+                session.write_metadata(
+                    ChannelDiscussionMetadataRecord(
+                        channel_id=111,
+                        channel_message_id=5001,
+                        has_comments=True,
+                        discussion_chat_id=222,
+                        replies_count=90,
+                        comments_exported=False,
+                        source="raw_payload.replies",
+                    )
+                )
+                stats = session.finish()
+
+            payload = json.loads(
+                (output_dir / "discussion_metadata.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()[0]
+            )
+            self.assertEqual(
+                set(payload),
+                {
+                    "channel_id",
+                    "channel_message_id",
+                    "has_comments",
+                    "discussion_chat_id",
+                    "replies_count",
+                    "comments_exported",
+                    "source",
+                },
+            )
+            self.assertEqual(payload["discussion_chat_id"], 222)
+            self.assertFalse(payload["comments_exported"])
+            self.assertEqual(stats.thread_count, 1)
+            self.assertEqual(stats.comment_count, 0)
 
 
 if __name__ == "__main__":

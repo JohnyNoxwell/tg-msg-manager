@@ -75,6 +75,62 @@ class TestChannelPostMapper(unittest.TestCase):
         self.assertEqual(record.forwards, 2)
         self.assertEqual(record.replies_count, 1)
 
+    def test_map_post_reads_top_level_replies_count(self):
+        record = self.mapper.map_post(
+            make_message(raw_payload={"replies_count": "4"}),
+            self.channel,
+            media_mode="metadata",
+        )
+
+        self.assertEqual(record.replies_count, 4)
+
+    def test_map_post_reads_nested_replies_count(self):
+        record = self.mapper.map_post(
+            make_message(raw_payload={"replies": {"replies": "7"}}),
+            self.channel,
+            media_mode="metadata",
+        )
+
+        self.assertEqual(record.replies_count, 7)
+
+    def test_map_post_prefers_top_level_replies_count_over_nested(self):
+        record = self.mapper.map_post(
+            make_message(
+                raw_payload={
+                    "replies_count": 2,
+                    "replies": {"replies": 99},
+                }
+            ),
+            self.channel,
+            media_mode="metadata",
+        )
+
+        self.assertEqual(record.replies_count, 2)
+
+    def test_map_post_ignores_invalid_nested_replies_count(self):
+        record = self.mapper.map_post(
+            make_message(raw_payload={"replies": {"replies": "invalid"}}),
+            self.channel,
+            media_mode="metadata",
+        )
+
+        self.assertIsNone(record.replies_count)
+
+    def test_map_post_ignores_missing_and_non_dict_nested_replies_count(self):
+        missing = self.mapper.map_post(
+            make_message(raw_payload={}),
+            self.channel,
+            media_mode="metadata",
+        )
+        non_dict = self.mapper.map_post(
+            make_message(raw_payload={"replies": "invalid"}),
+            self.channel,
+            media_mode="metadata",
+        )
+
+        self.assertIsNone(missing.replies_count)
+        self.assertIsNone(non_dict.replies_count)
+
     def test_map_post_handles_missing_views_forwards_and_reactions(self):
         record = self.mapper.map_post(
             make_message(raw_payload={}),

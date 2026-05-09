@@ -201,7 +201,13 @@ async def _handle_export_channel_command(ctx, args: argparse.Namespace) -> None:
     print(f"TXT: {result.messages_txt_path}")
     print(f"Media manifest: {result.media_manifest_path}")
     print(f"State: {result.state_path}")
-    if result.discussion_mode == "full":
+    if result.discussion_mode == "metadata":
+        print("Discussion mode: metadata")
+        print(
+            f"Discussion metadata records this run: {result.discussion_metadata_count_this_run}"
+        )
+        print(f"Discussion metadata: {result.discussion_metadata_jsonl_path}")
+    elif result.discussion_mode == "full":
         print("Discussion mode: full")
         print(f"Discussion threads this run: {result.discussion_thread_count_this_run}")
         print(

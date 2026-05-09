@@ -79,6 +79,17 @@ class ChannelDiscussionThreadRecord:
 
 
 @dataclass(frozen=True)
+class ChannelDiscussionMetadataRecord:
+    channel_id: int
+    channel_message_id: int
+    has_comments: bool
+    discussion_chat_id: Optional[int]
+    replies_count: Optional[int]
+    comments_exported: bool = False
+    source: Optional[str] = None
+
+
+@dataclass(frozen=True)
 class ChannelDiscussionCommentRecord:
     message_id: int
     discussion_chat_id: int
@@ -120,6 +131,8 @@ class ChannelDiscussionExportResult:
     comments_txt_path: Optional[Path]
     threads_jsonl_path: Optional[Path]
     state_path: Optional[Path]
+    metadata_count: int = 0
+    metadata_jsonl_path: Optional[Path] = None
     state: Optional[ChannelDiscussionExportState] = None
 
 

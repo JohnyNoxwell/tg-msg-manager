@@ -276,6 +276,8 @@ async def _handle_menu_export_channel(ctx) -> None:
         _print_menu_invalid_selection()
         pause_for_enter()
         return
+    if discussion == "full":
+        print(UI.paint(_("warning_discussion_full_heavy"), UI.CLR_WARN))
 
     max_comments_input = TerminalInput.prompt_with_esc(
         _("prompt_channel_max_comments_per_post").format(

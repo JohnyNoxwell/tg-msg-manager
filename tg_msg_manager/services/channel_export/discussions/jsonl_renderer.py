@@ -2,7 +2,11 @@ import json
 from datetime import date, datetime, time
 from typing import Any, Dict
 
-from .models import ChannelDiscussionCommentRecord, ChannelDiscussionThreadRecord
+from .models import (
+    ChannelDiscussionCommentRecord,
+    ChannelDiscussionMetadataRecord,
+    ChannelDiscussionThreadRecord,
+)
 
 
 def _make_json_safe(value: Any) -> Any:
@@ -54,6 +58,20 @@ def discussion_thread_to_dict(record: ChannelDiscussionThreadRecord) -> Dict[str
     }
 
 
+def discussion_metadata_to_dict(
+    record: ChannelDiscussionMetadataRecord,
+) -> Dict[str, Any]:
+    return {
+        "channel_id": record.channel_id,
+        "channel_message_id": record.channel_message_id,
+        "has_comments": record.has_comments,
+        "discussion_chat_id": record.discussion_chat_id,
+        "replies_count": record.replies_count,
+        "comments_exported": record.comments_exported,
+        "source": record.source,
+    }
+
+
 class ChannelDiscussionJsonlRenderer:
     def render_comment_line(self, record: ChannelDiscussionCommentRecord) -> str:
         return json.dumps(
@@ -65,6 +83,13 @@ class ChannelDiscussionJsonlRenderer:
     def render_thread_line(self, record: ChannelDiscussionThreadRecord) -> str:
         return json.dumps(
             discussion_thread_to_dict(record),
+            ensure_ascii=False,
+            sort_keys=False,
+        )
+
+    def render_metadata_line(self, record: ChannelDiscussionMetadataRecord) -> str:
+        return json.dumps(
+            discussion_metadata_to_dict(record),
             ensure_ascii=False,
             sort_keys=False,
         )

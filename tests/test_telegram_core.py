@@ -3,6 +3,7 @@ import os
 import asyncio
 import time
 import unittest
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime
 from telethon.errors import FloodWaitError
@@ -67,6 +68,17 @@ class TestTelegramCore(unittest.IsolatedAsyncioTestCase):
         # Test delete_messages
         await wrapper.delete_messages("entity", [1, 2, 3])
         wrapper.client.delete_messages.assert_awaited_once_with("entity", [1, 2, 3])
+
+    async def test_raw_request_uses_throttler_and_returns_result(self):
+        wrapper = TelethonClientWrapper("dummy", 1, "hash", max_rps=100)
+        wrapper.client = AsyncMock(return_value="raw result")
+        wrapper.throttler = SimpleNamespace(throttle=AsyncMock())
+
+        result = await wrapper.request("raw request")
+
+        self.assertEqual(result, "raw result")
+        wrapper.throttler.throttle.assert_awaited_once()
+        wrapper.client.assert_awaited_once_with("raw request")
 
     async def test_get_messages_retry_preserves_limit(self):
         wrapper = TelethonClientWrapper("dummy", 1, "hash", max_rps=100)

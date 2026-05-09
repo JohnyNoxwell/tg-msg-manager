@@ -13,13 +13,14 @@ messages.txt
 media_manifest.jsonl
 channel_export_state.json
 media/
+discussion_metadata.jsonl
 discussion_comments.jsonl
 discussion_comments.txt
 discussion_threads.jsonl
 discussion_export_state.json
 ```
 
-Discussion files are written only for explicit `--discussion full` runs with current-run posts. Media files under `media/` are written only for explicit `--media full`.
+Discussion metadata is written only for explicit `--discussion metadata` runs with current-run posts. Discussion comment/thread/state files are written only for explicit `--discussion full` runs with current-run posts. Media files under `media/` are written only for explicit `--media full`.
 
 Channel posts and discussion comments are not persisted to SQLite.
 
@@ -135,7 +136,28 @@ Contract notes:
 - Discussion comment media is metadata-only; no full media download fields are required.
 - `media` is a list, usually empty in the current implementation.
 
-## 5. discussion_threads.jsonl
+## 5. discussion_metadata.jsonl
+
+Each line is one compact channel-post discussion metadata object with exact keys:
+
+```text
+channel_id
+channel_message_id
+has_comments
+discussion_chat_id
+replies_count
+comments_exported
+source
+```
+
+Contract notes:
+
+- Metadata mode does not fetch comments.
+- `comments_exported` is always `false` in metadata mode.
+- `source` is `raw_payload.replies` when extracted from Telegram replies metadata.
+- Full `raw_payload` is not duplicated in metadata records.
+
+## 6. discussion_threads.jsonl
 
 Each line is one discussion thread status JSON object with exact keys:
 
@@ -162,7 +184,7 @@ partial
 failed
 ```
 
-## 6. manifest.json
+## 7. manifest.json
 
 Top-level manifest keys:
 
@@ -187,7 +209,18 @@ title
 
 `export` includes message and media counters, date bounds, formats, media mode, media limits, media type allowlist, and `included_files`.
 
-`discussion` is `{"mode": "none"}` for default discussion mode. For `--discussion full`, it includes:
+`discussion` is `{"mode": "none"}` for default discussion mode. For `--discussion metadata`, it includes:
+
+```text
+mode
+discussion_chat_id
+metadata_count
+comment_count
+comments_exported
+included_files
+```
+
+For `--discussion full`, it includes:
 
 ```text
 mode
@@ -199,7 +232,7 @@ max_comments_per_post
 included_files
 ```
 
-## 7. channel_export_state.json
+## 8. channel_export_state.json
 
 Channel state exact keys:
 
@@ -227,7 +260,7 @@ last_manifest_path
 
 The current `schema_version` is `1.0`.
 
-## 8. discussion_export_state.json
+## 9. discussion_export_state.json
 
 Discussion state exact keys:
 
@@ -245,13 +278,13 @@ updated_at
 
 The current `schema_version` is `1.0`.
 
-## 9. TXT Projections
+## 10. TXT Projections
 
 `messages.txt` and `discussion_comments.txt` are human-readable projections.
 
 Contract tests only smoke-check stable identifying content such as message ids, timestamps, author/channel context, media sections, and comment text. They are not full golden snapshots.
 
-## 10. Compatibility Rules
+## 11. Compatibility Rules
 
 Compatibility rules:
 
@@ -262,7 +295,7 @@ Compatibility rules:
 - No-new-posts runs must not mutate discussion state.
 - SQLite schema is unrelated to this filesystem dataset and must not be changed for dataset-format work.
 
-## 11. Schema Change Policy
+## 12. Schema Change Policy
 
 Any dataset schema change requires:
 

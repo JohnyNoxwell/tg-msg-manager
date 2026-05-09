@@ -53,7 +53,7 @@ Arguments:
 - `--media` optional. `none`, `metadata`, or `full`.
 - `--max-media-size` optional. Maximum file size for `--media full`. Accepts bytes or units such as `50MB`. Default in full mode: `50MB`.
 - `--media-types` optional. Comma-separated allowlist for `--media full`: `photo`, `video`, `document`, `audio`, `voice`, `animation`.
-- `--discussion` optional. `none` or `full`. Default: `none`.
+- `--discussion` optional. `none`, `metadata`, or `full`. Default: `none`.
 - `--max-comments-per-post` optional. Positive integer limit for linked discussion comments per exported channel post. Default: `100`.
 - `--output-dir` optional. Base directory for channel export datasets.
 - `--force` optional. Ignore `channel_export_state.json`, rebuild the dataset from scratch, and recreate state.
@@ -70,6 +70,7 @@ exports/
       media_manifest.jsonl
       channel_export_state.json
       media/
+      discussion_metadata.jsonl       # only with --discussion metadata
       discussion_comments.jsonl       # only with --discussion full
       discussion_comments.txt         # only with --discussion full
       discussion_threads.jsonl        # only with --discussion full
@@ -81,10 +82,13 @@ Notes:
 - Stage 3A / 3A.1 / 3B / 3C is dataset projection only. No analytics are performed.
 - `export-channel` accepts broadcast channels only. Groups and supergroups are not supported.
 - Default media mode is `metadata`.
-- Default discussion mode is `none`; in this mode no discussion resolver runs and no discussion files are written.
-- `--discussion full` exports linked discussion comments only for channel posts fetched in the current run.
+- Default discussion mode is `none`; in this mode no discussion resolver runs, no comments are fetched, and no discussion files are written.
+- `--discussion metadata` writes compact post-level discussion metadata to `discussion_metadata.jsonl` from `raw_payload.replies` and does not fetch comments.
+- `--discussion full` is explicit heavy mode and exports linked discussion comments only for channel posts fetched in the current run. For large channels it can produce millions of records and multi-gigabyte datasets; prefer `metadata` for broad archives.
+- Discussion resolution uses channel linked-discussion metadata first, then falls back to per-post Telegram metadata (`raw_payload.replies.channel_id`) when the channel-level link is unavailable.
 - Incremental runs export discussions only for newly fetched posts. No-new-posts runs do not refetch old discussion threads and do not mutate `discussion_export_state.json`.
 - `--force --discussion full` overwrites discussion files and rebuilds discussion state for posts fetched in that force run.
+- Existing datasets that were exported before discussion fallback support may need `--force --discussion full` or a clean output directory to reprocess old threads.
 - `--media full` downloads files only when explicitly requested and records final statuses in `media_manifest.jsonl`.
 - Media filenames and final media subdirectories are resolved from a safe Telegram original filename, then Telegram MIME type, then lightweight magic bytes. `.bin` is used only when the type remains unknown.
 - `media_manifest.jsonl` records the final media path; no OCR, speech-to-text, media analysis, transcoding, or ffmpeg processing is performed.
@@ -162,9 +166,9 @@ Legacy short inputs remain accepted for compatibility:
 - `0`
 
 Interactive menu item `10` / `export-channel` asks for the same channel export
-controls as the direct command path: discussion mode (`none` / `full`), max
-comments per post, force re-export, output directory, max media size, and media
-types. Empty answers preserve the direct CLI defaults.
+controls as the direct command path: discussion mode (`none` / `metadata` /
+`full`), max comments per post, force re-export, output directory, max media
+size, and media types. Empty answers preserve the direct CLI defaults.
 
 Interactive menu item `01` / `export` can generate TXT output and prompts for
 the same TXT profile behavior when TXT is selected. Empty TXT profile input uses

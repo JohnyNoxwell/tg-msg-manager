@@ -61,6 +61,7 @@ python3 -m tg_msg_manager.cli export-channel \
 Target discussion options:
 
 - `--discussion none`
+- `--discussion metadata`
 - `--discussion full`
 - `--max-comments-per-post N`
 
@@ -76,6 +77,13 @@ Default behavior must remain:
 - Do not fetch discussion comments.
 - Do not write discussion files.
 - Preserve current `export-channel` behavior.
+
+`discussion metadata` means:
+
+- For channel posts exported in the current run, write compact post-level discussion metadata.
+- Use Telegram replies metadata from `raw_payload.replies` when available.
+- Do not fetch discussion comments.
+- Do not write discussion comment TXT/JSONL or discussion state.
 
 `discussion full` means:
 
@@ -97,13 +105,15 @@ exports/channels/<channel_slug>/
   channel_export_state.json
   media/
 
+  discussion_metadata.jsonl
+
   discussion_comments.jsonl
   discussion_comments.txt
   discussion_threads.jsonl
   discussion_export_state.json
 ```
 
-Discussion files are written only when `--discussion full` is explicitly selected and applicable posts are exported in the current run.
+Discussion metadata files are written only when `--discussion metadata` is explicitly selected and applicable posts are exported in the current run. Discussion comment/thread/state files are written only when `--discussion full` is explicitly selected and applicable posts are exported in the current run.
 
 No discussion files are written for the default `--discussion none` mode.
 

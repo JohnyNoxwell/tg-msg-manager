@@ -10,6 +10,7 @@ from tg_msg_manager.services.channel_export.discussions.jsonl_renderer import (
 from tg_msg_manager.services.channel_export.discussions.models import (
     ALLOWED_DISCUSSION_THREAD_STATUSES,
     ChannelDiscussionCommentRecord,
+    ChannelDiscussionMetadataRecord,
     ChannelDiscussionRunStats,
     ChannelDiscussionThreadRecord,
 )
@@ -107,6 +108,16 @@ DISCUSSION_THREAD_KEYS = {
     "error",
 }
 
+DISCUSSION_METADATA_KEYS = {
+    "channel_id",
+    "channel_message_id",
+    "has_comments",
+    "discussion_chat_id",
+    "replies_count",
+    "comments_exported",
+    "source",
+}
+
 CHANNEL_STATE_KEYS = {
     "schema_version",
     "channel_id",
@@ -148,6 +159,9 @@ class FakeDiscussionResult:
     thread_count: int
     comment_count: int
     failed_thread_count: int
+    mode: str = "full"
+    metadata_count: int = 0
+    metadata_jsonl_path: Path | None = None
 
 
 def assert_exact_keys(testcase: unittest.TestCase, payload: dict, expected: set[str]):
@@ -322,6 +336,24 @@ class TestChannelExportDatasetContracts(unittest.TestCase):
             assert_exact_keys(self, payload, DISCUSSION_THREAD_KEYS)
             self.assertIn(payload["status"], ALLOWED_DISCUSSION_THREAD_STATUSES)
 
+    def test_discussion_metadata_jsonl_contract_has_exact_keys(self):
+        payload = json.loads(
+            ChannelDiscussionJsonlRenderer().render_metadata_line(
+                ChannelDiscussionMetadataRecord(
+                    channel_id=111,
+                    channel_message_id=5001,
+                    has_comments=True,
+                    discussion_chat_id=222,
+                    replies_count=90,
+                    comments_exported=False,
+                    source="raw_payload.replies",
+                )
+            )
+        )
+
+        assert_exact_keys(self, payload, DISCUSSION_METADATA_KEYS)
+        self.assertFalse(payload["comments_exported"])
+
     def test_manifest_contract_without_and_with_discussion(self):
         channel = ChannelIdentity(channel_id=777, title="Daily", username="daily")
         manager = ChannelExportStateManager()
@@ -404,6 +436,35 @@ class TestChannelExportDatasetContracts(unittest.TestCase):
         self.assertIn("media/", discussion_manifest["export"]["included_files"])
         self.assertEqual(discussion_manifest["export"]["max_media_size"], 1024)
         self.assertEqual(discussion_manifest["export"]["media_types"], ["photo"])
+
+        metadata_manifest = build_channel_export_manifest(
+            channel=channel,
+            state=state,
+            options=ChannelExportOptions(
+                channel="@daily",
+                limit=None,
+                media_mode="metadata",
+                output_dir=Path("/exports"),
+                discussion_mode="metadata",
+            ),
+            media_mode="metadata",
+            discussion_result=FakeDiscussionResult(
+                discussion_chat_id=222,
+                thread_count=0,
+                comment_count=0,
+                failed_thread_count=0,
+                mode="metadata",
+                metadata_count=2,
+                metadata_jsonl_path=Path("/exports/discussion_metadata.jsonl"),
+            ),
+        )
+        self.assertEqual(metadata_manifest["discussion"]["mode"], "metadata")
+        self.assertEqual(metadata_manifest["discussion"]["metadata_count"], 2)
+        self.assertFalse(metadata_manifest["discussion"]["comments_exported"])
+        self.assertIn(
+            "discussion_metadata.jsonl",
+            metadata_manifest["export"]["included_files"],
+        )
 
     def test_state_file_contracts_have_exact_keys(self):
         channel = ChannelIdentity(channel_id=777, title="Daily", username="daily")

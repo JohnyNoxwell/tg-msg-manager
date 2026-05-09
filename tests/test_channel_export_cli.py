@@ -112,11 +112,15 @@ class TestChannelExportCLIParser(unittest.TestCase):
         parsed_none = parser.parse_args(
             ["export-channel", "--channel", "@example", "--discussion", "none"]
         )
+        parsed_metadata = parser.parse_args(
+            ["export-channel", "--channel", "@example", "--discussion", "metadata"]
+        )
         parsed_full = parser.parse_args(
             ["export-channel", "--channel", "@example", "--discussion", "full"]
         )
 
         self.assertEqual(parsed_none.discussion, "none")
+        self.assertEqual(parsed_metadata.discussion, "metadata")
         self.assertEqual(parsed_full.discussion, "full")
 
     def test_invalid_discussion_mode_is_rejected(self):
@@ -338,6 +342,25 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
 
         args = mock_handler.await_args.args[1]
         self.assertEqual(args.discussion, "full")
+
+    async def test_menu_export_channel_passes_discussion_metadata(self):
+        mock_handler = await self._run_menu_export_channel(
+            ["@example", "", "metadata", "metadata", "", "", "", "", ""]
+        )
+
+        args = mock_handler.await_args.args[1]
+        self.assertEqual(args.discussion, "metadata")
+
+    async def test_menu_export_channel_prints_full_mode_warning(self):
+        with patch("builtins.print") as mock_print:
+            await self._run_menu_export_channel(
+                ["@example", "", "metadata", "full", "", "", "", "", ""]
+            )
+
+        printed = "\n".join(
+            str(call.args[0]) for call in mock_print.call_args_list if call.args
+        )
+        self.assertIn("Full discussion export is a heavy mode", printed)
 
     async def test_menu_export_channel_passes_custom_max_comments_per_post(self):
         mock_handler = await self._run_menu_export_channel(

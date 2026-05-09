@@ -53,6 +53,7 @@ class TestChannelPayloadWriter(unittest.TestCase):
             discussion_comments_jsonl_path=output_dir / "discussion_comments.jsonl",
             discussion_comments_txt_path=output_dir / "discussion_comments.txt",
             discussion_threads_jsonl_path=output_dir / "discussion_threads.jsonl",
+            discussion_metadata_jsonl_path=output_dir / "discussion_metadata.jsonl",
             discussion_state_path=output_dir / "discussion_export_state.json",
         )
 

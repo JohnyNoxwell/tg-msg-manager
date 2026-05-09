@@ -97,6 +97,7 @@ def make_plan(base: Path) -> ChannelExportPlan:
         discussion_comments_jsonl_path=base / "discussion_comments.jsonl",
         discussion_comments_txt_path=base / "discussion_comments.txt",
         discussion_threads_jsonl_path=base / "discussion_threads.jsonl",
+        discussion_metadata_jsonl_path=base / "discussion_metadata.jsonl",
         discussion_state_path=base / "discussion_export_state.json",
     )
 

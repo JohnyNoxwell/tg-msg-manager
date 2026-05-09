@@ -1,6 +1,36 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.32] - 2026-05-09
+
+### Added (EN)
+- **Stage 4A.8 Discussion Metadata Mode**: Added `export-channel --discussion metadata` to write compact `discussion_metadata.jsonl` records from `raw_payload.replies` without fetching comments.
+
+### Changed (EN)
+- **Discussion Export Policy**: `none` remains the default, `metadata` is the safe broad-archive mode, and `full` remains explicit heavy mode for small scoped runs.
+
+### Добавлено (RU)
+- **Stage 4A.8 discussion metadata mode**: Добавлен `export-channel --discussion metadata`, который пишет компактный `discussion_metadata.jsonl` из `raw_payload.replies` без скачивания комментариев.
+
+### Изменения (RU)
+- **Политика discussion export**: `none` остаётся default, `metadata` является безопасным режимом для broad archives, а `full` остаётся явным heavy mode для малых scoped runs.
+
+## [4.2.31] - 2026-05-09
+
+### Fixed (EN)
+- **Channel Discussion Export Fallback**: Discussion export now falls back to per-post Telegram replies metadata (`raw_payload.replies.channel_id`) when channel-level linked discussion metadata is unavailable.
+- **Discussion Reply Counts**: Channel post mapping now reads nested Telegram reply counts from `raw_payload.replies.replies` when top-level `replies_count` is absent.
+
+### Changed (EN)
+- **Telegram Wrapper Raw Requests**: Added a throttled raw request method for Telethon requests needed by discussion resolution; Telegram fetching, JSONL schema, state schema, and SQLite schema remain unchanged.
+
+### Исправлено (RU)
+- **Fallback для channel discussion export**: Discussion export теперь использует Telegram metadata конкретного поста (`raw_payload.replies.channel_id`), если channel-level linked discussion metadata недоступен.
+- **Discussion reply counts**: Channel post mapping теперь читает вложенный Telegram count из `raw_payload.replies.replies`, если top-level `replies_count` отсутствует.
+
+### Изменения (RU)
+- **Raw requests в Telegram wrapper**: Добавлен throttled raw request method для Telethon requests, нужных discussion resolver; Telegram fetching, JSONL schema, state schema и SQLite schema не изменялись.
+
 ## [4.2.30] - 2026-05-09
 
 ### Fixed (EN)

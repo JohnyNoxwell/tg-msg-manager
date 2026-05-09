@@ -13,10 +13,14 @@ from .media_policy import validate_media_mode
 from .result_builder import build_channel_export_result
 from .discussions import (
     DISCUSSION_MODE_FULL,
+    DISCUSSION_MODE_METADATA,
+    DISCUSSION_MODE_NONE,
+    DISCUSSION_SOURCE_STATUS_DISABLED,
     ChannelDiscussionExporter,
     ChannelDiscussionFetcher,
     ChannelDiscussionOptions,
     ChannelDiscussionResolver,
+    ChannelDiscussionSource,
     validate_discussion_mode,
     validate_max_comments_per_post,
 )
@@ -445,9 +449,19 @@ class ChannelExportService:
         posts: list[Any],
         previous_discussion_state: Any = None,
     ):
-        if options.discussion_mode != DISCUSSION_MODE_FULL or not posts:
+        if options.discussion_mode == DISCUSSION_MODE_NONE or not posts:
             return None
-        discussion_source = await self.discussion_resolver.resolve(entity)
+        if options.discussion_mode == DISCUSSION_MODE_METADATA:
+            discussion_source = ChannelDiscussionSource(
+                status=DISCUSSION_SOURCE_STATUS_DISABLED,
+                discussion_chat_id=None,
+                discussion_entity=None,
+                error=None,
+            )
+        else:
+            discussion_source = await self.discussion_resolver.resolve(
+                entity, posts=posts
+            )
         discussion_options = ChannelDiscussionOptions(
             mode=options.discussion_mode,
             max_comments_per_post=options.max_comments_per_post,

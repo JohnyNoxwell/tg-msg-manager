@@ -56,6 +56,11 @@ def build_channel_export_result(
         discussion_comment_count_this_run=(
             discussion_result.comment_count if discussion_result is not None else 0
         ),
+        discussion_metadata_count_this_run=(
+            getattr(discussion_result, "metadata_count", 0)
+            if discussion_result is not None
+            else 0
+        ),
         failed_discussion_thread_count_this_run=(
             discussion_result.failed_thread_count
             if discussion_result is not None
@@ -73,6 +78,11 @@ def build_channel_export_result(
         ),
         discussion_threads_jsonl_path=(
             discussion_result.threads_jsonl_path
+            if discussion_result is not None
+            else None
+        ),
+        discussion_metadata_jsonl_path=(
+            getattr(discussion_result, "metadata_jsonl_path", None)
             if discussion_result is not None
             else None
         ),

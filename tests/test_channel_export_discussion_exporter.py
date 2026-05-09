@@ -47,7 +47,9 @@ class FakeDiscussionFetcher:
         return result
 
 
-def make_post(message_id: int, *, replies_count=None) -> ChannelPostRecord:
+def make_post(
+    message_id: int, *, replies_count=None, raw_payload=None
+) -> ChannelPostRecord:
     return ChannelPostRecord(
         message_id=message_id,
         channel_id=111,
@@ -60,7 +62,7 @@ def make_post(message_id: int, *, replies_count=None) -> ChannelPostRecord:
         replies_count=replies_count,
         reactions={},
         media=(),
-        raw_payload={},
+        raw_payload=raw_payload or {},
     )
 
 
@@ -134,6 +136,60 @@ class TestChannelDiscussionExporter(unittest.IsolatedAsyncioTestCase):
             ]
             self.assertEqual([comment["message_id"] for comment in comments], [1, 2])
             self.assertEqual(threads[0]["status"], "exported")
+
+    async def test_metadata_mode_writes_metadata_without_fetching_comments(self):
+        fetcher = FakeDiscussionFetcher({})
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_discussion_exporter_metadata_"
+        ) as tmpdir:
+            plan = self._build_plan(tmpdir)
+            result = await ChannelDiscussionExporter(fetcher=fetcher).export_for_posts(
+                channel_identity=ChannelIdentity(
+                    channel_id=111,
+                    title="Example",
+                    username="example",
+                ),
+                discussion_source=ChannelDiscussionSource(
+                    status="disabled",
+                    discussion_chat_id=None,
+                    discussion_entity=None,
+                    error=None,
+                ),
+                posts=[
+                    make_post(
+                        5001,
+                        raw_payload={
+                            "replies": {
+                                "comments": True,
+                                "channel_id": 222,
+                                "replies": "90",
+                            }
+                        },
+                    )
+                ],
+                plan=plan,
+                discussion_options=ChannelDiscussionOptions(mode="metadata"),
+                run_mode="full",
+            )
+
+            records = [
+                json.loads(line)
+                for line in plan.discussion_metadata_jsonl_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+
+            self.assertEqual(fetcher.calls, [])
+            self.assertEqual(result.metadata_count, 1)
+            self.assertEqual(result.comment_count, 0)
+            self.assertEqual(result.discussion_chat_id, 222)
+            self.assertEqual(records[0]["discussion_chat_id"], 222)
+            self.assertEqual(records[0]["replies_count"], 90)
+            self.assertTrue(records[0]["has_comments"])
+            self.assertFalse(records[0]["comments_exported"])
+            self.assertEqual(records[0]["source"], "raw_payload.replies")
+            self.assertFalse(plan.discussion_comments_jsonl_path.exists())
 
     async def test_failed_thread_does_not_fail_whole_export(self):
         fetcher = FakeDiscussionFetcher(
@@ -257,6 +313,50 @@ class TestChannelDiscussionExporter(unittest.IsolatedAsyncioTestCase):
             )
             self.assertEqual(thread["status"], "partial")
             self.assertEqual(fetcher.calls[0]["max_comments_per_post"], 2)
+
+    async def test_resolved_discussion_with_empty_fetch_writes_no_comments_status(self):
+        fetcher = FakeDiscussionFetcher(
+            {
+                5001: ChannelDiscussionFetchResult(comments=(), has_more=False),
+            }
+        )
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_discussion_exporter_no_comments_"
+        ) as tmpdir:
+            plan = self._build_plan(tmpdir)
+            result = await ChannelDiscussionExporter(fetcher=fetcher).export_for_posts(
+                channel_identity=ChannelIdentity(
+                    channel_id=111,
+                    title="Example",
+                    username="example",
+                ),
+                discussion_source=ChannelDiscussionSource(
+                    status=DISCUSSION_SOURCE_STATUS_RESOLVED,
+                    discussion_chat_id=222,
+                    discussion_entity=SimpleNamespace(id=222),
+                    error=None,
+                ),
+                posts=[make_post(5001, replies_count=3)],
+                plan=plan,
+                discussion_options=ChannelDiscussionOptions(
+                    mode="full",
+                    max_comments_per_post=100,
+                ),
+                run_mode="full",
+            )
+
+            self.assertEqual(result.thread_count, 1)
+            self.assertEqual(result.comment_count, 0)
+            self.assertEqual(fetcher.calls[0]["message_id"], 5001)
+            thread = json.loads(
+                plan.discussion_threads_jsonl_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()[0]
+            )
+            self.assertEqual(thread["status"], "no_comments")
+            self.assertEqual(thread["discussion_chat_id"], 222)
+            self.assertEqual(thread["comments_count"], 3)
 
 
 if __name__ == "__main__":

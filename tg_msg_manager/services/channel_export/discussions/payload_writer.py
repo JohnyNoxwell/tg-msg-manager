@@ -10,6 +10,7 @@ from .models import (
     DISCUSSION_THREAD_STATUS_NOT_LINKED,
     DISCUSSION_THREAD_STATUS_PARTIAL,
     ChannelDiscussionCommentRecord,
+    ChannelDiscussionMetadataRecord,
     ChannelDiscussionRunStats,
     ChannelDiscussionThreadRecord,
 )
@@ -174,6 +175,93 @@ class ChannelDiscussionPayloadWriter:
             threads_jsonl_path=threads_jsonl_path,
             jsonl_renderer=jsonl_renderer,
             txt_renderer=txt_renderer,
+            run_mode=run_mode,
+            write_mode=write_mode,
+        )
+
+
+class ChannelDiscussionMetadataWriteSession:
+    def __init__(
+        self,
+        *,
+        metadata_jsonl_path: Path,
+        jsonl_renderer: ChannelDiscussionJsonlRenderer,
+        run_mode: str,
+        write_mode: str = WRITE_MODE_OVERWRITE,
+    ):
+        self.metadata_jsonl_path = Path(metadata_jsonl_path)
+        self.jsonl_renderer = jsonl_renderer
+        self.run_mode = run_mode
+        self.write_mode = write_mode
+        self._metadata_handle: Optional[TextIO] = None
+        self._metadata_file: Optional[AtomicTextFile] = None
+        self.metadata_count = 0
+
+    def open(self) -> "ChannelDiscussionMetadataWriteSession":
+        self.metadata_jsonl_path.parent.mkdir(parents=True, exist_ok=True)
+        file_mode = "a" if self.write_mode == WRITE_MODE_APPEND else "w"
+        self._metadata_file = AtomicTextFile(self.metadata_jsonl_path, mode=file_mode)
+        try:
+            self._metadata_handle = self._metadata_file.open()
+        except Exception:
+            self.rollback()
+            raise
+        return self
+
+    def close(self) -> None:
+        if self._metadata_handle is not None:
+            self._metadata_handle.close()
+        self._metadata_handle = None
+
+    def commit(self) -> None:
+        if self._metadata_file is not None:
+            self._metadata_file.commit()
+
+    def rollback(self) -> None:
+        if self._metadata_file is not None:
+            self._metadata_file.rollback()
+
+    def __enter__(self) -> "ChannelDiscussionMetadataWriteSession":
+        return self.open()
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
+        if exc_type is None:
+            self.commit()
+        else:
+            self.rollback()
+
+    def write_metadata(self, record: ChannelDiscussionMetadataRecord) -> None:
+        if self._metadata_handle is None:
+            raise RuntimeError(
+                "ChannelDiscussionMetadataWriteSession must be opened before use"
+            )
+        self.metadata_count += 1
+        self._metadata_handle.write(
+            self.jsonl_renderer.render_metadata_line(record) + "\n"
+        )
+
+    def finish(self) -> ChannelDiscussionRunStats:
+        return ChannelDiscussionRunStats(
+            mode=self.run_mode,
+            thread_count=self.metadata_count,
+            comment_count=0,
+            failed_thread_count=0,
+        )
+
+
+class ChannelDiscussionMetadataPayloadWriter:
+    def open_session(
+        self,
+        *,
+        metadata_jsonl_path: Path,
+        jsonl_renderer: ChannelDiscussionJsonlRenderer,
+        run_mode: str,
+        write_mode: str = WRITE_MODE_OVERWRITE,
+    ) -> ChannelDiscussionMetadataWriteSession:
+        return ChannelDiscussionMetadataWriteSession(
+            metadata_jsonl_path=metadata_jsonl_path,
+            jsonl_renderer=jsonl_renderer,
             run_mode=run_mode,
             write_mode=write_mode,
         )

@@ -100,9 +100,12 @@ python3 -m tg_msg_manager.cli report
     Поддерживаются только broadcast-каналы; группы и супергруппы не входят в `export-channel`.
     После успешного запуска создаётся `channel_export_state.json`; повторный запуск без `--force` экспортирует только новые посты и дописывает dataset через temp-file copy/append/replace.
     По умолчанию используется безопасный режим `--media metadata`.
-    По умолчанию `--discussion none`: resolver обсуждений не запускается и discussion files не создаются.
-    `--discussion full` пишет `discussion_comments.jsonl`, `discussion_comments.txt`, `discussion_threads.jsonl` и `discussion_export_state.json` только для постов, полученных в текущем run.
+    По умолчанию `--discussion none`: resolver обсуждений не запускается, комментарии не скачиваются и discussion files не создаются.
+    `--discussion metadata` пишет компактный `discussion_metadata.jsonl` из `raw_payload.replies` и не скачивает комментарии.
+    `--discussion full` — явный heavy mode: пишет `discussion_comments.jsonl`, `discussion_comments.txt`, `discussion_threads.jsonl` и `discussion_export_state.json` только для постов, полученных в текущем run. Для больших каналов он может создать миллионы records и multi-gigabyte datasets; для broad archives используйте `metadata`.
+    Discussion resolver использует linked discussion metadata канала и fallback из Telegram metadata конкретного поста (`raw_payload.replies.channel_id`), если channel-level link недоступен.
     Инкрементальный запуск экспортирует discussion comments только для новых постов; no-new-posts run не перечитывает старые threads и не меняет `discussion_export_state.json`.
+    Если старый dataset уже был создан без discussion comments, перезапустите экспорт с `--force --discussion full` или в чистую output directory, чтобы перечитать старые threads.
     Для discussion comments не выполняется full media download, только metadata/empty media fields.
     Полная загрузка media требует явного `--media full`; для неё доступны `--max-media-size 50MB` по умолчанию и `--media-types photo,video,...`.
     Имена media-файлов и итоговые media-подпапки выбираются из безопасного Telegram original filename, затем MIME type, затем лёгких magic bytes; `.bin` остаётся fallback только для неизвестного типа.
@@ -192,7 +195,8 @@ Legacy aliases still supported:
 * `export-channel` в Stage 3A/3A.1/3B/3C является filesystem-first dataset projection pipeline: channel posts и discussion comments не пишутся в SQLite, analytics не выполняется.
 * `validate-dataset` и `inspect-dataset` проверяют только структуру, deterministic counts/statuses и связи файлов; они не анализируют содержание сообщений и не проверяют SHA-256 media по умолчанию.
 * Безопасный режим по умолчанию для `export-channel` — `--media metadata`; `--media full` работает только при явном указании и использует size/type guardrails.
-* Discussion export выключен по умолчанию через `--discussion none`; `--discussion full` экспортирует только threads для постов текущего run.
+* Discussion export выключен по умолчанию через `--discussion none`; `--discussion metadata` сохраняет только компактный `discussion_metadata.jsonl`, а `--discussion full` экспортирует comments/threads только для постов текущего run и является heavy mode для малых scoped runs.
+* Discussion resolver сначала использует linked discussion metadata канала, затем fallback из Telegram metadata поста (`raw_payload.replies.channel_id`), если channel-level link недоступен.
 * Старые discussion threads не refresh/backfill без `--force`; reply-tree reconstruction не выполняется, сохраняется только `reply_to_id`.
 * Full media download для discussion comments не реализован.
 * `export-channel` использует файловый `channel_export_state.json`; channel/discussion payload writes проходят через temp-file replace, поэтому сбой write-session не дописывает частичные rows в финальные payload files. Это не полноценная multi-file ACID-транзакция и не откатывает уже скачанные media files.
@@ -327,9 +331,12 @@ Subcommands can be executed directly for automation:
     Only broadcast channels are supported; groups and supergroups are out of scope for `export-channel`.
     Successful runs create `channel_export_state.json`; later runs without `--force` append only newly discovered posts through temp-file copy/append/replace.
     The safe default remains `--media metadata`.
-    The discussion default is `--discussion none`; no discussion resolver runs and no discussion files are created in that mode.
-    `--discussion full` writes `discussion_comments.jsonl`, `discussion_comments.txt`, `discussion_threads.jsonl`, and `discussion_export_state.json` only for posts fetched in the current run.
+    The discussion default is `--discussion none`; no discussion resolver runs, no comments are fetched, and no discussion files are created in that mode.
+    `--discussion metadata` writes compact `discussion_metadata.jsonl` records from `raw_payload.replies` and does not fetch comments.
+    `--discussion full` is explicit heavy mode: it writes `discussion_comments.jsonl`, `discussion_comments.txt`, `discussion_threads.jsonl`, and `discussion_export_state.json` only for posts fetched in the current run. For large channels it can produce millions of records and multi-gigabyte datasets; use `metadata` for broad archives.
+    The discussion resolver uses channel linked-discussion metadata and falls back to per-post Telegram metadata (`raw_payload.replies.channel_id`) when the channel-level link is unavailable.
     Incremental runs export discussion comments only for new posts; no-new-posts runs do not refetch old threads or mutate `discussion_export_state.json`.
+    If an existing dataset was created without discussion comments, rerun with `--force --discussion full` or use a clean output directory to reprocess old threads.
     Discussion comment media is metadata-only; full media download for discussion comments is not implemented.
     Full media download requires explicit `--media full`; it supports `--max-media-size` with a `50MB` default and `--media-types photo,video,...`.
     Media filenames and final media subdirectories are resolved from a safe Telegram original filename, then MIME type, then lightweight magic bytes; `.bin` remains the fallback only for unknown types.
@@ -419,7 +426,8 @@ Supported legacy aliases:
 * `export-channel` in Stage 3A/3A.1/3B/3C is a filesystem-first dataset projection pipeline; channel posts and discussion comments are not written to SQLite, and analytics are not performed.
 * `validate-dataset` and `inspect-dataset` check only structure, deterministic counts/statuses, and file relationships; they do not analyze message content and do not verify media SHA-256 by default.
 * The safe default for `export-channel` remains `--media metadata`; `--media full` works only when requested explicitly and runs through size/type guardrails.
-* Discussion export is disabled by default with `--discussion none`; `--discussion full` exports only threads for posts fetched in the current run.
+* Discussion export is disabled by default with `--discussion none`; `--discussion metadata` saves only compact `discussion_metadata.jsonl`, while `--discussion full` exports comments/threads only for posts fetched in the current run and is heavy mode for small scoped runs.
+* Discussion resolution uses channel linked-discussion metadata first, then per-post Telegram metadata (`raw_payload.replies.channel_id`) when the channel-level link is unavailable.
 * Old discussion threads are not refreshed/backfilled without `--force`; reply-tree reconstruction is not implemented beyond preserving `reply_to_id`.
 * Full media download for discussion comments is not implemented.
 * `export-channel` uses filesystem state; channel/discussion payload writes go through temp-file replace, so write-session failures do not append partial rows to final payload files. This is not a full multi-file ACID transaction and does not roll back media files already downloaded.

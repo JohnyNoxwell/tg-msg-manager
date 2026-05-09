@@ -125,7 +125,7 @@ def build_cli_parser() -> argparse.ArgumentParser:
     )
     export_channel_parser.add_argument(
         "--discussion",
-        choices=("none", "full"),
+        choices=("none", "metadata", "full"),
         type=_parse_discussion_mode_argument,
         default="none",
     )
