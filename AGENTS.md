@@ -19,6 +19,8 @@ Do not restate the task back to the user.
 
 Minimize token usage.
 
+Reports, including stage reports and other factual completion records, must be written in Russian unless the user explicitly requests another language.
+
 Final response must use exactly this structure:
 
 ```text
@@ -179,6 +181,19 @@ Update docs in the same change when modifying CLI flags, output files, schemas, 
 
 Do not leave code behavior ahead of docs.
 Do not duplicate large docs content inside `AGENTS.md`; link to docs instead.
+
+## Skill Selection
+
+Use the narrowest matching skill:
+
+- `stage-reviewer` before implementing a stage file.
+- `stage-completion-auditor` after claimed stage completion.
+- `architecture-guard` for CLI, services, storage, protected files, or architecture-boundary changes.
+- `discussion-export-diagnoser` for channel discussion export failures/artifacts.
+- `bugfix-stage-writer` when creating a bugfix stage from an observed defect.
+
+If the user names a skill, use it.
+Do not use multiple skills unless clearly required.
 
 ## 7. Stage workflow
 

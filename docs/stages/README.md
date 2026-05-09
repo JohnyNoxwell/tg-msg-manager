@@ -6,7 +6,7 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- None.
+- [`active/stage_4b_0_console_utility_visual_refresh.md`](active/stage_4b_0_console_utility_visual_refresh.md)
 
 The [`active/`](active/) directory must contain only unfinished or next active work. Do not leave completed stage task files, general launch prompts, prompt packs, or historical records there.
 
