@@ -467,6 +467,7 @@ class ChannelExportService:
             max_comments_per_post=options.max_comments_per_post,
         )
         return await self.discussion_exporter.export_for_posts(
+            channel_entity=entity,
             channel_identity=channel_identity,
             discussion_source=discussion_source,
             posts=posts,

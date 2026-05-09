@@ -158,6 +158,7 @@ class TestChannelExportStateConsistency(unittest.IsolatedAsyncioTestCase):
             exporter = ChannelDiscussionExporter(fetcher=UnusedDiscussionFetcher())
             with self.assertRaises(ChannelDiscussionStateError):
                 await exporter.export_for_posts(
+                    channel_entity=object(),
                     channel_identity=ChannelIdentity(111, "Daily", "daily"),
                     discussion_source=ChannelDiscussionSource(
                         status=DISCUSSION_SOURCE_STATUS_RESOLVED,
@@ -180,6 +181,7 @@ class TestChannelExportStateConsistency(unittest.IsolatedAsyncioTestCase):
             exporter = ChannelDiscussionExporter(fetcher=UnusedDiscussionFetcher())
             with self.assertRaises(ChannelDiscussionStateError):
                 await exporter.export_for_posts(
+                    channel_entity=object(),
                     channel_identity=ChannelIdentity(111, "Daily", "daily"),
                     discussion_source=ChannelDiscussionSource(
                         status=DISCUSSION_SOURCE_STATUS_RESOLVED,

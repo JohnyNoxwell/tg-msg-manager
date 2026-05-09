@@ -151,6 +151,101 @@ class TestDBExporter(unittest.TestCase):
             self.service._write_batch_size(as_json=True, json_profile="ai"), 1000
         )
 
+    def test_db_txt_export_legacy_profile_keeps_flat_log_style(self):
+        self.storage.get_user_messages.return_value = [
+            MessageData(
+                message_id=1,
+                chat_id=2,
+                user_id=3,
+                author_name="Target",
+                timestamp=datetime.fromtimestamp(1700000000),
+                text="hello legacy",
+                media_type=None,
+                reply_to_id=None,
+                fwd_from_id=None,
+                context_group_id=None,
+                raw_payload={},
+            )
+        ]
+        self.storage.get_user.return_value = {
+            "user_id": 3,
+            "first_name": "Target",
+            "last_name": "",
+            "username": "",
+        }
+
+        path = asyncio.run(
+            self.service.export_user_messages(
+                3,
+                output_dir=self.tmpdir,
+                as_json=False,
+                txt_profile="legacy",
+            )
+        )
+
+        with open(path, "r", encoding="utf-8") as handle:
+            content = handle.read()
+        self.assertIn("====================", content)
+        self.assertIn("<Target (3)>:", content)
+        self.assertIn("hello legacy", content)
+        self.assertNotIn("CONTEXT BLOCK", content)
+
+    def test_db_txt_export_context_readable_profile_uses_context_markers(self):
+        self.storage.get_user_messages.return_value = [
+            MessageData(
+                message_id=1,
+                chat_id=2,
+                user_id=4,
+                author_name="Other",
+                timestamp=datetime.fromtimestamp(1700000000),
+                text="before",
+                media_type=None,
+                reply_to_id=None,
+                fwd_from_id=None,
+                context_group_id="group-1",
+                raw_payload={},
+            ),
+            MessageData(
+                message_id=2,
+                chat_id=2,
+                user_id=3,
+                author_name="Target",
+                timestamp=datetime.fromtimestamp(1700000001),
+                text="target text",
+                media_type=None,
+                reply_to_id=1,
+                fwd_from_id=None,
+                context_group_id="group-1",
+                raw_payload={},
+            ),
+        ]
+        self.storage.get_user.return_value = {
+            "user_id": 3,
+            "first_name": "Target",
+            "last_name": "",
+            "username": "",
+        }
+
+        path = asyncio.run(
+            self.service.export_user_messages(
+                3,
+                output_dir=self.tmpdir,
+                as_json=False,
+                txt_profile="context-readable",
+            )
+        )
+
+        with open(path, "r", encoding="utf-8") as handle:
+            content = handle.read()
+        self.assertIn("TXT profile: context-readable", content)
+        self.assertIn("CONTEXT BLOCK", content)
+        self.assertIn("[REPLIED MESSAGE]", content)
+        self.assertIn("[CONTEXT BEFORE]", content)
+        self.assertIn("[TARGET MESSAGE]", content)
+        self.assertIn("[CONTEXT AFTER]", content)
+        self.assertIn("target text", content)
+        self.assertNotIn("====================", content)
+
     def test_export_user_messages_skips_full_rewrite_when_fingerprint_is_unchanged(
         self,
     ):
@@ -656,7 +751,12 @@ class TestDBExporter(unittest.TestCase):
         }
 
         output_path = asyncio.run(
-            self.service.export_user_messages(3, output_dir=self.tmpdir, as_json=False)
+            self.service.export_user_messages(
+                3,
+                output_dir=self.tmpdir,
+                as_json=False,
+                txt_profile="legacy",
+            )
         )
 
         with open(output_path, "r", encoding="utf-8") as handle:

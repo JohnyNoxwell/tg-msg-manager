@@ -30,7 +30,12 @@ Current completed prompt groups:
 - Stage 4A dataset validation / inspection task prompts.
 - Stage 4A.5 context-readable TXT export profile task prompts.
 - Stage 4A.6 context-readable TXT fallback hardening task prompt.
+- Stage 4A.7 DB export TXT profile parity task prompt.
 - Stage 4A.8 discussion export policy hardening task prompt.
+
+Stage 4A.7 completed task files:
+
+- [`completed/stage_4a_7_db_export_txt_profile_parity.md`](completed/stage_4a_7_db_export_txt_profile_parity.md)
 
 Stage 4A.8 completed task files:
 
@@ -103,7 +108,7 @@ Archived launch prompts and prompt packs:
 
 Reports under [`reports/`](reports/) are factual completion records. They can contain time-bound claims that were true for a specific stage.
 
-Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, Stage 3E.4, Stage 3E.5, Stage 4A, Stage 4A.5, Stage 4A.6, and Stage 4A.8 records:
+Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, Stage 3E.4, Stage 3E.5, Stage 4A, Stage 4A.5, Stage 4A.6, Stage 4A.7, and Stage 4A.8 records:
 
 - [`reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md`](reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md)
 - [`reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md`](reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md)
@@ -122,6 +127,7 @@ Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, 
 - [`reports/STAGE_4A_DATASET_VALIDATION_INSPECTION_REPORT.md`](reports/STAGE_4A_DATASET_VALIDATION_INSPECTION_REPORT.md)
 - [`reports/STAGE_4A_5_CONTEXT_READABLE_TXT_PROFILE_REPORT.md`](reports/STAGE_4A_5_CONTEXT_READABLE_TXT_PROFILE_REPORT.md)
 - [`reports/STAGE_4A_6_CONTEXT_GROUP_ID_FALLBACK_HARDENING_REPORT.md`](reports/STAGE_4A_6_CONTEXT_GROUP_ID_FALLBACK_HARDENING_REPORT.md)
+- [`reports/STAGE_4A_7_DB_EXPORT_TXT_PROFILE_PARITY_REPORT.md`](reports/STAGE_4A_7_DB_EXPORT_TXT_PROFILE_PARITY_REPORT.md)
 - [`reports/STAGE_4A_8_DISCUSSION_EXPORT_POLICY_HARDENING_REPORT.md`](reports/STAGE_4A_8_DISCUSSION_EXPORT_POLICY_HARDENING_REPORT.md)
 
 ## Stage lifecycle

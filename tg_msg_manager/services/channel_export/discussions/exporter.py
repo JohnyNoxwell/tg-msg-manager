@@ -61,6 +61,7 @@ class ChannelDiscussionExporter:
     async def export_for_posts(
         self,
         *,
+        channel_entity: Any,
         channel_identity: Any,
         discussion_source: ChannelDiscussionSource,
         posts: Iterable[Any],
@@ -119,6 +120,7 @@ class ChannelDiscussionExporter:
             for post in posts:
                 thread, comments = await self._build_thread_payload(
                     channel_identity=channel_identity,
+                    channel_entity=channel_entity,
                     discussion_source=discussion_source,
                     post=post,
                     max_comments_per_post=discussion_options.max_comments_per_post,
@@ -205,6 +207,7 @@ class ChannelDiscussionExporter:
         self,
         *,
         channel_identity: Any,
+        channel_entity: Any,
         discussion_source: ChannelDiscussionSource,
         post: Any,
         max_comments_per_post: int,
@@ -234,8 +237,21 @@ class ChannelDiscussionExporter:
                 ),
                 (),
             )
+        if not self._post_has_discussion_comments(post):
+            return (
+                self._thread_record(
+                    channel_identity=channel_identity,
+                    post=post,
+                    discussion_source=discussion_source,
+                    status=DISCUSSION_THREAD_STATUS_NO_COMMENTS,
+                    comments_count=0,
+                    exported_comments_count=0,
+                ),
+                (),
+            )
 
         fetch_result = await self.fetcher.fetch_comments_for_post(
+            channel_entity=channel_entity,
             discussion_entity=discussion_source.discussion_entity,
             channel_post_record=post,
             max_comments_per_post=max_comments_per_post,
@@ -352,6 +368,20 @@ class ChannelDiscussionExporter:
             return int(value)
         except (TypeError, ValueError):
             return None
+
+    @classmethod
+    def _post_has_discussion_comments(cls, post: Any) -> bool:
+        replies_count = cls._safe_optional_int(getattr(post, "replies_count", None))
+        if replies_count is not None:
+            return replies_count > 0
+        raw_payload = getattr(post, "raw_payload", None)
+        if not isinstance(raw_payload, dict) or "replies" not in raw_payload:
+            return True
+        replies = raw_payload.get("replies")
+        if not isinstance(replies, dict) or replies.get("comments") is not True:
+            return False
+        nested_replies = cls._safe_optional_int(replies.get("replies"))
+        return nested_replies is None or nested_replies > 0
 
     @staticmethod
     def _discussion_root_message_id(

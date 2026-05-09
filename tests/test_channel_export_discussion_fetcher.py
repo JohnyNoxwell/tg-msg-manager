@@ -43,9 +43,11 @@ class TestChannelDiscussionFetcher(unittest.IsolatedAsyncioTestCase):
         comments = [make_comment(2, 12), make_comment(1, 11)]
         client = FakeDiscussionClient(comments=comments)
         post = SimpleNamespace(message_id=5001)
+        channel_entity = SimpleNamespace(id=111)
         discussion_entity = SimpleNamespace(id=222)
 
         result = await ChannelDiscussionFetcher(client).fetch_comments_for_post(
+            channel_entity=channel_entity,
             discussion_entity=discussion_entity,
             channel_post_record=post,
             max_comments_per_post=100,
@@ -53,7 +55,7 @@ class TestChannelDiscussionFetcher(unittest.IsolatedAsyncioTestCase):
 
         self.assertIsNone(result.error)
         self.assertEqual([comment.id for comment in result.comments], [1, 2])
-        self.assertEqual(client.calls[0]["entity"], discussion_entity)
+        self.assertEqual(client.calls[0]["entity"], channel_entity)
         self.assertEqual(client.calls[0]["reply_to"], 5001)
 
     async def test_respects_max_comments_per_post(self):
@@ -62,6 +64,7 @@ class TestChannelDiscussionFetcher(unittest.IsolatedAsyncioTestCase):
         )
 
         result = await ChannelDiscussionFetcher(client).fetch_comments_for_post(
+            channel_entity=SimpleNamespace(id=111),
             discussion_entity=SimpleNamespace(id=222),
             channel_post_record=SimpleNamespace(message_id=5001),
             max_comments_per_post=2,
@@ -76,6 +79,7 @@ class TestChannelDiscussionFetcher(unittest.IsolatedAsyncioTestCase):
         result = await ChannelDiscussionFetcher(
             FakeDiscussionClient()
         ).fetch_comments_for_post(
+            channel_entity=SimpleNamespace(id=111),
             discussion_entity=SimpleNamespace(id=222),
             channel_post_record=SimpleNamespace(message_id=5001),
             max_comments_per_post=100,
@@ -89,6 +93,7 @@ class TestChannelDiscussionFetcher(unittest.IsolatedAsyncioTestCase):
         result = await ChannelDiscussionFetcher(
             FakeDiscussionClient(error=RuntimeError("thread unavailable"))
         ).fetch_comments_for_post(
+            channel_entity=SimpleNamespace(id=111),
             discussion_entity=SimpleNamespace(id=222),
             channel_post_record=SimpleNamespace(message_id=5001),
             max_comments_per_post=100,

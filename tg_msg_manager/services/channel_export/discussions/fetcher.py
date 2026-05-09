@@ -11,6 +11,7 @@ class ChannelDiscussionFetcher:
     async def fetch_comments_for_post(
         self,
         *,
+        channel_entity: Any,
         discussion_entity: Any,
         channel_post_record: Any,
         max_comments_per_post: int,
@@ -18,6 +19,7 @@ class ChannelDiscussionFetcher:
         comments = []
         try:
             async for comment in self._iter_client_comments(
+                channel_entity=channel_entity,
                 discussion_entity=discussion_entity,
                 channel_post_record=channel_post_record,
                 max_comments_per_post=max_comments_per_post,
@@ -40,11 +42,13 @@ class ChannelDiscussionFetcher:
     async def iter_comments_for_post(
         self,
         *,
+        channel_entity: Any,
         discussion_entity: Any,
         channel_post_record: Any,
         max_comments_per_post: int,
     ):
         result = await self.fetch_comments_for_post(
+            channel_entity=channel_entity,
             discussion_entity=discussion_entity,
             channel_post_record=channel_post_record,
             max_comments_per_post=max_comments_per_post,
@@ -57,13 +61,14 @@ class ChannelDiscussionFetcher:
     async def _iter_client_comments(
         self,
         *,
+        channel_entity: Any,
         discussion_entity: Any,
         channel_post_record: Any,
         max_comments_per_post: int,
     ):
         limit = max_comments_per_post + 1
         async for comment in self.client.iter_messages(
-            discussion_entity,
+            channel_entity,
             limit=limit,
             reply_to=channel_post_record.message_id,
         ):

@@ -15,7 +15,7 @@ from .skip_policy import DBExportSkipPolicy
 from .source_loader import DBExportSourceLoader
 from .state_manager import DBExportStateManager
 from .txt_renderer import DBExportTxtRenderer
-from ..rendering.txt_profiles import TXT_PROFILE_LEGACY, validate_txt_profile
+from ..rendering.txt_profiles import DEFAULT_TXT_PROFILE, validate_txt_profile
 
 logger = logging.getLogger(__name__)
 
@@ -314,7 +314,7 @@ class DBExportService:
         as_json: bool = False,
         include_date: bool = False,
         json_profile: str = "ai",
-        txt_profile: str = TXT_PROFILE_LEGACY,
+        txt_profile: str = DEFAULT_TXT_PROFILE,
     ) -> str:
         txt_profile = validate_txt_profile(txt_profile)
         started_at = perf_counter()
@@ -452,7 +452,7 @@ class DBExportService:
         as_json: bool = True,
         include_date: bool = False,
         json_profile: str = "ai",
-        txt_profile: str = TXT_PROFILE_LEGACY,
+        txt_profile: str = DEFAULT_TXT_PROFILE,
     ) -> str:
         txt_profile = validate_txt_profile(txt_profile)
         resolved_output_dir = output_dir or self.default_output_dir

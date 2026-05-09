@@ -31,7 +31,32 @@ TXT profiles:
 - Missing replies render compactly as `↪ missing reply #id`.
 - `legacy` keeps the old flat log-style TXT shape for compatibility.
 - TXT is a projection only. JSONL/database records remain canonical.
-- `db-export` remains legacy TXT by default.
+- `db-export` also supports these TXT profiles and defaults to `context-readable`.
+
+## `db-export`
+
+Export cached SQLite messages for one user into TXT or JSONL.
+
+Examples:
+
+```bash
+python3 -m tg_msg_manager.cli db-export --user-id 123456789
+python3 -m tg_msg_manager.cli db-export --user-id 123456789 --txt-profile context-readable
+python3 -m tg_msg_manager.cli db-export --user-id 123456789 --txt-profile legacy
+python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json
+```
+
+Arguments:
+
+- `--user-id` required. Target user ID.
+- `--json` optional. Write compact AI-friendly JSONL instead of TXT.
+- `--txt-profile` optional for TXT output. Values: `context-readable`, `legacy`. Default for DB TXT export is `context-readable`.
+
+Notes:
+
+- `context-readable` renders the same readable context-block markers as regular TXT export when context is present.
+- `legacy` keeps the old flat log-style TXT shape for compatibility.
+- JSONL behavior is unchanged by `--txt-profile`.
 
 ## `export-channel`
 

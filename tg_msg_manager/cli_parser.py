@@ -94,6 +94,12 @@ def build_cli_parser() -> argparse.ArgumentParser:
     db_parser = subparsers.add_parser("db-export")
     db_parser.add_argument("--user-id", required=True)
     db_parser.add_argument("--json", action="store_true", default=False)
+    db_parser.add_argument(
+        "--txt-profile",
+        choices=sorted(ALLOWED_TXT_PROFILES),
+        type=_parse_txt_profile_argument,
+        default=DEFAULT_TXT_PROFILE,
+    )
 
     validate_dataset_parser = subparsers.add_parser("validate-dataset")
     validate_dataset_parser.add_argument("--path", required=True)

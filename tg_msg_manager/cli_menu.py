@@ -224,11 +224,30 @@ async def _handle_menu_db_export(ctx) -> None:
             target = PrimaryTarget.coerce(users[int(idx_str) - 1])
             fmt = TerminalInput.prompt_with_esc(_("label_format_prompt"))
             if fmt == "1":
-                await ctx.db_exporter.export_user_messages(target.user_id, as_json=True)
-            elif fmt == "2":
                 await ctx.db_exporter.export_user_messages(
-                    target.user_id, as_json=False
+                    target.user_id,
+                    as_json=True,
+                    txt_profile=DEFAULT_TXT_PROFILE,
                 )
+            elif fmt in {"", "2"}:
+                profile_input = TerminalInput.prompt_with_esc(
+                    _("prompt_txt_profile") + ": "
+                )
+                if profile_input is None:
+                    return
+                try:
+                    txt_profile = _parse_menu_txt_profile(profile_input)
+                except ValueError:
+                    _print_menu_invalid_selection()
+                    return
+                await ctx.db_exporter.export_user_messages(
+                    target.user_id,
+                    as_json=False,
+                    txt_profile=txt_profile,
+                )
+            else:
+                _print_menu_invalid_selection()
+                return
     else:
         print(UI.paint(_("no_targets"), UI.CLR_WARN))
     pause_for_enter()

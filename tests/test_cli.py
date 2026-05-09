@@ -21,8 +21,10 @@ from tg_msg_manager.core.models.sync_report import TrackedSyncRunReport
 from tg_msg_manager.core.config import Settings
 from tg_msg_manager.core.runtime import AppPaths, AppRuntime
 from tg_msg_manager.core.models.setup import SchedulerSetupResult
+from tg_msg_manager.infrastructure.storage.records import PrimaryTarget
 from tg_msg_manager.i18n import _
 from tg_msg_manager.i18n import get_lang
+from tg_msg_manager.services.rendering import DEFAULT_TXT_PROFILE
 
 
 class TestCLIContext(unittest.IsolatedAsyncioTestCase):
@@ -510,6 +512,40 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(
             mock_ctx.db_exporter.export_user_messages.await_args.kwargs["as_json"]
         )
+        self.assertEqual(
+            mock_ctx.db_exporter.export_user_messages.await_args.kwargs["txt_profile"],
+            DEFAULT_TXT_PROFILE,
+        )
+
+    @patch("tg_msg_manager.cli.CLIContext")
+    async def test_run_cli_db_export_passes_explicit_legacy_txt_profile(
+        self, mock_ctx_cls
+    ):
+        mock_ctx = MagicMock()
+        mock_ctx.initialize = AsyncMock()
+        mock_ctx.shutdown = AsyncMock()
+        mock_ctx.db_exporter = MagicMock()
+        mock_ctx.db_exporter.export_user_messages = AsyncMock(return_value="x.txt")
+        mock_ctx_cls.return_value = mock_ctx
+
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "prog",
+                "db-export",
+                "--user-id",
+                "123456789",
+                "--txt-profile",
+                "legacy",
+            ],
+        ):
+            await run_cli(runtime=self.runtime)
+
+        self.assertEqual(
+            mock_ctx.db_exporter.export_user_messages.await_args.kwargs["txt_profile"],
+            "legacy",
+        )
 
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_db_export_defaults_to_txt(self, mock_ctx_cls):
@@ -560,6 +596,132 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
 
         self.assertTrue(
             mock_ctx.db_exporter.export_user_messages.await_args.kwargs["as_json"]
+        )
+        self.assertEqual(
+            mock_ctx.db_exporter.export_user_messages.await_args.kwargs["txt_profile"],
+            DEFAULT_TXT_PROFILE,
+        )
+
+    @patch("tg_msg_manager.cli_menu.pause_for_enter")
+    async def test_menu_db_export_empty_txt_profile_uses_context_readable(
+        self, mock_pause
+    ):
+        del mock_pause
+        from tg_msg_manager.cli_menu import _handle_menu_db_export
+
+        ctx = MagicMock()
+        ctx.storage.get_primary_targets.return_value = [
+            PrimaryTarget(user_id=123, chat_id=456, author_name="Target")
+        ]
+        ctx.db_exporter.export_user_messages = AsyncMock(return_value="x.txt")
+
+        with patch(
+            "tg_msg_manager.cli_menu.TerminalInput.prompt_with_esc",
+            side_effect=["1", "2", ""],
+        ):
+            await _handle_menu_db_export(ctx)
+
+        ctx.db_exporter.export_user_messages.assert_awaited_once_with(
+            123,
+            as_json=False,
+            txt_profile=DEFAULT_TXT_PROFILE,
+        )
+
+    @patch("tg_msg_manager.cli_menu.pause_for_enter")
+    async def test_menu_db_export_passes_explicit_context_readable_profile(
+        self, mock_pause
+    ):
+        del mock_pause
+        from tg_msg_manager.cli_menu import _handle_menu_db_export
+
+        ctx = MagicMock()
+        ctx.storage.get_primary_targets.return_value = [
+            PrimaryTarget(user_id=123, chat_id=456, author_name="Target")
+        ]
+        ctx.db_exporter.export_user_messages = AsyncMock(return_value="x.txt")
+
+        with patch(
+            "tg_msg_manager.cli_menu.TerminalInput.prompt_with_esc",
+            side_effect=["1", "2", "context-readable"],
+        ):
+            await _handle_menu_db_export(ctx)
+
+        ctx.db_exporter.export_user_messages.assert_awaited_once_with(
+            123,
+            as_json=False,
+            txt_profile="context-readable",
+        )
+
+    @patch("tg_msg_manager.cli_menu.pause_for_enter")
+    async def test_menu_db_export_passes_explicit_legacy_profile(self, mock_pause):
+        del mock_pause
+        from tg_msg_manager.cli_menu import _handle_menu_db_export
+
+        ctx = MagicMock()
+        ctx.storage.get_primary_targets.return_value = [
+            PrimaryTarget(user_id=123, chat_id=456, author_name="Target")
+        ]
+        ctx.db_exporter.export_user_messages = AsyncMock(return_value="x.txt")
+
+        with patch(
+            "tg_msg_manager.cli_menu.TerminalInput.prompt_with_esc",
+            side_effect=["1", "2", "legacy"],
+        ):
+            await _handle_menu_db_export(ctx)
+
+        ctx.db_exporter.export_user_messages.assert_awaited_once_with(
+            123,
+            as_json=False,
+            txt_profile="legacy",
+        )
+
+    @patch("tg_msg_manager.cli_menu.pause_for_enter")
+    async def test_menu_db_export_rejects_invalid_txt_profile(self, mock_pause):
+        del mock_pause
+        from tg_msg_manager.cli_menu import _handle_menu_db_export
+
+        ctx = MagicMock()
+        ctx.storage.get_primary_targets.return_value = [
+            PrimaryTarget(user_id=123, chat_id=456, author_name="Target")
+        ]
+        ctx.db_exporter.export_user_messages = AsyncMock(return_value="x.txt")
+
+        with (
+            patch(
+                "tg_msg_manager.cli_menu.TerminalInput.prompt_with_esc",
+                side_effect=["1", "2", "compact"],
+            ),
+            patch("tg_msg_manager.cli_menu._print_menu_invalid_selection") as invalid,
+        ):
+            await _handle_menu_db_export(ctx)
+
+        invalid.assert_called_once()
+        ctx.db_exporter.export_user_messages.assert_not_awaited()
+
+    @patch("tg_msg_manager.cli_menu.pause_for_enter")
+    async def test_menu_db_export_does_not_prompt_txt_profile_for_json(
+        self, mock_pause
+    ):
+        del mock_pause
+        from tg_msg_manager.cli_menu import _handle_menu_db_export
+
+        ctx = MagicMock()
+        ctx.storage.get_primary_targets.return_value = [
+            PrimaryTarget(user_id=123, chat_id=456, author_name="Target")
+        ]
+        ctx.db_exporter.export_user_messages = AsyncMock(return_value="x.jsonl")
+
+        with patch(
+            "tg_msg_manager.cli_menu.TerminalInput.prompt_with_esc",
+            side_effect=["1", "1"],
+        ) as prompt:
+            await _handle_menu_db_export(ctx)
+
+        self.assertEqual(prompt.call_count, 2)
+        ctx.db_exporter.export_user_messages.assert_awaited_once_with(
+            123,
+            as_json=True,
+            txt_profile=DEFAULT_TXT_PROFILE,
         )
 
     @patch("tg_msg_manager.cli.main_menu", new_callable=AsyncMock)

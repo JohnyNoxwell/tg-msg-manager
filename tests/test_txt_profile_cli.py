@@ -48,3 +48,32 @@ def test_export_parser_json_flag_still_sets_json_without_changing_profile_defaul
 
     assert args.json is True
     assert args.txt_profile == DEFAULT_TXT_PROFILE
+
+
+def test_db_export_parser_accepts_txt_profiles():
+    parser = build_cli_parser()
+
+    args = parser.parse_args(
+        ["db-export", "--user-id", "123", "--txt-profile", "context-readable"]
+    )
+    assert args.txt_profile == "context-readable"
+
+    args = parser.parse_args(
+        ["db-export", "--user-id", "123", "--txt-profile", "legacy"]
+    )
+    assert args.txt_profile == "legacy"
+
+
+def test_db_export_parser_rejects_unknown_txt_profile():
+    parser = build_cli_parser()
+
+    with pytest.raises(SystemExit):
+        parser.parse_args(["db-export", "--user-id", "123", "--txt-profile", "compact"])
+
+
+def test_db_export_parser_default_txt_profile_is_context_readable():
+    parser = build_cli_parser()
+
+    args = parser.parse_args(["db-export", "--user-id", "123"])
+
+    assert args.txt_profile == DEFAULT_TXT_PROFILE

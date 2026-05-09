@@ -1,6 +1,20 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.33] - 2026-05-09
+
+### Added (EN)
+- **Stage 4A.7 DB Export TXT Profile Parity**: Added `db-export --txt-profile context-readable|legacy` and interactive DB TXT profile selection.
+
+### Changed (EN)
+- **DB TXT Default**: DB TXT export now defaults to `context-readable`; `legacy` remains available as an explicit compatibility profile. JSONL behavior is unchanged.
+
+### Добавлено (RU)
+- **Stage 4A.7 parity TXT-профилей DB export**: Добавлен `db-export --txt-profile context-readable|legacy` и выбор TXT-профиля в интерактивном DB export.
+
+### Изменения (RU)
+- **Default DB TXT**: DB TXT export теперь по умолчанию использует `context-readable`; `legacy` остаётся явным compatibility-профилем. JSONL behavior не изменён.
+
 ## [4.2.32] - 2026-05-09
 
 ### Added (EN)

@@ -93,7 +93,9 @@ def test_payload_writer_uses_legacy_renderer_when_profile_is_legacy(tmp_path):
     assert "legacy text" in (tmp_path / "out.txt").read_text(encoding="utf-8")
 
 
-def test_export_service_default_txt_profile_remains_legacy_for_db_export(tmp_path):
+def test_export_service_default_txt_profile_is_context_readable_for_db_export(
+    tmp_path,
+):
     storage = MagicMock()
     storage.start_export_run.return_value = None
     storage.get_user_messages.return_value = [_message(1)]
@@ -108,7 +110,11 @@ def test_export_service_default_txt_profile_remains_legacy_for_db_export(tmp_pat
         )
     )
 
-    assert "[15:01:00] <Alice (10)>:" in open(output_path, encoding="utf-8").read()
+    content = open(output_path, encoding="utf-8").read()
+
+    assert "TXT profile: context-readable" in content
+    assert "CONTEXT BLOCK #0001" in content
+    assert "[TARGET MESSAGE]" in content
 
 
 def test_export_service_writes_readable_output_when_requested(tmp_path):

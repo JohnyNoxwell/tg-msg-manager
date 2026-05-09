@@ -123,12 +123,15 @@ class FakeDiscussionFetcher:
     async def fetch_comments_for_post(
         self,
         *,
+        channel_entity,
         discussion_entity,
         channel_post_record,
         max_comments_per_post,
     ):
         del discussion_entity
-        self.calls.append((channel_post_record.message_id, max_comments_per_post))
+        self.calls.append(
+            (channel_entity, channel_post_record.message_id, max_comments_per_post)
+        )
         result = self.results[channel_post_record.message_id]
         if isinstance(result, Exception):
             return ChannelDiscussionFetchResult(comments=(), error=str(result))
@@ -342,7 +345,11 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
 
             self.assertEqual(result.discussion_thread_count_this_run, 2)
             self.assertEqual(result.discussion_comment_count_this_run, 2)
-            self.assertEqual(fetcher.calls, [(1, 100), (2, 100)])
+            self.assertEqual(
+                [(call[1], call[2]) for call in fetcher.calls],
+                [(1, 100), (2, 100)],
+            )
+            self.assertTrue(all(call[0] is entity for call in fetcher.calls))
             self.assertEqual(
                 [comment["message_id"] for comment in comments], [101, 201]
             )
@@ -479,7 +486,8 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
             ]
 
             self.assertEqual(result.discussion_chat_id, 222)
-            self.assertEqual(fetcher.calls, [(1, 100)])
+            self.assertEqual([(call[1], call[2]) for call in fetcher.calls], [(1, 100)])
+            self.assertIs(fetcher.calls[0][0], entity)
             self.assertEqual(threads[0]["discussion_chat_id"], 222)
             self.assertEqual(threads[0]["status"], "no_comments")
             self.assertEqual(threads[0]["comments_count"], 3)
@@ -556,7 +564,10 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
                 result.discussion_state_path.read_text(encoding="utf-8")
             )
             self.assertEqual(result.run_mode, "incremental")
-            self.assertEqual(second_fetcher.calls, [(3, 100)])
+            self.assertEqual(
+                [(call[1], call[2]) for call in second_fetcher.calls],
+                [(3, 100)],
+            )
             self.assertEqual(
                 [comment["message_id"] for comment in comments], [101, 201, 301]
             )

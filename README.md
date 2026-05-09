@@ -91,8 +91,9 @@ python3 -m tg_msg_manager.cli report
     `python3 -m tg_msg_manager.cli export-pm --user-id 123456789`
 *   **Экспорт из БД**:
     `python3 -m tg_msg_manager.cli db-export --user-id 123456789`
+    `python3 -m tg_msg_manager.cli db-export --user-id 123456789 --txt-profile legacy`
     `python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json`
-    Без `--json` команда пишет TXT; с `--json` — компактный AI-friendly JSONL.
+    Без `--json` команда пишет TXT; с `--json` — компактный AI-friendly JSONL. TXT-профиль по умолчанию — `context-readable`; `--txt-profile legacy` сохраняет старый плоский формат.
 *   **Прямой экспорт канала**:
     `python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata`
     `python3 -m tg_msg_manager.cli export-channel --channel @example --limit 10 --media metadata --discussion full --max-comments-per-post 100`
@@ -322,8 +323,9 @@ Subcommands can be executed directly for automation:
     `python3 -m tg_msg_manager.cli export-pm --user-id 123456789`
 *   **DB Export**:
     `python3 -m tg_msg_manager.cli db-export --user-id 123456789`
+    `python3 -m tg_msg_manager.cli db-export --user-id 123456789 --txt-profile legacy`
     `python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json`
-    Without `--json`, the command writes TXT; with `--json`, it writes compact AI-friendly JSONL.
+    Without `--json`, the command writes TXT; with `--json`, it writes compact AI-friendly JSONL. The default TXT profile is `context-readable`; `--txt-profile legacy` keeps the old flat format.
 *   **Direct Channel Export**:
     `python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata`
     `python3 -m tg_msg_manager.cli export-channel --channel @example --limit 10 --media metadata --discussion full --max-comments-per-post 100`

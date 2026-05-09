@@ -30,12 +30,14 @@ class FakeDiscussionFetcher:
     async def fetch_comments_for_post(
         self,
         *,
+        channel_entity,
         discussion_entity,
         channel_post_record,
         max_comments_per_post,
     ):
         self.calls.append(
             {
+                "channel_entity": channel_entity,
                 "discussion_entity": discussion_entity,
                 "message_id": channel_post_record.message_id,
                 "max_comments_per_post": max_comments_per_post,
@@ -99,6 +101,7 @@ class TestChannelDiscussionExporter(unittest.IsolatedAsyncioTestCase):
         with tempfile.TemporaryDirectory(prefix="tg_discussion_exporter_") as tmpdir:
             plan = self._build_plan(tmpdir)
             result = await ChannelDiscussionExporter(fetcher=fetcher).export_for_posts(
+                channel_entity=SimpleNamespace(id=111),
                 channel_identity=ChannelIdentity(
                     channel_id=111,
                     title="Example",
@@ -119,6 +122,8 @@ class TestChannelDiscussionExporter(unittest.IsolatedAsyncioTestCase):
                 run_mode="full",
             )
 
+            self.assertEqual(fetcher.calls[0]["channel_entity"].id, 111)
+            self.assertEqual(fetcher.calls[0]["discussion_entity"].id, 222)
             self.assertEqual(result.thread_count, 1)
             self.assertEqual(result.comment_count, 2)
             self.assertTrue(result.state_path.exists())
@@ -145,6 +150,7 @@ class TestChannelDiscussionExporter(unittest.IsolatedAsyncioTestCase):
         ) as tmpdir:
             plan = self._build_plan(tmpdir)
             result = await ChannelDiscussionExporter(fetcher=fetcher).export_for_posts(
+                channel_entity=SimpleNamespace(id=111),
                 channel_identity=ChannelIdentity(
                     channel_id=111,
                     title="Example",
@@ -207,6 +213,7 @@ class TestChannelDiscussionExporter(unittest.IsolatedAsyncioTestCase):
         ) as tmpdir:
             plan = self._build_plan(tmpdir)
             result = await ChannelDiscussionExporter(fetcher=fetcher).export_for_posts(
+                channel_entity=SimpleNamespace(id=111),
                 channel_identity=ChannelIdentity(
                     channel_id=111,
                     title="Example",
@@ -243,6 +250,7 @@ class TestChannelDiscussionExporter(unittest.IsolatedAsyncioTestCase):
         ) as tmpdir:
             plan = self._build_plan(tmpdir)
             result = await ChannelDiscussionExporter(fetcher=fetcher).export_for_posts(
+                channel_entity=SimpleNamespace(id=111),
                 channel_identity=ChannelIdentity(
                     channel_id=111,
                     title="Example",
@@ -271,6 +279,43 @@ class TestChannelDiscussionExporter(unittest.IsolatedAsyncioTestCase):
             ]
             self.assertEqual(thread_statuses, ["not_linked", "not_linked"])
 
+    async def test_post_without_discussion_replies_does_not_call_fetcher(self):
+        fetcher = FakeDiscussionFetcher({})
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_discussion_exporter_no_replies_"
+        ) as tmpdir:
+            plan = self._build_plan(tmpdir)
+            result = await ChannelDiscussionExporter(fetcher=fetcher).export_for_posts(
+                channel_entity=SimpleNamespace(id=111),
+                channel_identity=ChannelIdentity(
+                    channel_id=111,
+                    title="Example",
+                    username="example",
+                ),
+                discussion_source=ChannelDiscussionSource(
+                    status=DISCUSSION_SOURCE_STATUS_RESOLVED,
+                    discussion_chat_id=222,
+                    discussion_entity=SimpleNamespace(id=222),
+                    error=None,
+                ),
+                posts=[make_post(5001, raw_payload={"replies": None})],
+                plan=plan,
+                discussion_options=ChannelDiscussionOptions(mode="full"),
+                run_mode="full",
+            )
+
+            thread = json.loads(
+                plan.discussion_threads_jsonl_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()[0]
+            )
+
+            self.assertEqual(fetcher.calls, [])
+            self.assertEqual(result.failed_thread_count, 0)
+            self.assertEqual(thread["status"], "no_comments")
+            self.assertEqual(thread["comments_count"], 0)
+
     async def test_max_comments_limit_produces_partial_status(self):
         fetcher = FakeDiscussionFetcher(
             {
@@ -286,6 +331,7 @@ class TestChannelDiscussionExporter(unittest.IsolatedAsyncioTestCase):
         ) as tmpdir:
             plan = self._build_plan(tmpdir)
             await ChannelDiscussionExporter(fetcher=fetcher).export_for_posts(
+                channel_entity=SimpleNamespace(id=111),
                 channel_identity=ChannelIdentity(
                     channel_id=111,
                     title="Example",
@@ -326,6 +372,7 @@ class TestChannelDiscussionExporter(unittest.IsolatedAsyncioTestCase):
         ) as tmpdir:
             plan = self._build_plan(tmpdir)
             result = await ChannelDiscussionExporter(fetcher=fetcher).export_for_posts(
+                channel_entity=SimpleNamespace(id=111),
                 channel_identity=ChannelIdentity(
                     channel_id=111,
                     title="Example",
