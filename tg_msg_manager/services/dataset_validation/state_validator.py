@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from .manifest_validator import _load_json_object
 from .models import ValidationIssue, issue_error, issue_warning
@@ -30,8 +30,8 @@ DISCUSSION_COUNTER_KEYS = (
 
 @dataclass(frozen=True)
 class StateValidationResult:
-    channel_state: dict[str, Any] | None
-    discussion_state: dict[str, Any] | None
+    channel_state: Optional[dict[str, Any]]
+    discussion_state: Optional[dict[str, Any]]
     issues: tuple[ValidationIssue, ...]
 
 
@@ -57,16 +57,16 @@ def _check_counter_fields(
 def validate_state_files(
     dataset_path: Path,
     *,
-    manifest: dict[str, Any] | None,
-    message_count: int | None = None,
-    media_count: int | None = None,
-    discussion_comment_count: int | None = None,
-    discussion_thread_count: int | None = None,
+    manifest: Optional[dict[str, Any]],
+    message_count: Optional[int] = None,
+    media_count: Optional[int] = None,
+    discussion_comment_count: Optional[int] = None,
+    discussion_thread_count: Optional[int] = None,
     discussion_payload_present: bool = False,
 ) -> StateValidationResult:
     issues: list[ValidationIssue] = []
-    channel_state: dict[str, Any] | None = None
-    discussion_state: dict[str, Any] | None = None
+    channel_state: Optional[dict[str, Any]] = None
+    discussion_state: Optional[dict[str, Any]] = None
     channel_state_path = dataset_path / CHANNEL_STATE_JSON
     discussion_state_path = dataset_path / DISCUSSION_STATE_JSON
 
@@ -144,9 +144,9 @@ def load_discussion_state(dataset_path: Path) -> StateValidationResult:
 def _validate_channel_state(
     state: dict[str, Any],
     *,
-    manifest: dict[str, Any] | None,
-    message_count: int | None,
-    media_count: int | None,
+    manifest: Optional[dict[str, Any]],
+    message_count: Optional[int],
+    media_count: Optional[int],
 ) -> list[ValidationIssue]:
     issues = _check_counter_fields(state, CHANNEL_COUNTER_KEYS, CHANNEL_STATE_JSON)
     last_exported_message_id = state.get("last_exported_message_id")
@@ -226,9 +226,9 @@ def _validate_channel_state(
 def _validate_discussion_state(
     state: dict[str, Any],
     *,
-    manifest: dict[str, Any] | None,
-    discussion_comment_count: int | None,
-    discussion_thread_count: int | None,
+    manifest: Optional[dict[str, Any]],
+    discussion_comment_count: Optional[int],
+    discussion_thread_count: Optional[int],
 ) -> list[ValidationIssue]:
     issues = _check_counter_fields(
         state,

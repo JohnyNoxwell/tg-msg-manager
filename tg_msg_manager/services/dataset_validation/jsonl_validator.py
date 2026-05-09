@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from .models import MessageSummary, ValidationIssue, issue_error
 
@@ -31,7 +31,10 @@ class MessageValidationResult:
     issues: tuple[ValidationIssue, ...]
 
 
-def load_jsonl_records(path: Path, display_path: str | None = None) -> JsonlLoadResult:
+def load_jsonl_records(
+    path: Path,
+    display_path: Optional[str] = None,
+) -> JsonlLoadResult:
     shown_path = display_path or str(path)
     records: list[JsonlRecord] = []
     issues: list[ValidationIssue] = []

@@ -7,6 +7,7 @@ from argparse import Namespace
 from contextlib import redirect_stdout
 from io import StringIO
 from pathlib import Path
+from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from tg_msg_manager.cli import _command_needs_client, run_cli
@@ -193,7 +194,7 @@ class TestDatasetValidationMediaRelationships(unittest.TestCase):
         self,
         dataset: Path,
         status: str,
-        final_path: str | None,
+        final_path: Optional[str],
     ) -> None:
         record = {
             "media_id": "1_01",

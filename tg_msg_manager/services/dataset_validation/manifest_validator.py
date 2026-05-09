@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional, Tuple
 
 from .models import ValidationIssue, issue_error, issue_warning
 
@@ -12,13 +12,13 @@ MANIFEST_JSON = "manifest.json"
 
 @dataclass(frozen=True)
 class ManifestValidationResult:
-    manifest: dict[str, Any] | None
+    manifest: Optional[dict[str, Any]]
     issues: tuple[ValidationIssue, ...]
 
 
 def _load_json_object(
     path: Path, display_path: str
-) -> tuple[dict[str, Any] | None, list[ValidationIssue]]:
+) -> Tuple[Optional[dict[str, Any]], list[ValidationIssue]]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8"))
     except json.JSONDecodeError as exc:
@@ -51,7 +51,7 @@ def _load_json_object(
 
 def _warn_missing_key(
     container: dict[str, Any], key: str, path: str
-) -> ValidationIssue | None:
+) -> Optional[ValidationIssue]:
     if key not in container:
         return issue_warning(
             "manifest_shape_drift",
@@ -67,7 +67,7 @@ def _check_non_negative_int(
     path: str,
     *,
     required: bool = False,
-) -> ValidationIssue | None:
+) -> Optional[ValidationIssue]:
     if value is None and not required:
         return None
     if not isinstance(value, int) or value < 0:
@@ -82,10 +82,10 @@ def _check_non_negative_int(
 def validate_manifest_shape(
     dataset_path: Path,
     *,
-    message_count: int | None = None,
-    media_count: int | None = None,
-    discussion_comment_count: int | None = None,
-    discussion_thread_count: int | None = None,
+    message_count: Optional[int] = None,
+    media_count: Optional[int] = None,
+    discussion_comment_count: Optional[int] = None,
+    discussion_thread_count: Optional[int] = None,
 ) -> ManifestValidationResult:
     manifest_path = dataset_path / MANIFEST_JSON
     issues: list[ValidationIssue] = []

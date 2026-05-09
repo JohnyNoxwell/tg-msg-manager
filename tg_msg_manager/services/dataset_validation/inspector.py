@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 from .discussion_validator import validate_discussion_files
 from .jsonl_validator import validate_messages_jsonl
@@ -129,11 +129,11 @@ def inspect_dataset(options: DatasetInspectionOptions) -> DatasetInspectionRepor
 def _build_report(
     dataset_path: Path,
     issues: list[ValidationIssue],
-    messages: dict[str, Any] | None,
-    media: dict[str, Any] | None,
-    discussions: dict[str, Any] | None,
-    manifest: dict[str, Any] | None,
-    state: dict[str, Any] | None,
+    messages: Optional[dict[str, Any]],
+    media: Optional[dict[str, Any]],
+    discussions: Optional[dict[str, Any]],
+    manifest: Optional[dict[str, Any]],
+    state: Optional[dict[str, Any]],
 ) -> ValidationReport:
     files = _summarize_files(dataset_path) if dataset_path.is_dir() else {}
     if dataset_path.is_dir() and not any(files.values()):
@@ -170,7 +170,7 @@ def _summarize_files(dataset_path: Path) -> dict[str, dict[str, Any]]:
     return summaries
 
 
-def _manifest_summary(manifest: dict[str, Any] | None) -> dict[str, Any]:
+def _manifest_summary(manifest: Optional[dict[str, Any]]) -> dict[str, Any]:
     if not manifest:
         return {}
     export = manifest.get("export") if isinstance(manifest.get("export"), dict) else {}
@@ -195,8 +195,8 @@ def _manifest_summary(manifest: dict[str, Any] | None) -> dict[str, Any]:
 
 
 def _state_summary(
-    channel_state: dict[str, Any] | None,
-    discussion_state: dict[str, Any] | None,
+    channel_state: Optional[dict[str, Any]],
+    discussion_state: Optional[dict[str, Any]],
 ) -> dict[str, Any]:
     summary: dict[str, Any] = {}
     if channel_state:

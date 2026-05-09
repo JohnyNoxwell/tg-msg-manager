@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from .discussions.errors import ChannelDiscussionStateError
 from .errors import ChannelExportStateError
@@ -117,7 +117,7 @@ def validate_discussion_state_matches_channel(
 
 def validate_discussion_state_matches_source(
     discussion_state: Any,
-    discussion_chat_id: int | None,
+    discussion_chat_id: Optional[int],
 ) -> None:
     validate_discussion_state_integrity(discussion_state)
     if (

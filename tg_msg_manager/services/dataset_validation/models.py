@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 
 
 class ValidationSeverity(str, Enum):
@@ -16,8 +16,8 @@ class ValidationIssue:
     severity: ValidationSeverity
     code: str
     message: str
-    path: str | None = None
-    line: int | None = None
+    path: Optional[str] = None
+    line: Optional[int] = None
 
     def to_dict(self) -> dict[str, Any]:
         payload: dict[str, Any] = {
@@ -36,7 +36,7 @@ class ValidationIssue:
 class FileSummary:
     path: str
     exists: bool
-    size_bytes: int | None = None
+    size_bytes: Optional[int] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -74,8 +74,8 @@ class DiscussionSummary:
 @dataclass(frozen=True)
 class MessageSummary:
     count: int = 0
-    min_message_id: int | None = None
-    max_message_id: int | None = None
+    min_message_id: Optional[int] = None
+    max_message_id: Optional[int] = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -149,8 +149,8 @@ class DatasetInspectionReport:
 def issue_error(
     code: str,
     message: str,
-    path: str | None = None,
-    line: int | None = None,
+    path: Optional[str] = None,
+    line: Optional[int] = None,
 ) -> ValidationIssue:
     return ValidationIssue(
         severity=ValidationSeverity.ERROR,
@@ -164,8 +164,8 @@ def issue_error(
 def issue_warning(
     code: str,
     message: str,
-    path: str | None = None,
-    line: int | None = None,
+    path: Optional[str] = None,
+    line: Optional[int] = None,
 ) -> ValidationIssue:
     return ValidationIssue(
         severity=ValidationSeverity.WARNING,
