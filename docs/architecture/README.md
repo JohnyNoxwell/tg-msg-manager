@@ -18,6 +18,7 @@ Architecture docs are stable references for repository boundaries, storage/model
 - [`PAYLOADS_SPLIT_MAP.md`](PAYLOADS_SPLIT_MAP.md) - payload module split.
 - [`DATASET_WRITE_SAFETY.md`](DATASET_WRITE_SAFETY.md) - direct channel export filesystem write/commit safety contract.
 - [`DATASET_FORMAT.md`](DATASET_FORMAT.md) - direct channel export dataset, manifest, and state schema contract.
+- [`DATASET_VALIDATION.md`](DATASET_VALIDATION.md) - read-only dataset validation / inspection boundary and command contract.
 - [`STATE_AND_INCREMENTAL_MODEL.md`](STATE_AND_INCREMENTAL_MODEL.md) - direct channel export state and incremental consistency model.
 
 ## Channel export docs
@@ -40,6 +41,7 @@ These modules preserve the existing dataset, manifest, state, media, discussion,
 
 - Direct channel export dataset and state behavior are documented in [`../../README.md`](../../README.md), [`../../COMMANDS.md`](../../COMMANDS.md), and Stage 3A/3B/3C reports.
 - Direct channel export dataset field contracts are documented in [`DATASET_FORMAT.md`](DATASET_FORMAT.md).
+- Read-only dataset validation and inspection are documented in [`DATASET_VALIDATION.md`](DATASET_VALIDATION.md).
 - Direct channel export filesystem write and commit behavior is documented in [`DATASET_WRITE_SAFETY.md`](DATASET_WRITE_SAFETY.md).
 - Direct channel export state and incremental invariants are documented in [`STATE_AND_INCREMENTAL_MODEL.md`](STATE_AND_INCREMENTAL_MODEL.md).
 - SQLite identity and link behavior are documented in [`SQLITE_MESSAGE_ID_AUDIT.md`](SQLITE_MESSAGE_ID_AUDIT.md).

@@ -67,6 +67,52 @@ Notes:
 - `channel_export_state.json` and `discussion_export_state.json` advance only after required payload and manifest writes succeed.
 - If there are no new posts, the command reports that state clearly and does not advance the export cursor.
 
+## `validate-dataset`
+
+Validate a completed channel export dataset from local files only.
+
+Examples:
+
+```bash
+python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example
+python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example --json
+```
+
+Arguments:
+
+- `--path` required. Path to an exported channel dataset directory.
+- `--json` optional. Emit deterministic JSON instead of the default Markdown report.
+
+Notes:
+
+- The command is read-only and does not require Telegram credentials or a Telegram client connection.
+- Validation checks required files, JSON/JSONL parseability, duplicate post ids, manifest/state counter sanity, media manifest paths/statuses, and optional discussion files when present.
+- Status values are `ok`, `warnings`, and `errors`.
+- `errors` exits with code `1`; warnings do not fail the command.
+- The command does not repair, migrate, fetch, analyze content, OCR, STT, optimize media, or write SQLite data.
+
+## `inspect-dataset`
+
+Inspect deterministic counts and statuses for a completed channel export dataset.
+
+Examples:
+
+```bash
+python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example
+python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example --json
+```
+
+Arguments:
+
+- `--path` required. Path to an exported channel dataset directory.
+- `--json` optional. Emit deterministic JSON instead of the default Markdown report.
+
+Notes:
+
+- The command is read-only and does not require Telegram credentials or a Telegram client connection.
+- Inspection summarizes detected files, message counts, media status counts, discussion presence/counts, manifest summary, state cursor, and validation note counts.
+- Inspection does not interpret message/comment text or perform analytics.
+
 ## Interactive Menu
 
 The interactive `tg` menu now uses two-digit item codes:

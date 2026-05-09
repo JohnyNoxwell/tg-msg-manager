@@ -1,0 +1,269 @@
+from __future__ import annotations
+
+from dataclasses import dataclass
+from pathlib import Path
+from typing import Any
+
+from .jsonl_validator import JsonlRecord, load_jsonl_records
+from .models import DiscussionSummary, ValidationIssue, issue_error, issue_warning
+
+DISCUSSION_COMMENTS_JSONL = "discussion_comments.jsonl"
+DISCUSSION_COMMENTS_TXT = "discussion_comments.txt"
+DISCUSSION_THREADS_JSONL = "discussion_threads.jsonl"
+DISCUSSION_STATE_JSON = "discussion_export_state.json"
+
+
+@dataclass(frozen=True)
+class DiscussionValidationResult:
+    comments: tuple[JsonlRecord, ...]
+    threads: tuple[JsonlRecord, ...]
+    summary: DiscussionSummary
+    issues: tuple[ValidationIssue, ...]
+
+
+def validate_discussion_files(
+    dataset_path: Path,
+    *,
+    message_ids: frozenset[int],
+) -> DiscussionValidationResult:
+    issues: list[ValidationIssue] = []
+    comments: tuple[JsonlRecord, ...] = ()
+    threads: tuple[JsonlRecord, ...] = ()
+    discussion_paths = {
+        DISCUSSION_COMMENTS_JSONL: dataset_path / DISCUSSION_COMMENTS_JSONL,
+        DISCUSSION_COMMENTS_TXT: dataset_path / DISCUSSION_COMMENTS_TXT,
+        DISCUSSION_THREADS_JSONL: dataset_path / DISCUSSION_THREADS_JSONL,
+        DISCUSSION_STATE_JSON: dataset_path / DISCUSSION_STATE_JSON,
+    }
+    present_names = {name for name, path in discussion_paths.items() if path.exists()}
+    if not present_names:
+        return DiscussionValidationResult(
+            comments=comments,
+            threads=threads,
+            summary=DiscussionSummary(present=False),
+            issues=(),
+        )
+
+    if DISCUSSION_COMMENTS_JSONL in present_names:
+        loaded = load_jsonl_records(
+            discussion_paths[DISCUSSION_COMMENTS_JSONL],
+            DISCUSSION_COMMENTS_JSONL,
+        )
+        comments = loaded.records
+        issues.extend(
+            _rewrite_jsonl_codes(loaded.issues, "invalid_discussion_comments_jsonl")
+        )
+        issues.extend(_validate_comments(comments, message_ids))
+        if DISCUSSION_COMMENTS_TXT not in present_names:
+            issues.append(
+                issue_warning(
+                    "missing_discussion_file",
+                    "discussion_comments.txt is missing for discussion comments JSONL",
+                    path=DISCUSSION_COMMENTS_TXT,
+                )
+            )
+    elif (
+        DISCUSSION_THREADS_JSONL in present_names
+        or DISCUSSION_COMMENTS_TXT in present_names
+    ):
+        issues.append(
+            issue_warning(
+                "missing_discussion_file",
+                "discussion_comments.jsonl is missing while discussion payload exists",
+                path=DISCUSSION_COMMENTS_JSONL,
+            )
+        )
+
+    if DISCUSSION_THREADS_JSONL in present_names:
+        loaded = load_jsonl_records(
+            discussion_paths[DISCUSSION_THREADS_JSONL],
+            DISCUSSION_THREADS_JSONL,
+        )
+        threads = loaded.records
+        issues.extend(
+            _rewrite_jsonl_codes(loaded.issues, "invalid_discussion_threads_jsonl")
+        )
+        issues.extend(_validate_threads(threads, message_ids, comments))
+    elif DISCUSSION_COMMENTS_JSONL in present_names:
+        issues.append(
+            issue_warning(
+                "missing_discussion_file",
+                "discussion_threads.jsonl is missing for discussion comments",
+                path=DISCUSSION_THREADS_JSONL,
+            )
+        )
+
+    return DiscussionValidationResult(
+        comments=comments,
+        threads=threads,
+        summary=DiscussionSummary(
+            present=True,
+            comment_count=len(comments),
+            thread_count=len(threads),
+        ),
+        issues=tuple(issues),
+    )
+
+
+def summarize_discussion_records(
+    comments: tuple[JsonlRecord, ...],
+    threads: tuple[JsonlRecord, ...],
+) -> DiscussionSummary:
+    return DiscussionSummary(
+        present=bool(comments or threads),
+        comment_count=len(comments),
+        thread_count=len(threads),
+    )
+
+
+def _rewrite_jsonl_codes(
+    issues: tuple[ValidationIssue, ...],
+    replacement_code: str,
+) -> list[ValidationIssue]:
+    return [
+        ValidationIssue(
+            severity=issue.severity,
+            code=replacement_code
+            if issue.code.startswith("invalid_jsonl")
+            else issue.code,
+            message=issue.message,
+            path=issue.path,
+            line=issue.line,
+        )
+        for issue in issues
+    ]
+
+
+def _validate_comments(
+    comments: tuple[JsonlRecord, ...],
+    message_ids: frozenset[int],
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    seen_comment_ids: set[int] = set()
+    for record in comments:
+        comment_id = record.payload.get("message_id")
+        if isinstance(comment_id, int):
+            if comment_id in seen_comment_ids:
+                issues.append(
+                    issue_error(
+                        "duplicate_discussion_comment_id",
+                        f"Duplicate discussion comment message_id {comment_id}",
+                        path=DISCUSSION_COMMENTS_JSONL,
+                        line=record.line,
+                    )
+                )
+            seen_comment_ids.add(comment_id)
+        elif comment_id is not None:
+            issues.append(
+                issue_error(
+                    "negative_count",
+                    "Discussion comment message_id must be an integer when present",
+                    path=DISCUSSION_COMMENTS_JSONL,
+                    line=record.line,
+                )
+            )
+        _check_non_negative_id_fields(
+            record,
+            ("channel_message_id", "discussion_root_message_id", "reply_to_id"),
+            issues,
+            DISCUSSION_COMMENTS_JSONL,
+        )
+        channel_post_id = record.payload.get("channel_message_id")
+        if isinstance(channel_post_id, int) and channel_post_id not in message_ids:
+            issues.append(
+                issue_warning(
+                    "discussion_comment_unlinked",
+                    f"Discussion comment references missing channel post {channel_post_id}",
+                    path=DISCUSSION_COMMENTS_JSONL,
+                    line=record.line,
+                )
+            )
+    if comments and not any(
+        "channel_message_id" in record.payload for record in comments
+    ):
+        issues.append(
+            issue_warning(
+                "discussion_comment_unlinked",
+                "Discussion comments do not include channel_message_id links",
+                path=DISCUSSION_COMMENTS_JSONL,
+            )
+        )
+    return issues
+
+
+def _validate_threads(
+    threads: tuple[JsonlRecord, ...],
+    message_ids: frozenset[int],
+    comments: tuple[JsonlRecord, ...],
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    comments_by_channel_post: dict[int, int] = {}
+    for comment in comments:
+        channel_post_id = comment.payload.get("channel_message_id")
+        if isinstance(channel_post_id, int):
+            comments_by_channel_post[channel_post_id] = (
+                comments_by_channel_post.get(channel_post_id, 0) + 1
+            )
+
+    for record in threads:
+        _check_non_negative_id_fields(
+            record,
+            ("channel_message_id", "discussion_root_message_id"),
+            issues,
+            DISCUSSION_THREADS_JSONL,
+        )
+        for key in ("comments_count", "exported_comments_count"):
+            value = record.payload.get(key)
+            if value is not None and (not isinstance(value, int) or value < 0):
+                issues.append(
+                    issue_error(
+                        "negative_count",
+                        f"{key} must be a non-negative integer",
+                        path=DISCUSSION_THREADS_JSONL,
+                        line=record.line,
+                    )
+                )
+        channel_post_id = record.payload.get("channel_message_id")
+        if isinstance(channel_post_id, int) and channel_post_id not in message_ids:
+            issues.append(
+                issue_warning(
+                    "discussion_thread_unlinked",
+                    f"Discussion thread references missing channel post {channel_post_id}",
+                    path=DISCUSSION_THREADS_JSONL,
+                    line=record.line,
+                )
+            )
+        exported_count = record.payload.get("exported_comments_count")
+        if (
+            isinstance(channel_post_id, int)
+            and isinstance(exported_count, int)
+            and comments_by_channel_post.get(channel_post_id, 0) != exported_count
+        ):
+            issues.append(
+                issue_warning(
+                    "discussion_count_mismatch",
+                    "Thread exported_comments_count differs from observed comments",
+                    path=DISCUSSION_THREADS_JSONL,
+                    line=record.line,
+                )
+            )
+    return issues
+
+
+def _check_non_negative_id_fields(
+    record: JsonlRecord,
+    keys: tuple[str, ...],
+    issues: list[ValidationIssue],
+    display_path: str,
+) -> None:
+    for key in keys:
+        value: Any = record.payload.get(key)
+        if value is not None and (not isinstance(value, int) or value < 0):
+            issues.append(
+                issue_error(
+                    "negative_count",
+                    f"{key} must be a non-negative integer when present",
+                    path=display_path,
+                    line=record.line,
+                )
+            )

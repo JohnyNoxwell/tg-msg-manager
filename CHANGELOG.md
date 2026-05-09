@@ -1,6 +1,16 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.28] - 2026-05-09
+
+### Added (EN)
+- **Stage 4A Dataset Validation / Inspection**: Added read-only `validate-dataset` and `inspect-dataset` commands for channel export datasets, with Markdown and JSON reports.
+- **Dataset Validators**: Added JSONL, manifest, state, media, and discussion validators under `tg_msg_manager/services/dataset_validation/` without changing exporter behavior or schemas.
+
+### Added (RU)
+- **Stage 4A dataset validation / inspection**: Добавлены read-only команды `validate-dataset` и `inspect-dataset` для channel export datasets с Markdown и JSON отчётами.
+- **Dataset validators**: Добавлены JSONL, manifest, state, media и discussion validators в `tg_msg_manager/services/dataset_validation/` без изменений exporter behavior или schemas.
+
 ## [4.2.27] - 2026-05-09
 
 ### Added (EN)

@@ -1,0 +1,21 @@
+{
+  "dataset_type": "direct_channel_export",
+  "schema_version": "1.0",
+  "exported_at": "2026-05-08T12:00:00+00:00",
+  "source": {"type": "channel", "id": 777, "username": "daily", "title": "Daily"},
+  "export": {
+    "message_count": 2,
+    "media_count": 0,
+    "downloaded_media_count": 0,
+    "already_existing_media_count": 0,
+    "skipped_media_count": 0,
+    "skipped_by_size_count": 0,
+    "skipped_by_type_count": 0,
+    "failed_media_count": 0,
+    "formats": ["jsonl", "txt"],
+    "media_mode": "metadata",
+    "included_files": ["manifest.json", "messages.jsonl", "messages.txt", "media_manifest.jsonl", "channel_export_state.json"]
+  },
+  "discussion": {"mode": "none"},
+  "status": "completed"
+}

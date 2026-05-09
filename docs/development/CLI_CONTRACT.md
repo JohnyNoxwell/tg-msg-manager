@@ -24,6 +24,8 @@ Primary Python entrypoint:
 | `schedule` | none | none | Configure scheduler integration |
 | `setup` | none | none | Install aliases / setup shell helpers |
 | `db-export` | `--user-id` | `--json=False` | Export already-synced local DB data |
+| `validate-dataset` | `--path` | `--json=False` | Validate an exported channel dataset from local files only |
+| `inspect-dataset` | `--path` | `--json=False` | Summarize deterministic counts/statuses for an exported channel dataset |
 
 ## Contract Tests
 

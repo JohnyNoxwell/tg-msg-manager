@@ -19,6 +19,8 @@ python3 -m tg_msg_manager.cli export-pm --user-id 123456789
 python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json
 python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata
 python3 -m tg_msg_manager.cli export-channel --channel @example --limit 10 --media metadata --discussion full --max-comments-per-post 100
+python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example
+python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example
 python3 -m tg_msg_manager.cli update
 python3 -m tg_msg_manager.cli retry --list
 python3 -m tg_msg_manager.cli report
@@ -60,6 +62,7 @@ python3 -m tg_msg_manager.cli report
 * 🗄️ **SQLite База данных** — Все данные хранятся в структурированной базе `messages.db`. Это обеспечивает мгновенный поиск и отсутствие дубликатов.
 * 📤 **Экспорт из БД** — Выгрузка накопленных данных из SQLite в JSON/Text. JSONL по умолчанию теперь компактный и ориентирован на анализ нейросетью.
 * 📡 **Прямой экспорт канала (`export-channel`)** — Файловый dataset export постов Telegram-канала в `manifest.json`, `messages.jsonl`, `messages.txt`, `media_manifest.jsonl` и, при явном `--discussion full`, discussion dataset files.
+* ✅ **Dataset validation / inspection** — `validate-dataset` проверяет структуру channel dataset, а `inspect-dataset` показывает deterministic counts/statuses без Telegram access, repair/migration или analytics.
 * ♻️ **Retry Queue (`retry`)** — Управление повторными задачами для recoverable sync/archive ошибок без ручного вмешательства в БД.
 * 📋 **Audit Report (`report`)** — Read-only диагностика локальной БД, retry-очереди, export artifacts и состояния tracked targets без доступа к Telegram.
 
@@ -104,6 +107,12 @@ python3 -m tg_msg_manager.cli report
     `media_manifest.jsonl` фиксирует итоговый путь media. OCR, speech-to-text, media analysis, transcoding и ffmpeg processing не выполняются.
     В `full` режиме `media_manifest.jsonl` фиксирует итоговые статусы `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type` и `failed`.
     Интерактивный пункт меню `10` теперь запрашивает discussion mode, max comments per post, force, output directory, max media size и media types; пустой ввод сохраняет defaults прямой CLI-команды.
+*   **Проверка / инспекция channel dataset**:
+    `python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example`
+    `python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example --json`
+    `python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example`
+    `python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example --json`
+    Команды read-only, не требуют Telegram credentials, не чинят и не мигрируют dataset, не выполняют analytics/OCR/STT/media processing.
 *   **Полное удаление локальных данных**:
     `python3 -m tg_msg_manager.cli delete --user-id 123456789`
 *   **Планировщик (macOS)**:
@@ -179,6 +188,7 @@ Legacy aliases still supported:
 * `--limit` ограничивает обработку в рамках одного `sync_chat`; при экспорте пользователя по нескольким диалогам лимит применяется к каждому диалогу отдельно.
 * `export-pm` пишет текстовый лог и медиа-структуру, но не восстанавливает Telegram-специфичные сущности как полноценный replay архива.
 * `export-channel` в Stage 3A/3A.1/3B/3C является filesystem-first dataset projection pipeline: channel posts и discussion comments не пишутся в SQLite, analytics не выполняется.
+* `validate-dataset` и `inspect-dataset` проверяют только структуру, deterministic counts/statuses и связи файлов; они не анализируют содержание сообщений и не проверяют SHA-256 media по умолчанию.
 * Безопасный режим по умолчанию для `export-channel` — `--media metadata`; `--media full` работает только при явном указании и использует size/type guardrails.
 * Discussion export выключен по умолчанию через `--discussion none`; `--discussion full` экспортирует только threads для постов текущего run.
 * Старые discussion threads не refresh/backfill без `--force`; reply-tree reconstruction не выполняется, сохраняется только `reply_to_id`.
@@ -231,6 +241,8 @@ python3 -m tg_msg_manager.cli export-pm --user-id 123456789
 python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json
 python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --media metadata
 python3 -m tg_msg_manager.cli export-channel --channel @example --limit 10 --media metadata --discussion full --max-comments-per-post 100
+python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example
+python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example
 python3 -m tg_msg_manager.cli update
 python3 -m tg_msg_manager.cli retry --list
 python3 -m tg_msg_manager.cli report
@@ -266,6 +278,7 @@ Core system capabilities:
 * 🗄️ **SQLite Storage** — All messages are stored in a structured `messages.db` for instant querying and zero duplicates.
 * 📤 **Database Export** — Export collected SQLite records into JSON or Text. JSONL now defaults to a compact AI-friendly profile.
 * 📡 **Direct Channel Export (`export-channel`)** — Filesystem-first dataset export of Telegram channel posts into `manifest.json`, `messages.jsonl`, `messages.txt`, `media_manifest.jsonl`, and optional discussion dataset files when `--discussion full` is explicit.
+* ✅ **Dataset Validation / Inspection** — `validate-dataset` checks channel dataset structure, while `inspect-dataset` reports deterministic counts/statuses without Telegram access, repair/migration, or analytics.
 * ♻️ **Retry Queue (`retry`)** — Replays recoverable sync/archive failures through typed retry tasks instead of manual DB surgery.
 * 📋 **Audit Report (`report`)** — Read-only diagnostics for local DB state, retry backlog, export artifacts, and tracked-target health without Telegram access.
 
@@ -318,6 +331,12 @@ Subcommands can be executed directly for automation:
     `media_manifest.jsonl` records the final media path. OCR, speech-to-text, media analysis, transcoding, and ffmpeg processing are not performed.
     In `full` mode, `media_manifest.jsonl` records final statuses such as `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type`, and `failed`.
     Interactive menu item `10` now prompts for discussion mode, max comments per post, force, output directory, max media size, and media types; empty input preserves the direct CLI defaults.
+*   **Channel Dataset Validation / Inspection**:
+    `python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example`
+    `python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example --json`
+    `python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example`
+    `python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example --json`
+    These commands are read-only, require no Telegram credentials, do not repair or migrate datasets, and do not perform analytics/OCR/STT/media processing.
 *   **Full Local Purge**:
     `python3 -m tg_msg_manager.cli delete --user-id 123456789`
 *   **Scheduler (macOS)**:
@@ -393,6 +412,7 @@ Supported legacy aliases:
 * `--limit` caps work inside a single `sync_chat`; when exporting a user across multiple dialogs, the cap applies per dialog.
 * `export-pm` produces a text-and-media archive, not a full Telegram-native replayable backup.
 * `export-channel` in Stage 3A/3A.1/3B/3C is a filesystem-first dataset projection pipeline; channel posts and discussion comments are not written to SQLite, and analytics are not performed.
+* `validate-dataset` and `inspect-dataset` check only structure, deterministic counts/statuses, and file relationships; they do not analyze message content and do not verify media SHA-256 by default.
 * The safe default for `export-channel` remains `--media metadata`; `--media full` works only when requested explicitly and runs through size/type guardrails.
 * Discussion export is disabled by default with `--discussion none`; `--discussion full` exports only threads for posts fetched in the current run.
 * Old discussion threads are not refreshed/backfilled without `--force`; reply-tree reconstruction is not implemented beyond preserving `reply_to_id`.

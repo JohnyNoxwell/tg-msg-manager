@@ -10,11 +10,13 @@ from .cli_commands import (
     _handle_export_command,
     _handle_export_channel_command,
     _handle_export_pm_command,
+    _handle_inspect_dataset_command,
     _handle_report_command,
     _handle_retry_command,
     _handle_schedule_command,
     _handle_setup_command,
     _handle_update_command,
+    _handle_validate_dataset_command,
 )
 from .cli_menu import (
     _dispatch_main_menu_choice,
@@ -185,7 +187,14 @@ class CLIContext:
 
 
 def _command_needs_client(command: str) -> bool:
-    return command not in ("setup", "schedule", "db-export", "report")
+    return command not in (
+        "setup",
+        "schedule",
+        "db-export",
+        "report",
+        "validate-dataset",
+        "inspect-dataset",
+    )
 
 
 async def run_cli(runtime: Optional[AppRuntime] = None):
@@ -200,6 +209,15 @@ async def run_cli(runtime: Optional[AppRuntime] = None):
                 parser.print_help()
                 return
             await main_menu(runtime=active_runtime)
+            return
+
+        filesystem_handlers = {
+            "validate-dataset": _handle_validate_dataset_command,
+            "inspect-dataset": _handle_inspect_dataset_command,
+        }
+        filesystem_handler = filesystem_handlers.get(args.command)
+        if filesystem_handler is not None:
+            await filesystem_handler(None, args)
             return
 
         ctx = CLIContext(
@@ -220,6 +238,8 @@ async def run_cli(runtime: Optional[AppRuntime] = None):
                 "clean": _handle_clean_command,
                 "export-pm": _handle_export_pm_command,
                 "export-channel": _handle_export_channel_command,
+                "validate-dataset": _handle_validate_dataset_command,
+                "inspect-dataset": _handle_inspect_dataset_command,
             }
             handler = handlers.get(args.command)
             if handler is not None:

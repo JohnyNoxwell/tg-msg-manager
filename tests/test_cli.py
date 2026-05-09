@@ -604,6 +604,8 @@ class TestCLIParser(unittest.TestCase):
                 "schedule",
                 "setup",
                 "db-export",
+                "validate-dataset",
+                "inspect-dataset",
             },
         )
         self.assertTrue(parsed.deep)
@@ -631,6 +633,8 @@ class TestCLIParser(unittest.TestCase):
         self.assertIn("retry", root_help)
         self.assertIn("report", root_help)
         self.assertIn("export-channel", root_help)
+        self.assertIn("validate-dataset", root_help)
+        self.assertIn("inspect-dataset", root_help)
         self.assertIn("--user-id", export_help)
         self.assertIn("--chat-id", export_help)
         self.assertIn("--depth", export_help)

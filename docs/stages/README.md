@@ -27,6 +27,15 @@ Current completed prompt groups:
 - Stage 3E.3 state consistency hardening task prompt.
 - Stage 3E.4 media filename / extension detection hardening task prompt.
 - Stage 3E.5 interactive channel export options parity task prompt.
+- Stage 4A dataset validation / inspection task prompts.
+
+Stage 4A completed task files:
+
+- [`completed/stage_4a_0_dataset_validation_architecture_contract.md`](completed/stage_4a_0_dataset_validation_architecture_contract.md)
+- [`completed/stage_4a_1_jsonl_manifest_state_validators.md`](completed/stage_4a_1_jsonl_manifest_state_validators.md)
+- [`completed/stage_4a_2_media_discussion_validators.md`](completed/stage_4a_2_media_discussion_validators.md)
+- [`completed/stage_4a_3_cli_report_renderers.md`](completed/stage_4a_3_cli_report_renderers.md)
+- [`completed/stage_4a_4_contract_fixtures_docs_report.md`](completed/stage_4a_4_contract_fixtures_docs_report.md)
 
 Stage 3E.4 completed task files:
 
@@ -75,7 +84,7 @@ Archived launch prompts and prompt packs:
 
 Reports under [`reports/`](reports/) are factual completion records. They can contain time-bound claims that were true for a specific stage.
 
-Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, Stage 3E.4, and Stage 3E.5 records:
+Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, Stage 3E.4, Stage 3E.5, and Stage 4A records:
 
 - [`reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md`](reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md)
 - [`reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md`](reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md)
@@ -91,6 +100,7 @@ Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, 
 - [`reports/STAGE_3E_3_STATE_CONSISTENCY_HARDENING_REPORT.md`](reports/STAGE_3E_3_STATE_CONSISTENCY_HARDENING_REPORT.md)
 - [`reports/STAGE_3E_4_MEDIA_FILENAME_EXTENSION_DETECTION_HARDENING_REPORT.md`](reports/STAGE_3E_4_MEDIA_FILENAME_EXTENSION_DETECTION_HARDENING_REPORT.md)
 - [`reports/STAGE_3E_5_INTERACTIVE_CHANNEL_EXPORT_OPTIONS_PARITY_REPORT.md`](reports/STAGE_3E_5_INTERACTIVE_CHANNEL_EXPORT_OPTIONS_PARITY_REPORT.md)
+- [`reports/STAGE_4A_DATASET_VALIDATION_INSPECTION_REPORT.md`](reports/STAGE_4A_DATASET_VALIDATION_INSPECTION_REPORT.md)
 
 ## Stage lifecycle
 

@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0",
+  "channel_id": 777,
+  "discussion_chat_id": 222,
+  "last_run_at": "2026-05-08T12:02:00+00:00",
+  "thread_count_total": 1,
+  "comment_count_total": 1,
+  "failed_thread_count_total": 0,
+  "last_run_status": "completed",
+  "updated_at": "2026-05-08T12:02:00+00:00"
+}

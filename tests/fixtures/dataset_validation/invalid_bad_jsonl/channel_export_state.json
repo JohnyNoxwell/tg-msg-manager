@@ -1,0 +1,21 @@
+{
+  "schema_version": "1.0",
+  "channel_id": 777,
+  "channel_username": "daily",
+  "channel_title": "Daily",
+  "last_exported_message_id": 1,
+  "last_exported_at": "2026-05-08T12:00:00+00:00",
+  "message_count_total": 1,
+  "media_count_total": 0,
+  "downloaded_media_count_total": 0,
+  "already_existing_media_count_total": 0,
+  "skipped_media_count_total": 0,
+  "skipped_by_size_count_total": 0,
+  "skipped_by_type_count_total": 0,
+  "failed_media_count_total": 0,
+  "last_run_status": "completed",
+  "updated_at": "2026-05-08T12:00:00+00:00",
+  "date_from": null,
+  "date_to": null,
+  "last_manifest_path": "manifest.json"
+}

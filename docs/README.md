@@ -18,7 +18,7 @@ Do not use roadmap or archive files as permission to implement features. Impleme
 
 ## 3. Architecture docs
 
-Use [`architecture/README.md`](architecture/README.md) for current architecture guidance, protected boundaries, storage/model decisions, and split maps.
+Use [`architecture/README.md`](architecture/README.md) for current architecture guidance, protected boundaries, storage/model decisions, and split maps. Channel dataset validation / inspection is documented in [`architecture/DATASET_VALIDATION.md`](architecture/DATASET_VALIDATION.md).
 
 ## 4. Development docs
 

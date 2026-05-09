@@ -19,6 +19,16 @@ from .cli_support import (
 from .core.models.retry import RetryRunStats
 from .i18n import _
 from .services.channel_export import ChannelExportError, ChannelExportOptions
+from .services.dataset_validation import (
+    DatasetInspectionOptions,
+    DatasetValidationOptions,
+    inspect_dataset,
+    render_inspection_report_json,
+    render_inspection_report_markdown,
+    render_validation_report_json,
+    render_validation_report_markdown,
+    validate_dataset,
+)
 from .services.reporting import (
     ReportCollector,
     render_report_json,
@@ -203,3 +213,31 @@ async def _handle_export_channel_command(ctx, args: argparse.Namespace) -> None:
         print(f"Discussion comments: {result.discussion_comments_jsonl_path}")
         print(f"Discussion threads: {result.discussion_threads_jsonl_path}")
         print(f"Discussion state: {result.discussion_state_path}")
+
+
+async def _handle_validate_dataset_command(ctx, args: argparse.Namespace) -> None:
+    del ctx
+    report = validate_dataset(
+        DatasetValidationOptions(dataset_path=Path(args.path).expanduser())
+    )
+    output = (
+        render_validation_report_json(report)
+        if args.json
+        else render_validation_report_markdown(report)
+    )
+    print(output)
+    if report.status == "errors":
+        raise SystemExit(1)
+
+
+async def _handle_inspect_dataset_command(ctx, args: argparse.Namespace) -> None:
+    del ctx
+    report = inspect_dataset(
+        DatasetInspectionOptions(dataset_path=Path(args.path).expanduser())
+    )
+    output = (
+        render_inspection_report_json(report)
+        if args.json
+        else render_inspection_report_markdown(report)
+    )
+    print(output)

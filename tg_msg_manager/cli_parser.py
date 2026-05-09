@@ -77,6 +77,14 @@ def build_cli_parser() -> argparse.ArgumentParser:
     db_parser.add_argument("--user-id", required=True)
     db_parser.add_argument("--json", action="store_true", default=False)
 
+    validate_dataset_parser = subparsers.add_parser("validate-dataset")
+    validate_dataset_parser.add_argument("--path", required=True)
+    validate_dataset_parser.add_argument("--json", action="store_true", default=False)
+
+    inspect_dataset_parser = subparsers.add_parser("inspect-dataset")
+    inspect_dataset_parser.add_argument("--path", required=True)
+    inspect_dataset_parser.add_argument("--json", action="store_true", default=False)
+
     export_channel_parser = subparsers.add_parser("export-channel")
     export_channel_parser.add_argument("--channel", required=True)
     export_channel_parser.add_argument("--limit", type=int, default=None)
