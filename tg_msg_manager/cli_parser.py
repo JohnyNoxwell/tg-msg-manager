@@ -7,6 +7,11 @@ from .services.channel_export.discussions.options import (
 )
 from .services.channel_export.media_types import parse_media_types
 from .services.channel_export.size_parser import parse_media_size
+from .services.rendering import (
+    ALLOWED_TXT_PROFILES,
+    DEFAULT_TXT_PROFILE,
+    validate_txt_profile,
+)
 
 
 def _parse_media_size_argument(value: str) -> int:
@@ -39,6 +44,13 @@ def _parse_max_comments_per_post_argument(value: str) -> int:
         raise argparse.ArgumentTypeError(str(exc)) from exc
 
 
+def _parse_txt_profile_argument(value: str) -> str:
+    try:
+        return validate_txt_profile(value)
+    except ValueError as exc:
+        raise argparse.ArgumentTypeError(str(exc)) from exc
+
+
 def build_cli_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="TG_MSG_MNGR CLI")
     subparsers = parser.add_subparsers(dest="command")
@@ -54,6 +66,12 @@ def build_cli_parser() -> argparse.ArgumentParser:
     export_parser.add_argument("--depth", type=int, default=2)
     export_parser.add_argument("--limit", type=int, default=None)
     export_parser.add_argument("--json", action="store_true")
+    export_parser.add_argument(
+        "--txt-profile",
+        choices=sorted(ALLOWED_TXT_PROFILES),
+        type=_parse_txt_profile_argument,
+        default=DEFAULT_TXT_PROFILE,
+    )
 
     subparsers.add_parser("update")
     retry_parser = subparsers.add_parser("retry")

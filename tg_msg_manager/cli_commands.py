@@ -94,6 +94,7 @@ async def _handle_export_command(ctx, args: argparse.Namespace) -> None:
             final_uid=ctx.active_uid,
             processed=processed,
             as_json=args.json,
+            txt_profile=args.txt_profile,
             show_finalize_section=True,
             show_saved_path=True,
         )

@@ -14,6 +14,7 @@
 ```bash
 python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --depth 3 --json
 python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --flat
+python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --txt-profile legacy
 python3 -m tg_msg_manager.cli db-export --user-id 123456789
 python3 -m tg_msg_manager.cli export-pm --user-id 123456789
 python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json
@@ -78,7 +79,8 @@ python3 -m tg_msg_manager.cli report
     `python3 -m tg_msg_manager.cli export --user-id 123456789 --depth 3`
     `python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --depth 3 --json`
     `python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --flat`
-    `--json` собирает итоговый JSONL-файл после синка; без `--json` итоговый файл будет TXT.
+    `python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --txt-profile legacy`
+    `--json` собирает итоговый JSONL-файл после синка; без `--json` итоговый файл будет TXT. TXT-профиль по умолчанию для `export` — `context-readable`: он группирует вывод в `CONTEXT BLOCK` с секциями `[REPLIED MESSAGE]`, `[CONTEXT BEFORE]`, `[TARGET MESSAGE]` / `[TARGET MESSAGES]`, `[CONTEXT AFTER]`. `--txt-profile legacy` сохраняет старый плоский log-style TXT. TXT — только projection; JSONL/SQLite остаются canonical data.
     По умолчанию Deep Mode использует `--depth 2`, если глубина явно не указана.
 *   **Очистка (Боевой режим)**: 
     `python3 -m tg_msg_manager.cli clean --apply --yes`
@@ -198,6 +200,7 @@ Legacy aliases still supported:
 * Фоновая запись в SQLite остаётся чувствительной к очень большим deep-export проходам; основная оптимизация сейчас сделана на уровне пакетных сервисных вызовов.
 * Планировщик `schedule` сейчас ориентирован на macOS `launchd`.
 * `db-export --json` по умолчанию не включает полный `raw_payload`; если когда-нибудь понадобится полный Telethon-слепок, это потребует отдельного full-профиля экспорта.
+* `context-readable` меняет только TXT-представление user/group export. Он не меняет Telegram fetching, context extraction, JSONL schema, dataset/state schema или SQLite schema; missing replies отображаются компактно как `↪ missing reply #id`.
 * После прерванного `export/tge` команда `update/tgu` может иметь заметную подготовительную паузу перед первым видимым прогрессом, если системе нужно переиспользовать большой общий HEAD-срез чата.
 * `retry` покрывает только типизированные recoverable tasks (`sync_target`, `archive_pm`); это не произвольная универсальная очередь задач.
 * `report` — диагностический read-only срез состояния системы, а не аналитический слой с keyword/topic или graph intelligence.
@@ -236,6 +239,7 @@ Legacy aliases still supported:
 ```bash
 python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --depth 3 --json
 python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --flat
+python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --txt-profile legacy
 python3 -m tg_msg_manager.cli db-export --user-id 123456789
 python3 -m tg_msg_manager.cli export-pm --user-id 123456789
 python3 -m tg_msg_manager.cli db-export --user-id 123456789 --json
@@ -302,7 +306,8 @@ Subcommands can be executed directly for automation:
     `python3 -m tg_msg_manager.cli export --user-id 123456789 --depth 3`
     `python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --depth 3 --json`
     `python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --flat`
-    `--json` writes a final JSONL snapshot after sync; without `--json`, the final export is TXT.
+    `python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --txt-profile legacy`
+    `--json` writes a final JSONL snapshot after sync; without `--json`, the final export is TXT. The default TXT profile for `export` is `context-readable`: it groups output into `CONTEXT BLOCK` sections with `[REPLIED MESSAGE]`, `[CONTEXT BEFORE]`, `[TARGET MESSAGE]` / `[TARGET MESSAGES]`, and `[CONTEXT AFTER]`. Use `--txt-profile legacy` for the old flat log-style TXT. TXT is a projection only; JSONL/SQLite records remain canonical.
     Deep Mode defaults to `--depth 2` when no explicit depth is provided.
 *   **Global Cleanup (Apply)**: 
     `python3 -m tg_msg_manager.cli clean --apply --yes`
@@ -422,6 +427,7 @@ Supported legacy aliases:
 * SQLite background writing is still most sensitive during very large deep-export passes; the current optimization focus is batched service-level writes.
 * The built-in `schedule` command currently targets macOS `launchd`.
 * `db-export --json` no longer includes the full `raw_payload` by default; a future explicit full-export profile would be needed for raw Telethon dumps.
+* `context-readable` changes only the user/group export TXT projection. It does not change Telegram fetching, context extraction, JSONL schema, dataset/state schema, or SQLite schema; missing replies render compactly as `↪ missing reply #id`.
 * After an interrupted `export/tge`, `update/tgu` may have a noticeable preparation pause before the first visible per-target progress if the service needs to rebuild a large shared chat-head slice.
 * `retry` currently covers only typed recoverable tasks (`sync_target`, `archive_pm`); it is not a general-purpose task queue.
 * `report` is an operational read-only diagnostic surface, not an analytics layer with keyword/topic or graph intelligence.

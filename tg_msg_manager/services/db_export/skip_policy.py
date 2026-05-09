@@ -2,8 +2,49 @@ import os
 from typing import Any, Optional
 
 from ...infrastructure.storage.records import ExportTargetRecord
+from ..rendering import TXT_PROFILE_LEGACY
 from .manifest_writer import DBExportManifestWriter
 from .models import ExistingExportArtifact, SkipDecision
+
+
+def _format_profile_for_state(fingerprint: dict[str, Any]) -> Any:
+    if fingerprint.get("as_json"):
+        return fingerprint.get("json_profile")
+    return fingerprint.get("txt_profile")
+
+
+def _state_profile_matches(
+    *, fingerprint: dict[str, Any], artifact_profile: Any
+) -> bool:
+    expected = _format_profile_for_state(fingerprint)
+    if artifact_profile == expected:
+        return True
+    return (
+        fingerprint.get("as_json") is False
+        and fingerprint.get("txt_profile") == TXT_PROFILE_LEGACY
+        and artifact_profile in {None, "ai"}
+    )
+
+
+def _manifest_fingerprint_matches(
+    *, current: dict[str, Any], previous: dict[str, Any]
+) -> bool:
+    if previous == current:
+        return True
+    if current.get("txt_profile") is None and "txt_profile" not in previous:
+        current_without_txt_profile = dict(current)
+        current_without_txt_profile.pop("txt_profile", None)
+        return previous == current_without_txt_profile
+    if (
+        current.get("as_json") is False
+        and current.get("txt_profile") == TXT_PROFILE_LEGACY
+    ):
+        current_legacy = dict(current)
+        previous_legacy = dict(previous)
+        current_legacy.pop("txt_profile", None)
+        previous_legacy.pop("txt_profile", None)
+        return previous_legacy == current_legacy
+    return False
 
 
 class DBExportSkipPolicy:
@@ -74,7 +115,10 @@ class DBExportSkipPolicy:
             != fingerprint.get("last_timestamp")
             or export_target.artifact_as_json != fingerprint.get("as_json")
             or export_target.artifact_include_date != fingerprint.get("include_date")
-            or export_target.artifact_json_profile != fingerprint.get("json_profile")
+            or not _state_profile_matches(
+                fingerprint=fingerprint,
+                artifact_profile=export_target.artifact_json_profile,
+            )
         ):
             return None
 
@@ -95,7 +139,14 @@ class DBExportSkipPolicy:
         fingerprint: dict[str, Any],
     ) -> Optional[ExistingExportArtifact]:
         manifest = self.manifest_writer.load_manifest(output_dir, user_id)
-        if not manifest or manifest.get("fingerprint") != fingerprint:
+        previous_fingerprint = manifest.get("fingerprint") if manifest else None
+        if (
+            not manifest
+            or not isinstance(previous_fingerprint, dict)
+            or not _manifest_fingerprint_matches(
+                current=fingerprint, previous=previous_fingerprint
+            )
+        ):
             return None
 
         output_path = manifest.get("output_path")

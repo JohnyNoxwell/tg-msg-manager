@@ -36,6 +36,7 @@ from .services.channel_export.discussions.options import (
 )
 from .services.channel_export.media_types import parse_media_types
 from .services.channel_export.size_parser import parse_media_size
+from .services.rendering import DEFAULT_TXT_PROFILE, validate_txt_profile
 from .services.scheduler import setup_scheduler
 from .utils.ui import UI
 
@@ -51,6 +52,10 @@ def _parse_menu_channel_force(value: str) -> bool:
 
 def _print_menu_invalid_selection() -> None:
     print(UI.paint(_("text_invalid_selection"), UI.CLR_WARN))
+
+
+def _parse_menu_txt_profile(value: str) -> str:
+    return validate_txt_profile(value)
 
 
 async def _handle_menu_export(ctx) -> None:
@@ -75,6 +80,27 @@ async def _handle_menu_export(ctx) -> None:
         depth_str = TerminalInput.prompt_with_esc(f"{_('depth_label')} (1-5) [2]: ")
         if depth_str and depth_str.isdigit():
             active_depth = int(depth_str)
+
+    fmt = TerminalInput.prompt_with_esc(_("label_format_prompt"))
+    if fmt is None:
+        return
+    normalized_fmt = fmt.strip()
+    if normalized_fmt == "1":
+        as_json = True
+        txt_profile = DEFAULT_TXT_PROFILE
+    elif normalized_fmt in {"", "2"}:
+        as_json = False
+        profile_input = TerminalInput.prompt_with_esc(_("prompt_txt_profile") + ": ")
+        if profile_input is None:
+            return
+        try:
+            txt_profile = _parse_menu_txt_profile(profile_input)
+        except ValueError:
+            _print_menu_invalid_selection()
+            return
+    else:
+        _print_menu_invalid_selection()
+        return
 
     user_ent, chat_ent = await get_safe_user_and_chat(
         ctx.client,
@@ -105,7 +131,8 @@ async def _handle_menu_export(ctx) -> None:
                 ctx,
                 final_uid=final_uid,
                 processed=processed,
-                as_json=True,
+                as_json=as_json,
+                txt_profile=txt_profile,
                 show_finalize_section=False,
                 show_saved_path=False,
             )

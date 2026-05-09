@@ -14,7 +14,7 @@ Primary Python entrypoint:
 
 | Command | Required args | Optional args / defaults | Expected effect |
 | --- | --- | --- | --- |
-| `export` | `--user-id` | `--chat-id=None`, `--deep=True`, `--flat`, `--force-resync=False`, `--context-window=3`, `--max-cluster=10`, `--depth=2`, `--limit=None`, `--json=False` | Sync target messages, then optionally build DB export artifact |
+| `export` | `--user-id` | `--chat-id=None`, `--deep=True`, `--flat`, `--force-resync=False`, `--context-window=3`, `--max-cluster=10`, `--depth=2`, `--limit=None`, `--json=False`, `--txt-profile=context-readable` | Sync target messages, then optionally build DB export artifact |
 | `update` | none | none | Refresh tracked targets |
 | `retry` | none | `--limit=10`, `--list=False`, `--cleanup=False` | List or run retry queue tasks |
 | `report` | none | `--json=False` | Print DB/reporting summary |

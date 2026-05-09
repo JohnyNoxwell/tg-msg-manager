@@ -1,6 +1,24 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.29] - 2026-05-09
+
+### Added (EN)
+- **Stage 4A.5 Context-Readable TXT Export Profile**: Added the `context-readable` TXT profile for user/group exports and made it the direct `export` TXT default.
+- **Legacy TXT Profile**: Kept the old flat TXT output available as `--txt-profile legacy`.
+- **CLI and Menu Integration**: Wired TXT profile selection into direct `export --txt-profile` and the interactive export menu flow.
+
+### Changed (EN)
+- **TXT Projection Boundary**: TXT rendering is isolated under `tg_msg_manager/services/rendering/`; JSONL/database records remain canonical, and no Telegram fetching, context extraction, JSONL schema, dataset/state schema, or SQLite behavior changed.
+
+### Добавлено (RU)
+- **Stage 4A.5 context-readable TXT export profile**: Добавлен TXT-профиль `context-readable` для user/group export и сделан default для прямой команды `export` при TXT-выводе.
+- **Legacy TXT profile**: Старый плоский TXT-вывод сохранён через `--txt-profile legacy`.
+- **CLI и menu integration**: TXT profile selection подключён к прямой команде `export --txt-profile` и интерактивному export menu flow.
+
+### Изменения (RU)
+- **Граница TXT projection**: TXT rendering изолирован в `tg_msg_manager/services/rendering/`; JSONL/database records остаются canonical, Telegram fetching, context extraction, JSONL schema, dataset/state schema и SQLite behavior не изменялись.
+
 ## [4.2.28] - 2026-05-09
 
 ### Added (EN)

@@ -1,10 +1,13 @@
 from typing import Any, Dict, Optional
 
 from ...core.models.message import MessageData
-from .txt_writer import format_txt_export_block
+from ..rendering import LegacyTxtRenderer
 
 
 class DBExportTxtRenderer:
+    def __init__(self, legacy_renderer: Optional[LegacyTxtRenderer] = None):
+        self.legacy_renderer = legacy_renderer or LegacyTxtRenderer()
+
     def format_block(
         self,
         *,
@@ -13,7 +16,7 @@ class DBExportTxtRenderer:
         last_date: Any,
         last_author_id: Optional[int],
     ) -> tuple[str, Any, Optional[int]]:
-        return format_txt_export_block(
+        return self.legacy_renderer.format_block(
             message=message,
             msg_lookup=msg_lookup,
             last_date=last_date,

@@ -6,6 +6,7 @@ from .core.models.setup import SchedulerSetupRequest, SchedulerSetupResult
 from .core.models.sync_report import TrackedSyncRunReport
 from .core.telemetry import telemetry
 from .i18n import _
+from .services.rendering import DEFAULT_TXT_PROFILE
 from .utils.ui import UI
 
 
@@ -111,14 +112,15 @@ async def _emit_export_summary(
     final_uid: Any,
     processed: int,
     as_json: bool,
-    show_finalize_section: bool,
-    show_saved_path: bool,
+    txt_profile: str = DEFAULT_TXT_PROFILE,
+    show_finalize_section: bool = True,
+    show_saved_path: bool = True,
 ) -> None:
     if show_finalize_section:
         print(f"\n{UI.section(_('section_finalizing_export'), icon='⬢')}")
 
     path = await ctx.db_exporter.export_user_messages(
-        final_uid, as_json=as_json, include_date=False
+        final_uid, as_json=as_json, include_date=False, txt_profile=txt_profile
     )
     if show_saved_path and path:
         print(

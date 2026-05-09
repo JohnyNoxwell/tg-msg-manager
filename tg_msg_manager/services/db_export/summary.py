@@ -11,6 +11,7 @@ from ...infrastructure.storage.records import (
 )
 from ...utils.ui import UI
 from .manifest import build_export_fingerprint
+from ..rendering.txt_profiles import TXT_PROFILE_LEGACY
 
 
 @dataclass
@@ -228,6 +229,7 @@ def prepare_export_plan(
     as_json: bool,
     include_date: bool,
     json_profile: str,
+    txt_profile: str = TXT_PROFILE_LEGACY,
 ) -> DBExportPlan:
     if source.export_summary is not None:
         summary = source.export_summary
@@ -244,6 +246,7 @@ def prepare_export_plan(
             "as_json": as_json,
             "include_date": include_date,
             "json_profile": json_profile,
+            "txt_profile": None if as_json else txt_profile,
         }
     elif source.export_rows is not None:
         target_author = resolve_export_author_name_from_rows(
@@ -259,6 +262,7 @@ def prepare_export_plan(
             "as_json": as_json,
             "include_date": include_date,
             "json_profile": json_profile,
+            "txt_profile": None if as_json else txt_profile,
         }
     else:
         messages = list(source.messages or [])
@@ -270,6 +274,7 @@ def prepare_export_plan(
             as_json=as_json,
             include_date=include_date,
             json_profile=json_profile,
+            txt_profile=txt_profile,
         )
 
     safe_name = re.sub(r"[^\w\s-]", "", target_author).strip()

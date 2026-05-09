@@ -8,6 +8,14 @@ from .summary import DBExportSource
 EXPORT_RUN_STATUS_SUCCESS = "success"
 
 
+def _format_profile_for_state(fingerprint: dict) -> Optional[str]:
+    if fingerprint.get("as_json"):
+        value = fingerprint.get("json_profile")
+    else:
+        value = fingerprint.get("txt_profile")
+    return str(value) if value is not None else None
+
+
 class DBExportStateManager:
     def __init__(
         self,
@@ -149,11 +157,7 @@ class DBExportStateManager:
                 if fingerprint.get("include_date") is not None
                 else None
             ),
-            artifact_json_profile=(
-                str(fingerprint["json_profile"])
-                if fingerprint.get("json_profile") is not None
-                else None
-            ),
+            artifact_json_profile=(_format_profile_for_state(fingerprint)),
             last_known_author_name=target_author,
             last_known_username=username,
         )
@@ -228,6 +232,7 @@ class DBExportStateManager:
             as_json=as_json,
             include_date=include_date,
             json_profile=json_profile,
+            txt_profile=json_profile,
         )
         self.upsert_export_target_state(
             user_id=user_id,

@@ -20,6 +20,7 @@ def build_export_fingerprint(
     as_json: bool,
     include_date: bool,
     json_profile: str,
+    txt_profile: str,
 ) -> Dict[str, Any]:
     first = messages[0]
     last = messages[-1]
@@ -33,6 +34,7 @@ def build_export_fingerprint(
         "as_json": as_json,
         "include_date": include_date,
         "json_profile": json_profile,
+        "txt_profile": None if as_json else txt_profile,
     }
 
 

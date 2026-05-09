@@ -3,6 +3,36 @@
 Documentation map: [`docs/README.md`](docs/README.md)
 Coding-agent contract: [`AGENTS.md`](AGENTS.md)
 
+## `export`
+
+Sync user/group messages and write a final local export artifact.
+
+Examples:
+
+```bash
+python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321
+python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --txt-profile context-readable
+python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --txt-profile legacy
+python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --json
+```
+
+Arguments:
+
+- `--user-id` required. Target user ID or username accepted by the current resolver.
+- `--chat-id` optional. Restrict sync to one chat.
+- `--deep` / `--flat` controls context collection mode; default is deep mode.
+- `--context-window`, `--max-cluster`, `--depth`, and `--limit` keep their existing sync meanings.
+- `--json` writes JSONL instead of TXT.
+- `--txt-profile` optional for TXT output. Values: `context-readable`, `legacy`. Default for `export` TXT is `context-readable`.
+
+TXT profiles:
+
+- `context-readable` is the default human-readable projection for user/group export. It renders `CONTEXT BLOCK` sections with `[REPLIED MESSAGE]`, `[CONTEXT BEFORE]`, `[TARGET MESSAGE]` / `[TARGET MESSAGES]`, and `[CONTEXT AFTER]`.
+- Missing replies render compactly as `↪ missing reply #id`.
+- `legacy` keeps the old flat log-style TXT shape for compatibility.
+- TXT is a projection only. JSONL/database records remain canonical.
+- `db-export` remains legacy TXT by default.
+
 ## `export-channel`
 
 Export posts directly from a Telegram channel into a filesystem dataset.
@@ -135,3 +165,7 @@ Interactive menu item `10` / `export-channel` asks for the same channel export
 controls as the direct command path: discussion mode (`none` / `full`), max
 comments per post, force re-export, output directory, max media size, and media
 types. Empty answers preserve the direct CLI defaults.
+
+Interactive menu item `01` / `export` can generate TXT output and prompts for
+the same TXT profile behavior when TXT is selected. Empty TXT profile input uses
+`context-readable`; `legacy` remains available explicitly.

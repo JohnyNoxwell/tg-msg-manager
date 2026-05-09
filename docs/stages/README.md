@@ -28,6 +28,15 @@ Current completed prompt groups:
 - Stage 3E.4 media filename / extension detection hardening task prompt.
 - Stage 3E.5 interactive channel export options parity task prompt.
 - Stage 4A dataset validation / inspection task prompts.
+- Stage 4A.5 context-readable TXT export profile task prompts.
+
+Stage 4A.5 completed task files:
+
+- [`completed/stage_4a_5_0_txt_rendering_contract.md`](completed/stage_4a_5_0_txt_rendering_contract.md)
+- [`completed/stage_4a_5_1_rendering_models_and_legacy_profile.md`](completed/stage_4a_5_1_rendering_models_and_legacy_profile.md)
+- [`completed/stage_4a_5_2_context_readable_renderer.md`](completed/stage_4a_5_2_context_readable_renderer.md)
+- [`completed/stage_4a_5_3_export_cli_and_menu_integration.md`](completed/stage_4a_5_3_export_cli_and_menu_integration.md)
+- [`completed/stage_4a_5_4_docs_tests_report_lifecycle.md`](completed/stage_4a_5_4_docs_tests_report_lifecycle.md)
 
 Stage 4A completed task files:
 
@@ -84,7 +93,7 @@ Archived launch prompts and prompt packs:
 
 Reports under [`reports/`](reports/) are factual completion records. They can contain time-bound claims that were true for a specific stage.
 
-Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, Stage 3E.4, Stage 3E.5, and Stage 4A records:
+Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, Stage 3E.4, Stage 3E.5, Stage 4A, and Stage 4A.5 records:
 
 - [`reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md`](reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md)
 - [`reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md`](reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md)
@@ -101,6 +110,7 @@ Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, 
 - [`reports/STAGE_3E_4_MEDIA_FILENAME_EXTENSION_DETECTION_HARDENING_REPORT.md`](reports/STAGE_3E_4_MEDIA_FILENAME_EXTENSION_DETECTION_HARDENING_REPORT.md)
 - [`reports/STAGE_3E_5_INTERACTIVE_CHANNEL_EXPORT_OPTIONS_PARITY_REPORT.md`](reports/STAGE_3E_5_INTERACTIVE_CHANNEL_EXPORT_OPTIONS_PARITY_REPORT.md)
 - [`reports/STAGE_4A_DATASET_VALIDATION_INSPECTION_REPORT.md`](reports/STAGE_4A_DATASET_VALIDATION_INSPECTION_REPORT.md)
+- [`reports/STAGE_4A_5_CONTEXT_READABLE_TXT_PROFILE_REPORT.md`](reports/STAGE_4A_5_CONTEXT_READABLE_TXT_PROFILE_REPORT.md)
 
 ## Stage lifecycle
 

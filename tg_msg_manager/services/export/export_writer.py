@@ -21,10 +21,13 @@ class ExportArtifactWriter:
         as_json: bool = False,
         include_date: bool = True,
         output_dir: Optional[str] = None,
+        txt_profile: Optional[str] = None,
     ) -> Optional[str]:
-        return await self.service.export_user_messages(
-            user_id,
-            as_json=as_json,
-            include_date=include_date,
-            output_dir=output_dir,
-        )
+        kwargs = {
+            "as_json": as_json,
+            "include_date": include_date,
+            "output_dir": output_dir,
+        }
+        if txt_profile is not None:
+            kwargs["txt_profile"] = txt_profile
+        return await self.service.export_user_messages(user_id, **kwargs)

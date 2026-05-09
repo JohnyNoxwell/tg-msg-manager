@@ -8,6 +8,13 @@ from .jsonl_renderer import DBExportJsonlRenderer
 from .models import DBExportWriteResult
 from .summary import DBExportSource
 from .txt_renderer import DBExportTxtRenderer
+from ..rendering import (
+    TXT_PROFILE_CONTEXT_READABLE,
+    TXT_PROFILE_LEGACY,
+    TxtRenderOptions,
+    render_txt_records,
+    validate_txt_profile,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -63,9 +70,13 @@ class DBExportPayloadWriter:
         as_json: bool,
         json_profile: str,
         expected_count: int,
+        txt_profile: str = TXT_PROFILE_LEGACY,
+        target_user_id: Optional[int] = None,
+        target_author: Optional[str] = None,
         overwrite: bool = True,
         on_progress: Optional[Callable[[int, Any], None]] = None,
     ) -> tuple[FileRotateWriter, DBExportWriteResult]:
+        txt_profile = validate_txt_profile(txt_profile)
         writer = FileRotateWriter(
             output_path,
             as_json=as_json,
@@ -80,6 +91,27 @@ class DBExportPayloadWriter:
             if not as_json
             else {}
         )
+
+        if not as_json and txt_profile == TXT_PROFILE_CONTEXT_READABLE:
+            records = list(source.messages or source.export_rows or [])
+            content = render_txt_records(
+                records,
+                TxtRenderOptions(
+                    profile=txt_profile,
+                    target_user_id=target_user_id,
+                    target_author_name=target_author,
+                ),
+            )
+            await writer.write_block(content, len(records))
+            await writer.finalize()
+            return writer, DBExportWriteResult(
+                count=len(records),
+                current_part=writer.current_part,
+                write_calls=writer.write_calls,
+                bytes_written=writer.bytes_written,
+                rotation_count=writer.rotation_count,
+                state_persist_count=writer.state_persist_count,
+            )
 
         last_date = None
         last_author_id = None

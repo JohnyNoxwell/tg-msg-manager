@@ -15,6 +15,7 @@ from .skip_policy import DBExportSkipPolicy
 from .source_loader import DBExportSourceLoader
 from .state_manager import DBExportStateManager
 from .txt_renderer import DBExportTxtRenderer
+from ..rendering.txt_profiles import TXT_PROFILE_LEGACY, validate_txt_profile
 
 logger = logging.getLogger(__name__)
 
@@ -132,6 +133,7 @@ class DBExportService:
         as_json: bool,
         include_date: bool,
         json_profile: str,
+        txt_profile: str,
     ):
         return self.plan_builder.prepare_plan(
             user_id=user_id,
@@ -140,6 +142,7 @@ class DBExportService:
             as_json=as_json,
             include_date=include_date,
             json_profile=json_profile,
+            txt_profile=txt_profile,
         )
 
     def _maybe_skip_unchanged_export(
@@ -283,7 +286,10 @@ class DBExportService:
         output_path: str,
         as_json: bool,
         json_profile: str,
+        txt_profile: str,
         expected_count: int,
+        target_user_id: int,
+        target_author: str,
         overwrite: bool = True,
         on_progress: Optional[Callable[[int, Any], None]] = None,
     ):
@@ -292,7 +298,10 @@ class DBExportService:
             output_path=output_path,
             as_json=as_json,
             json_profile=json_profile,
+            txt_profile=txt_profile,
             expected_count=expected_count,
+            target_user_id=target_user_id,
+            target_author=target_author,
             overwrite=overwrite,
             on_progress=on_progress,
         )
@@ -305,7 +314,9 @@ class DBExportService:
         as_json: bool = False,
         include_date: bool = False,
         json_profile: str = "ai",
+        txt_profile: str = TXT_PROFILE_LEGACY,
     ) -> str:
+        txt_profile = validate_txt_profile(txt_profile)
         started_at = perf_counter()
         resolved_output_dir = output_dir or self.default_output_dir
         processed_count = 0
@@ -348,6 +359,7 @@ class DBExportService:
                 as_json=as_json,
                 include_date=include_date,
                 json_profile=json_profile,
+                txt_profile=txt_profile,
             )
             unchanged = self._maybe_skip_unchanged_export(
                 output_dir=resolved_output_dir,
@@ -382,7 +394,10 @@ class DBExportService:
                 output_path=plan.output_path,
                 as_json=as_json,
                 json_profile=json_profile,
+                txt_profile=txt_profile,
                 expected_count=source.source_count,
+                target_user_id=user_id,
+                target_author=plan.target_author,
                 overwrite=True,
                 on_progress=track_progress,
             )
@@ -437,7 +452,9 @@ class DBExportService:
         as_json: bool = True,
         include_date: bool = False,
         json_profile: str = "ai",
+        txt_profile: str = TXT_PROFILE_LEGACY,
     ) -> str:
+        txt_profile = validate_txt_profile(txt_profile)
         resolved_output_dir = output_dir or self.default_output_dir
         export_target = self.state_manager.get_export_target(user_id)
         if not self._supports_incremental_update(
@@ -453,6 +470,7 @@ class DBExportService:
                 as_json=as_json,
                 include_date=include_date,
                 json_profile=json_profile,
+                txt_profile=txt_profile,
             )
 
         output_path = self._resolve_existing_export_path(
@@ -466,6 +484,7 @@ class DBExportService:
                 as_json=as_json,
                 include_date=include_date,
                 json_profile=json_profile,
+                txt_profile=txt_profile,
             )
 
         last_ts = int(getattr(export_target, "last_exported_message_ts"))
@@ -503,7 +522,11 @@ class DBExportService:
                 output_path=output_path,
                 as_json=as_json,
                 json_profile=json_profile,
+                txt_profile=txt_profile,
                 expected_count=source.source_count,
+                target_user_id=user_id,
+                target_author=getattr(export_target, "last_known_author_name", None)
+                or f"User_{user_id}",
                 overwrite=False,
                 on_progress=track_progress,
             )

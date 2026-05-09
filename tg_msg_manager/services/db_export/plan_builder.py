@@ -2,6 +2,7 @@ from typing import List
 
 from ...core.models.message import MessageData
 from ...infrastructure.storage.records import UserExportRow
+from ..rendering.txt_profiles import TXT_PROFILE_LEGACY
 from .summary import (
     DBExportPlan,
     DBExportSource,
@@ -24,6 +25,7 @@ class DBExportPlanBuilder:
         as_json: bool,
         include_date: bool,
         json_profile: str,
+        txt_profile: str = TXT_PROFILE_LEGACY,
     ) -> DBExportPlan:
         return prepare_export_plan(
             self.storage,
@@ -33,6 +35,7 @@ class DBExportPlanBuilder:
             as_json=as_json,
             include_date=include_date,
             json_profile=json_profile,
+            txt_profile=txt_profile,
         )
 
     def resolve_author_name(self, user_id: int, messages: List[MessageData]) -> str:

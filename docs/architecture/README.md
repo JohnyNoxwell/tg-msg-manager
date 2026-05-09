@@ -20,6 +20,7 @@ Architecture docs are stable references for repository boundaries, storage/model
 - [`DATASET_FORMAT.md`](DATASET_FORMAT.md) - direct channel export dataset, manifest, and state schema contract.
 - [`DATASET_VALIDATION.md`](DATASET_VALIDATION.md) - read-only dataset validation / inspection boundary and command contract.
 - [`STATE_AND_INCREMENTAL_MODEL.md`](STATE_AND_INCREMENTAL_MODEL.md) - direct channel export state and incremental consistency model.
+- [`TXT_RENDERING.md`](TXT_RENDERING.md) - TXT profile projection boundary for user/group export.
 
 ## Channel export docs
 
