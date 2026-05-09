@@ -26,10 +26,15 @@ Current completed prompt groups:
 - Stage 3E.2 dataset schema contract tests task prompt.
 - Stage 3E.3 state consistency hardening task prompt.
 - Stage 3E.4 media filename / extension detection hardening task prompt.
+- Stage 3E.5 interactive channel export options parity task prompt.
 
 Stage 3E.4 completed task files:
 
 - [`completed/stage_3e_4_media_filename_extension_detection_hardening.md`](completed/stage_3e_4_media_filename_extension_detection_hardening.md)
+
+Stage 3E.5 completed task files:
+
+- [`completed/stage_3e_5_interactive_channel_export_options_parity.md`](completed/stage_3e_5_interactive_channel_export_options_parity.md)
 
 Stage 3D.0 completed task files:
 
@@ -70,7 +75,7 @@ Archived launch prompts and prompt packs:
 
 Reports under [`reports/`](reports/) are factual completion records. They can contain time-bound claims that were true for a specific stage.
 
-Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, and Stage 3E.3 records:
+Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, Stage 3E.4, and Stage 3E.5 records:
 
 - [`reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md`](reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md)
 - [`reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md`](reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md)
@@ -85,6 +90,7 @@ Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, and Stage 3E
 - [`reports/STAGE_3E_2_DATASET_SCHEMA_CONTRACT_TESTS_REPORT.md`](reports/STAGE_3E_2_DATASET_SCHEMA_CONTRACT_TESTS_REPORT.md)
 - [`reports/STAGE_3E_3_STATE_CONSISTENCY_HARDENING_REPORT.md`](reports/STAGE_3E_3_STATE_CONSISTENCY_HARDENING_REPORT.md)
 - [`reports/STAGE_3E_4_MEDIA_FILENAME_EXTENSION_DETECTION_HARDENING_REPORT.md`](reports/STAGE_3E_4_MEDIA_FILENAME_EXTENSION_DETECTION_HARDENING_REPORT.md)
+- [`reports/STAGE_3E_5_INTERACTIVE_CHANNEL_EXPORT_OPTIONS_PARITY_REPORT.md`](reports/STAGE_3E_5_INTERACTIVE_CHANNEL_EXPORT_OPTIONS_PARITY_REPORT.md)
 
 ## Stage lifecycle
 

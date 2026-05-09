@@ -1,6 +1,8 @@
 import sys
 import unittest
 from argparse import Namespace
+from contextlib import redirect_stdout
+from io import StringIO
 from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -18,6 +20,17 @@ class TestChannelExportCLIParser(unittest.TestCase):
         parser = build_cli_parser()
 
         self.assertIn("export-channel", parser.format_help())
+
+    def test_export_channel_help_exits_cleanly(self):
+        parser = build_cli_parser()
+        output = StringIO()
+
+        with redirect_stdout(output), self.assertRaises(SystemExit) as raised:
+            parser.parse_args(["export-channel", "--help"])
+
+        self.assertEqual(raised.exception.code, 0)
+        self.assertIn("--channel", output.getvalue())
+        self.assertIn("--discussion", output.getvalue())
 
     def test_channel_is_required(self):
         parser = build_cli_parser()
@@ -284,13 +297,13 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
             "Channel export failed: Object of type datetime is not JSON serializable",
         )
 
-    async def test_menu_export_channel_builds_complete_command_namespace(self):
+    async def _run_menu_export_channel(self, inputs):
         ctx = MagicMock()
 
         with (
             patch(
                 "tg_msg_manager.cli_menu.TerminalInput.prompt_with_esc",
-                side_effect=["1523454586", "100", "full"],
+                side_effect=inputs,
             ),
             patch("tg_msg_manager.cli_menu.pause_for_enter"),
             patch(
@@ -299,6 +312,13 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
             ) as mock_handler,
         ):
             await _handle_menu_export_channel(ctx)
+
+        return mock_handler
+
+    async def test_menu_export_channel_default_options_preserve_previous_values(self):
+        mock_handler = await self._run_menu_export_channel(
+            ["1523454586", "100", "full", "", "", "", "", "", ""]
+        )
 
         args = mock_handler.await_args.args[1]
         self.assertEqual(args.channel, "1523454586")
@@ -310,6 +330,111 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(args.max_comments_per_post, 100)
         self.assertIsNone(args.output_dir)
         self.assertFalse(args.force)
+
+    async def test_menu_export_channel_passes_discussion_full(self):
+        mock_handler = await self._run_menu_export_channel(
+            ["@example", "", "metadata", "full", "", "", "", "", ""]
+        )
+
+        args = mock_handler.await_args.args[1]
+        self.assertEqual(args.discussion, "full")
+
+    async def test_menu_export_channel_passes_custom_max_comments_per_post(self):
+        mock_handler = await self._run_menu_export_channel(
+            ["@example", "", "metadata", "", "25", "", "", "", ""]
+        )
+
+        args = mock_handler.await_args.args[1]
+        self.assertEqual(args.max_comments_per_post, 25)
+
+    async def test_menu_export_channel_passes_force_y_as_true(self):
+        mock_handler = await self._run_menu_export_channel(
+            ["@example", "", "metadata", "", "", "y", "", "", ""]
+        )
+
+        args = mock_handler.await_args.args[1]
+        self.assertTrue(args.force)
+
+    async def test_menu_export_channel_passes_output_dir(self):
+        mock_handler = await self._run_menu_export_channel(
+            ["@example", "", "metadata", "", "", "", "/tmp/out", "", ""]
+        )
+
+        args = mock_handler.await_args.args[1]
+        self.assertEqual(args.output_dir, "/tmp/out")
+
+    async def test_menu_export_channel_passes_max_media_size(self):
+        mock_handler = await self._run_menu_export_channel(
+            ["@example", "", "metadata", "", "", "", "", "50MB", ""]
+        )
+
+        args = mock_handler.await_args.args[1]
+        self.assertEqual(args.max_media_size, 50 * 1024 * 1024)
+
+    async def test_menu_export_channel_passes_media_types(self):
+        mock_handler = await self._run_menu_export_channel(
+            ["@example", "", "metadata", "", "", "", "", "", "photo,video"]
+        )
+
+        args = mock_handler.await_args.args[1]
+        self.assertEqual(args.media_types, ("photo", "video"))
+
+    async def test_menu_export_channel_rejects_invalid_discussion(self):
+        ctx = MagicMock()
+
+        with (
+            patch(
+                "tg_msg_manager.cli_menu.TerminalInput.prompt_with_esc",
+                side_effect=["@example", "", "metadata", "tree"],
+            ),
+            patch("tg_msg_manager.cli_menu.pause_for_enter") as mock_pause,
+            patch(
+                "tg_msg_manager.cli_menu._handle_export_channel_command",
+                new_callable=AsyncMock,
+            ) as mock_handler,
+        ):
+            await _handle_menu_export_channel(ctx)
+
+        mock_handler.assert_not_awaited()
+        mock_pause.assert_called_once()
+
+    async def test_menu_export_channel_rejects_invalid_max_comments_per_post(self):
+        ctx = MagicMock()
+
+        with (
+            patch(
+                "tg_msg_manager.cli_menu.TerminalInput.prompt_with_esc",
+                side_effect=["@example", "", "metadata", "", "0"],
+            ),
+            patch("tg_msg_manager.cli_menu.pause_for_enter") as mock_pause,
+            patch(
+                "tg_msg_manager.cli_menu._handle_export_channel_command",
+                new_callable=AsyncMock,
+            ) as mock_handler,
+        ):
+            await _handle_menu_export_channel(ctx)
+
+        mock_handler.assert_not_awaited()
+        mock_pause.assert_called_once()
+
+    async def test_menu_export_channel_rejects_invalid_force(self):
+        ctx = MagicMock()
+
+        with (
+            patch(
+                "tg_msg_manager.cli_menu.TerminalInput.prompt_with_esc",
+                side_effect=["@example", "", "metadata", "", "", "maybe"],
+            ),
+            patch("tg_msg_manager.cli_menu.pause_for_enter") as mock_pause,
+            patch(
+                "tg_msg_manager.cli_menu._handle_export_channel_command",
+                new_callable=AsyncMock,
+            ) as mock_handler,
+        ):
+            await _handle_menu_export_channel(ctx)
+
+        mock_handler.assert_not_awaited()
+        mock_pause.assert_called_once()
 
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_dispatches_export_channel_and_requires_client(

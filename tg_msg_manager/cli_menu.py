@@ -31,9 +31,26 @@ from .services.reporting import (
 from .services.channel_export.discussions.options import (
     DEFAULT_MAX_COMMENTS_PER_POST,
     DISCUSSION_MODE_NONE,
+    validate_discussion_mode,
+    validate_max_comments_per_post,
 )
+from .services.channel_export.media_types import parse_media_types
+from .services.channel_export.size_parser import parse_media_size
 from .services.scheduler import setup_scheduler
 from .utils.ui import UI
+
+
+def _parse_menu_channel_force(value: str) -> bool:
+    normalized = value.strip().lower()
+    if normalized in {"", "n", "no", "false", "0"}:
+        return False
+    if normalized in {"y", "yes", "true", "1"}:
+        return True
+    raise ValueError("invalid force value")
+
+
+def _print_menu_invalid_selection() -> None:
+    print(UI.paint(_("text_invalid_selection"), UI.CLR_WARN))
 
 
 async def _handle_menu_export(ctx) -> None:
@@ -206,7 +223,7 @@ async def _handle_menu_export_channel(ctx) -> None:
 
     normalized_media = media.strip().lower() or "metadata"
     if normalized_media not in {"none", "metadata", "full"}:
-        print(UI.paint(_("text_invalid_selection"), UI.CLR_WARN))
+        _print_menu_invalid_selection()
         pause_for_enter()
         return
 
@@ -214,10 +231,92 @@ async def _handle_menu_export_channel(ctx) -> None:
     normalized_limit = limit_input.strip()
     if normalized_limit:
         if not normalized_limit.isdigit():
-            print(UI.paint(_("text_invalid_selection"), UI.CLR_WARN))
+            _print_menu_invalid_selection()
             pause_for_enter()
             return
         limit = int(normalized_limit)
+
+    discussion_input = TerminalInput.prompt_with_esc(
+        _("prompt_channel_discussion_mode") + ": "
+    )
+    if discussion_input is None:
+        return
+    try:
+        discussion = validate_discussion_mode(
+            discussion_input.strip() or DISCUSSION_MODE_NONE
+        )
+    except ValueError:
+        _print_menu_invalid_selection()
+        pause_for_enter()
+        return
+
+    max_comments_input = TerminalInput.prompt_with_esc(
+        _("prompt_channel_max_comments_per_post").format(
+            default=DEFAULT_MAX_COMMENTS_PER_POST
+        )
+        + ": "
+    )
+    if max_comments_input is None:
+        return
+    try:
+        max_comments_per_post = (
+            DEFAULT_MAX_COMMENTS_PER_POST
+            if not max_comments_input.strip()
+            else validate_max_comments_per_post(int(max_comments_input))
+        )
+    except ValueError:
+        _print_menu_invalid_selection()
+        pause_for_enter()
+        return
+
+    force_input = TerminalInput.prompt_with_esc(_("prompt_channel_force") + ": ")
+    if force_input is None:
+        return
+    try:
+        force = _parse_menu_channel_force(force_input)
+    except ValueError:
+        _print_menu_invalid_selection()
+        pause_for_enter()
+        return
+
+    output_dir_input = TerminalInput.prompt_with_esc(
+        _("prompt_channel_output_dir") + ": "
+    )
+    if output_dir_input is None:
+        return
+    output_dir = output_dir_input.strip() or None
+
+    max_media_size_input = TerminalInput.prompt_with_esc(
+        _("prompt_channel_max_media_size") + ": "
+    )
+    if max_media_size_input is None:
+        return
+    try:
+        max_media_size = (
+            None
+            if not max_media_size_input.strip()
+            else parse_media_size(max_media_size_input)
+        )
+    except ValueError:
+        _print_menu_invalid_selection()
+        pause_for_enter()
+        return
+
+    media_types_input = TerminalInput.prompt_with_esc(
+        _("prompt_channel_media_types") + ": "
+    )
+    if media_types_input is None:
+        return
+    try:
+        media_types = (
+            None
+            if not media_types_input.strip()
+            else parse_media_types(media_types_input)
+        )
+    except ValueError:
+        _print_menu_invalid_selection()
+        pause_for_enter()
+        return
 
     try:
         await _handle_export_channel_command(
@@ -226,12 +325,12 @@ async def _handle_menu_export_channel(ctx) -> None:
                 channel=channel.strip(),
                 limit=limit,
                 media=normalized_media,
-                max_media_size=None,
-                media_types=None,
-                discussion=DISCUSSION_MODE_NONE,
-                max_comments_per_post=DEFAULT_MAX_COMMENTS_PER_POST,
-                output_dir=None,
-                force=False,
+                max_media_size=max_media_size,
+                media_types=media_types,
+                discussion=discussion,
+                max_comments_per_post=max_comments_per_post,
+                output_dir=output_dir,
+                force=force,
             ),
         )
     except SystemExit as exc:

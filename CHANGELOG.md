@@ -1,6 +1,14 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [4.2.27] - 2026-05-09
+
+### Added (EN)
+- **Stage 3E.5 Interactive Channel Export Options Parity**: Interactive menu item `10` now prompts for discussion mode, max comments per post, force re-export, output directory, max media size, and media types while preserving direct CLI defaults for empty answers.
+
+### Added (RU)
+- **Stage 3E.5 parity интерактивного channel export**: Интерактивный пункт меню `10` теперь запрашивает discussion mode, max comments per post, force re-export, output directory, max media size и media types, сохраняя defaults прямой CLI-команды при пустом вводе.
+
 ## [4.2.26] - 2026-05-08
 
 ### Changed (EN)

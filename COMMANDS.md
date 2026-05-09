@@ -84,3 +84,8 @@ Legacy short inputs remain accepted for compatibility:
 - `P`
 - `L`
 - `0`
+
+Interactive menu item `10` / `export-channel` asks for the same channel export
+controls as the direct command path: discussion mode (`none` / `full`), max
+comments per post, force re-export, output directory, max media size, and media
+types. Empty answers preserve the direct CLI defaults.

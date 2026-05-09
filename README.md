@@ -103,6 +103,7 @@ python3 -m tg_msg_manager.cli report
     Имена media-файлов и итоговые media-подпапки выбираются из безопасного Telegram original filename, затем MIME type, затем лёгких magic bytes; `.bin` остаётся fallback только для неизвестного типа.
     `media_manifest.jsonl` фиксирует итоговый путь media. OCR, speech-to-text, media analysis, transcoding и ffmpeg processing не выполняются.
     В `full` режиме `media_manifest.jsonl` фиксирует итоговые статусы `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type` и `failed`.
+    Интерактивный пункт меню `10` теперь запрашивает discussion mode, max comments per post, force, output directory, max media size и media types; пустой ввод сохраняет defaults прямой CLI-команды.
 *   **Полное удаление локальных данных**:
     `python3 -m tg_msg_manager.cli delete --user-id 123456789`
 *   **Планировщик (macOS)**:
@@ -316,6 +317,7 @@ Subcommands can be executed directly for automation:
     Media filenames and final media subdirectories are resolved from a safe Telegram original filename, then MIME type, then lightweight magic bytes; `.bin` remains the fallback only for unknown types.
     `media_manifest.jsonl` records the final media path. OCR, speech-to-text, media analysis, transcoding, and ffmpeg processing are not performed.
     In `full` mode, `media_manifest.jsonl` records final statuses such as `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type`, and `failed`.
+    Interactive menu item `10` now prompts for discussion mode, max comments per post, force, output directory, max media size, and media types; empty input preserves the direct CLI defaults.
 *   **Full Local Purge**:
     `python3 -m tg_msg_manager.cli delete --user-id 123456789`
 *   **Scheduler (macOS)**:
