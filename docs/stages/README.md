@@ -6,7 +6,7 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- [`active/stage_4b_0_console_utility_visual_refresh.md`](active/stage_4b_0_console_utility_visual_refresh.md)
+- none
 
 The [`active/`](active/) directory must contain only unfinished or next active work. Do not leave completed stage task files, general launch prompts, prompt packs, or historical records there.
 
@@ -40,6 +40,10 @@ Stage 4A.7 completed task files:
 Stage 4A.8 completed task files:
 
 - [`completed/stage_4a_8_discussion_export_policy_hardening.md`](completed/stage_4a_8_discussion_export_policy_hardening.md)
+
+Stage 4B.0 completed task files:
+
+- [`completed/stage_4b_0_console_utility_visual_refresh.md`](completed/stage_4b_0_console_utility_visual_refresh.md)
 
 Stage 4A.6 completed task files:
 
@@ -129,6 +133,7 @@ Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, 
 - [`reports/STAGE_4A_6_CONTEXT_GROUP_ID_FALLBACK_HARDENING_REPORT.md`](reports/STAGE_4A_6_CONTEXT_GROUP_ID_FALLBACK_HARDENING_REPORT.md)
 - [`reports/STAGE_4A_7_DB_EXPORT_TXT_PROFILE_PARITY_REPORT.md`](reports/STAGE_4A_7_DB_EXPORT_TXT_PROFILE_PARITY_REPORT.md)
 - [`reports/STAGE_4A_8_DISCUSSION_EXPORT_POLICY_HARDENING_REPORT.md`](reports/STAGE_4A_8_DISCUSSION_EXPORT_POLICY_HARDENING_REPORT.md)
+- [`reports/STAGE_4B_0_CONSOLE_UTILITY_VISUAL_REFRESH_REPORT.md`](reports/STAGE_4B_0_CONSOLE_UTILITY_VISUAL_REFRESH_REPORT.md)
 
 ## Stage lifecycle
 

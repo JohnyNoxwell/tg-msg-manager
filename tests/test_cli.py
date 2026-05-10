@@ -22,7 +22,6 @@ from tg_msg_manager.core.config import Settings
 from tg_msg_manager.core.runtime import AppPaths, AppRuntime
 from tg_msg_manager.core.models.setup import SchedulerSetupResult
 from tg_msg_manager.infrastructure.storage.records import PrimaryTarget
-from tg_msg_manager.i18n import _
 from tg_msg_manager.i18n import get_lang
 from tg_msg_manager.services.rendering import DEFAULT_TXT_PROFILE
 
@@ -160,10 +159,9 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
             print_update_summary(stats, title="Update")
 
         rendered = output.getvalue()
-        self.assertIn("Tracked User - 2", rendered)
-        self.assertIn("5", rendered)
-        self.assertIn(_("label_without_context"), rendered)
-        self.assertIn(_("label_with_context"), rendered)
+        self.assertIn("Tracked User", rendered)
+        self.assertIn("без контекста · 2", rendered)
+        self.assertIn("с контекстом · 5", rendered)
         self.assertNotIn("Unchanged User", rendered)
 
     def test_get_dirty_target_ids_filters_unchanged_users(self):
@@ -816,13 +814,14 @@ class TestMainMenuRendering(unittest.TestCase):
             render_main_menu(12345)
 
         rendered = output.getvalue()
-        self.assertIn("[01]", rendered)
-        self.assertIn("[09]", rendered)
-        self.assertIn("[10]", rendered)
-        self.assertIn("[11]", rendered)
-        self.assertIn("[12]", rendered)
-        self.assertIn("[98]", rendered)
-        self.assertIn("[00]", rendered)
+        self.assertIn("01 ▸", rendered)
+        self.assertIn("09 ▸", rendered)
+        self.assertIn("10 ▸", rendered)
+        self.assertIn("11 ▸", rendered)
+        self.assertIn("12 ▸", rendered)
+        self.assertIn("98 ▸", rendered)
+        self.assertIn("00 ▸", rendered)
+        self.assertNotIn("[01]", rendered)
 
 
 if __name__ == "__main__":

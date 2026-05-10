@@ -26,6 +26,14 @@ class UI:
     CLR_RESET = "\033[0m"
     CLR_BOLD = "\033[1m"
     CLR_CYAN = CLR_ACCENT
+    ICON_SECTION = "◆"
+    ICON_MENU = "▸"
+    ICON_SUCCESS = "✓"
+    ICON_ERROR = "✖"
+    ICON_WARN = "!"
+    ICON_INFO = "•"
+    ICON_RETURN = "↳"
+    ICON_DIVIDER = "·"
 
     STATUS_ICONS = {
         "Syncing": "◌",
@@ -91,6 +99,26 @@ class UI:
         return f"{cls.paint(icon, cls.CLR_ACCENT, bold=True)} {cls.paint(title, cls.CLR_TEXT, bold=True)}"
 
     @classmethod
+    def prompt_text(
+        cls, text: Any, *, suffix: str = ": ", hint: Optional[str] = None
+    ) -> str:
+        prompt = cls.paint(text, cls.CLR_TEXT, bold=True)
+        if hint:
+            return f"{prompt} {cls.muted(hint)}{suffix}"
+        return f"{prompt}{suffix}"
+
+    @classmethod
+    def menu_row(cls, hotkey: str, title: Any, description: Optional[Any] = None) -> str:
+        row = (
+            f" {cls.paint(f'{hotkey:>2}', cls.CLR_ACCENT, bold=True)}"
+            f" {cls.paint(cls.ICON_MENU, cls.CLR_BORDER, bold=True)}"
+            f" {cls.paint(title, cls.CLR_TEXT, bold=True)}"
+        )
+        if description:
+            row = f"{row}  {cls.muted(description)}"
+        return row
+
+    @classmethod
     def key_value(cls, key: str, value: Any, icon: Optional[str] = None) -> str:
         parts = []
         if icon:
@@ -154,10 +182,8 @@ class UI:
             if value not in ("", None)
             else ""
         )
-        extra_text = extra if extra else ""
-        pieces = [
-            piece for piece in (icon_text, label_text, value_text, extra_text) if piece
-        ]
+        extra_text = cls.muted(extra) if extra else ""
+        pieces = [piece for piece in (icon_text, label_text, value_text, extra_text) if piece]
         sys.stdout.write(f"\r   {'  '.join(pieces)}\033[K")
         sys.stdout.flush()
 
@@ -167,7 +193,7 @@ class UI:
         cls.clear_screen()
         cls.print_gradient_banner()
         print(cls.rule(105))
-        print(f" {cls.section(title, icon='◆')}")
+        print(f" {cls.section(title, icon=cls.ICON_SECTION)}")
         if description:
             print(f" {cls.muted(description)}")
         print(cls.rule(105))
@@ -233,7 +259,7 @@ class UI:
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print()
         print(cls.rule(72))
-        print(f" {cls.section(_(title_key), icon='◆')}  {cls.muted(now_str)}")
+        print(f" {cls.section(_(title_key), icon=cls.ICON_SECTION)}  {cls.muted(now_str)}")
         print(cls.rule(72))
 
         for item in summaries:
@@ -243,5 +269,7 @@ class UI:
             for label, value in item.get("lines", []):
                 label_text = cls.paint(cls.summary_label(label), cls.CLR_MUTED)
                 value_text = cls.paint(value, cls.CLR_STATS, bold=True)
-                print(f"   {label_text}  {value_text}")
+                print(
+                    f"   {label_text} {cls.paint(cls.ICON_DIVIDER, cls.CLR_BORDER)} {value_text}"
+                )
             print(cls.rule(72))

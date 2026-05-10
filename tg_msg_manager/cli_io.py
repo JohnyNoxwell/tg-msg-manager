@@ -110,7 +110,7 @@ def _render_export_sync_chat_started(payload: dict[str, Any]) -> None:
         status_badge = UI.muted(_("text_resuming_history"))
     elif typed.status_kind == "updating":
         status_badge = UI.muted(_("text_updating"))
-    header = f"{UI.section(_('section_sync'), icon='◆')}  {colored_title}"
+    header = f"{UI.section(_('section_sync'), icon=UI.ICON_SECTION)}  {colored_title}"
     if typed.user_label:
         header = f"{header}  {UI.muted(_('label_user'))} {UI.paint(typed.user_label, UI.CLR_USER, bold=True)}"
     header = f"{header}  {UI.muted(_('label_mode'))} {mode_badge}"
@@ -166,7 +166,7 @@ def _render_export_targeted_dialog_search_started(payload: dict[str, Any]) -> No
     if sys.stdout.isatty():
         typed = ExportTargetedDialogSearchStartedPayload.coerce(payload)
         print(
-            f"\n{UI.section(_('section_targeted_search'), icon='◆')}  {UI.key_value(_('label_user'), typed.from_user_id, icon='◌')}  {UI.key_value(_('label_dialogs'), typed.dialog_count, icon='◌')}"
+            f"\n{UI.section(_('section_targeted_search'), icon=UI.ICON_SECTION)}  {UI.key_value(_('label_user'), typed.from_user_id, icon='◌')}  {UI.key_value(_('label_dialogs'), typed.dialog_count, icon='◌')}"
         )
 
 
@@ -174,7 +174,7 @@ def _render_export_dialog_search_started(payload: dict[str, Any]) -> None:
     if sys.stdout.isatty():
         typed = ExportDialogSearchStartedPayload.coerce(payload)
         print(
-            f"\n{UI.section(_('section_dialog_search'), icon='◆')}  {UI.key_value(_('label_user'), typed.from_user_id, icon='◌')}"
+            f"\n{UI.section(_('section_dialog_search'), icon=UI.ICON_SECTION)}  {UI.key_value(_('label_user'), typed.from_user_id, icon='◌')}"
         )
 
 
@@ -208,7 +208,7 @@ def _render_export_tracked_update_started(payload: dict[str, Any]) -> None:
     if UI.is_tty():
         typed = ExportTrackedUpdateStartedPayload.coerce(payload)
         print(
-            f"\n{UI.section(_('section_update'), icon='◆')}  {UI.key_value(_('label_targets'), typed.target_count, icon='◌')}"
+            f"\n{UI.section(_('section_update'), icon=UI.ICON_SECTION)}  {UI.key_value(_('label_targets'), typed.target_count, icon='◌')}"
         )
 
 
@@ -229,7 +229,7 @@ def _render_private_archive_started(payload: dict[str, Any]) -> None:
         return
     typed = PrivateArchiveStartedPayload.coerce(payload)
     print(
-        f"\n{UI.section(_('section_pm_archive'), icon='◆')}  {UI.paint(typed.target_name, UI.CLR_USER, bold=True)}  {UI.muted(_('label_id'))} {UI.paint(typed.user_id, UI.CLR_ID)}"
+        f"\n{UI.section(_('section_pm_archive'), icon=UI.ICON_SECTION)}  {UI.paint(typed.target_name, UI.CLR_USER, bold=True)}  {UI.muted(_('label_id'))} {UI.paint(typed.user_id, UI.CLR_ID)}"
     )
     print(f"   {UI.muted(_('label_path'))} {UI.paint(typed.user_dir, UI.CLR_CHAT)}")
 
@@ -282,7 +282,7 @@ def _render_channel_export_started(payload: dict[str, Any]) -> None:
     if not UI.is_tty():
         return
     print(
-        f"\n{UI.section('Channel Export', icon='◆')}  "
+        f"\n{UI.section('Channel Export', icon=UI.ICON_SECTION)}  "
         f"{UI.muted('source')} {UI.paint(payload.get('channel', '?'), UI.CLR_CHAT, bold=True)}  "
         f"{UI.muted('media')} {UI.paint(payload.get('media_mode', '?'), UI.CLR_STATS, bold=True)}"
     )
@@ -455,10 +455,10 @@ def print_update_summary(stats: Any, *, title: str) -> None:
 
     changed_stats = [stat for stat in report.values() if stat.dirty or stat.count > 0]
 
-    print(f"\n{UI.section(_('sync_summary_title'), icon='◆')}")
+    print(f"\n{UI.section(_('sync_summary_title'), icon=UI.ICON_SECTION)}")
     if not changed_stats:
         print(
-            f" {UI.paint(title, UI.CLR_TEXT, bold=True)} - {UI.muted(_('update_complete', total=0))}"
+            f" {UI.paint(title, UI.CLR_TEXT, bold=True)} {UI.paint(UI.ICON_DIVIDER, UI.CLR_BORDER)} {UI.muted(_('update_complete', total=0))}"
         )
         return
 
@@ -466,8 +466,12 @@ def print_update_summary(stats: Any, *, title: str) -> None:
         display_name = UI.paint(stat.name, UI.CLR_USER, bold=True)
         own_messages = UI.paint(stat.own_messages, UI.CLR_STATS, bold=True)
         with_context = UI.paint(stat.with_context, UI.CLR_STATS, bold=True)
+        print(f" {display_name}")
         print(
-            f" {display_name} - {own_messages} {_('label_without_context')}, {with_context} {_('label_with_context')}"
+            f"   {UI.muted(_('label_without_context'))} {UI.paint(UI.ICON_DIVIDER, UI.CLR_BORDER)} {own_messages}"
+        )
+        print(
+            f"   {UI.muted(_('label_with_context'))} {UI.paint(UI.ICON_DIVIDER, UI.CLR_BORDER)} {with_context}"
         )
 
 
@@ -482,7 +486,7 @@ def render_main_menu(me_id: Any) -> None:
     UI.print_gradient_banner()
     print(UI.rule(105))
     print(
-        f" {UI.section(_('section_control_center'), icon='◆')}  {UI.key_value(_('label_account'), me_id, icon='◌')}"
+        f" {UI.section(_('section_control_center'), icon=UI.ICON_SECTION)}  {UI.key_value(_('label_account'), me_id, icon='◌')}"
     )
     print(f" {UI.muted('ESC — back/cancel   ·   00 — exit   ·   98 — language')}")
     print(UI.rule(105))
@@ -501,12 +505,6 @@ def render_main_menu(me_id: Any) -> None:
         ("12", "menu_report", "menu_report_desc"),
     ]
     for hotkey, label_key, desc_key in menu_items:
-        print(
-            f" {UI.paint(f'[{hotkey}]', UI.CLR_ACCENT, bold=True)} {UI.paint(_(label_key), UI.CLR_TEXT)}  {UI.muted(_(desc_key))}"
-        )
-    print(
-        f" {UI.paint('[98]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_lang'), UI.CLR_TEXT)}"
-    )
-    print(
-        f" {UI.paint('[00]', UI.CLR_ACCENT, bold=True)} {UI.paint(_('menu_exit'), UI.CLR_TEXT)}"
-    )
+        print(UI.menu_row(hotkey, _(label_key), _(desc_key)))
+    print(UI.menu_row("98", _("menu_lang")))
+    print(UI.menu_row("00", _("menu_exit")))

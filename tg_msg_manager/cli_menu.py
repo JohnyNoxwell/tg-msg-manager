@@ -60,16 +60,18 @@ def _parse_menu_txt_profile(value: str) -> str:
 
 async def _handle_menu_export(ctx) -> None:
     UI.print_header(_("menu_1"), _("menu_1_desc"))
-    target_str = TerminalInput.prompt_with_esc(_("prompt_target") + ": ")
+    target_str = TerminalInput.prompt_with_esc(UI.prompt_text(_("prompt_target")))
     if target_str is None or target_str.strip() == "0":
         return
 
-    chat_str = TerminalInput.prompt_with_esc(_("prompt_chat") + ": ")
+    chat_str = TerminalInput.prompt_with_esc(UI.prompt_text(_("prompt_chat")))
     if chat_str is None:
         return
 
     deep_choice = TerminalInput.prompt_with_esc(
-        _("prompt_deep").replace("[y/N]", "[y]").replace("[Y/n]", "[y]") + ": "
+        UI.prompt_text(
+            _("prompt_deep").replace("[y/N]", "[y]").replace("[Y/n]", "[y]")
+        )
     )
     if deep_choice is None:
         return
@@ -77,11 +79,13 @@ async def _handle_menu_export(ctx) -> None:
 
     active_depth = 2
     if active_deep:
-        depth_str = TerminalInput.prompt_with_esc(f"{_('depth_label')} (1-5) [2]: ")
+        depth_str = TerminalInput.prompt_with_esc(
+            UI.prompt_text(f"{_('depth_label')} (1-5) [2]")
+        )
         if depth_str and depth_str.isdigit():
             active_depth = int(depth_str)
 
-    fmt = TerminalInput.prompt_with_esc(_("label_format_prompt"))
+    fmt = TerminalInput.prompt_with_esc(UI.prompt_text(_("label_format_prompt"), suffix=""))
     if fmt is None:
         return
     normalized_fmt = fmt.strip()
@@ -90,7 +94,9 @@ async def _handle_menu_export(ctx) -> None:
         txt_profile = DEFAULT_TXT_PROFILE
     elif normalized_fmt in {"", "2"}:
         as_json = False
-        profile_input = TerminalInput.prompt_with_esc(_("prompt_txt_profile") + ": ")
+        profile_input = TerminalInput.prompt_with_esc(
+            UI.prompt_text(_("prompt_txt_profile"))
+        )
         if profile_input is None:
             return
         try:
@@ -151,23 +157,25 @@ async def _handle_menu_update(ctx) -> None:
 
 async def _handle_menu_clean(ctx) -> None:
     UI.print_header(_("menu_3"), _("sub_clean_info"))
-    pm_choice = TerminalInput.prompt_with_esc(_("prompt_clean_pms") + ": ")
+    pm_choice = TerminalInput.prompt_with_esc(UI.prompt_text(_("prompt_clean_pms")))
     if pm_choice is None:
         return
-    confirm = TerminalInput.prompt_with_esc(_("clean_confirm") + " (y/n): ")
+    confirm = TerminalInput.prompt_with_esc(
+        UI.prompt_text(_("clean_confirm"), suffix="", hint="(y/n)")
+    )
     if confirm and confirm.lower() == "y":
         deleted = await ctx.cleaner.global_self_cleanup(
             dry_run=False, include_pms=(pm_choice.lower() == "y")
         )
         print(
-            f"\n{UI.section(_('summary_header'), icon='◆')}\n{_('total_deleted_msgs', count=deleted)}"
+            f"\n{UI.section(_('summary_header'), icon=UI.ICON_SECTION)}\n{_('total_deleted_msgs', count=deleted)}"
         )
     pause_for_enter()
 
 
 async def _handle_menu_export_pm(ctx) -> None:
     UI.print_header(_("menu_4"), _("menu_4_desc"))
-    target_str = TerminalInput.prompt_with_esc(_("prompt_pm_target") + ": ")
+    target_str = TerminalInput.prompt_with_esc(UI.prompt_text(_("prompt_pm_target")))
     if target_str:
         user_ent, _unused = await get_safe_user_and_chat(ctx.client, target_str.strip())
         if user_ent:
@@ -180,7 +188,7 @@ async def _handle_menu_delete_data(ctx) -> None:
     users = ctx.storage.get_primary_targets()
     if users:
         print_target_list(users)
-        idx = TerminalInput.prompt_with_esc("\nChoice: ")
+        idx = TerminalInput.prompt_with_esc(UI.prompt_text("\nChoice"))
         if idx and idx.isdigit() and 1 <= int(idx) <= len(users):
             target = PrimaryTarget.coerce(users[int(idx) - 1])
             await ctx.cleaner.purge_user_data(target.user_id)
@@ -219,10 +227,10 @@ async def _handle_menu_db_export(ctx) -> None:
     users = ctx.storage.get_primary_targets()
     if users:
         print_target_list(users)
-        idx_str = TerminalInput.prompt_with_esc("\n" + _("choice_prompt") + ": ")
+        idx_str = TerminalInput.prompt_with_esc(UI.prompt_text("\n" + _("choice_prompt")))
         if idx_str and idx_str.isdigit() and 1 <= int(idx_str) <= len(users):
             target = PrimaryTarget.coerce(users[int(idx_str) - 1])
-            fmt = TerminalInput.prompt_with_esc(_("label_format_prompt"))
+            fmt = TerminalInput.prompt_with_esc(UI.prompt_text(_("label_format_prompt"), suffix=""))
             if fmt == "1":
                 await ctx.db_exporter.export_user_messages(
                     target.user_id,
@@ -231,7 +239,7 @@ async def _handle_menu_db_export(ctx) -> None:
                 )
             elif fmt in {"", "2"}:
                 profile_input = TerminalInput.prompt_with_esc(
-                    _("prompt_txt_profile") + ": "
+                    UI.prompt_text(_("prompt_txt_profile"))
                 )
                 if profile_input is None:
                     return
@@ -255,15 +263,15 @@ async def _handle_menu_db_export(ctx) -> None:
 
 async def _handle_menu_export_channel(ctx) -> None:
     UI.print_header(_("menu_10"), _("menu_10_desc"))
-    channel = TerminalInput.prompt_with_esc(_("prompt_channel") + ": ")
+    channel = TerminalInput.prompt_with_esc(UI.prompt_text(_("prompt_channel")))
     if channel is None or not channel.strip():
         return
 
-    limit_input = TerminalInput.prompt_with_esc(_("prompt_limit_optional") + ": ")
+    limit_input = TerminalInput.prompt_with_esc(UI.prompt_text(_("prompt_limit_optional")))
     if limit_input is None:
         return
 
-    media = TerminalInput.prompt_with_esc(_("prompt_channel_media_mode") + ": ")
+    media = TerminalInput.prompt_with_esc(UI.prompt_text(_("prompt_channel_media_mode")))
     if media is None:
         return
 
@@ -283,7 +291,7 @@ async def _handle_menu_export_channel(ctx) -> None:
         limit = int(normalized_limit)
 
     discussion_input = TerminalInput.prompt_with_esc(
-        _("prompt_channel_discussion_mode") + ": "
+        UI.prompt_text(_("prompt_channel_discussion_mode"))
     )
     if discussion_input is None:
         return
@@ -299,10 +307,11 @@ async def _handle_menu_export_channel(ctx) -> None:
         print(UI.paint(_("warning_discussion_full_heavy"), UI.CLR_WARN))
 
     max_comments_input = TerminalInput.prompt_with_esc(
-        _("prompt_channel_max_comments_per_post").format(
-            default=DEFAULT_MAX_COMMENTS_PER_POST
+        UI.prompt_text(
+            _("prompt_channel_max_comments_per_post").format(
+                default=DEFAULT_MAX_COMMENTS_PER_POST
+            )
         )
-        + ": "
     )
     if max_comments_input is None:
         return
@@ -317,7 +326,7 @@ async def _handle_menu_export_channel(ctx) -> None:
         pause_for_enter()
         return
 
-    force_input = TerminalInput.prompt_with_esc(_("prompt_channel_force") + ": ")
+    force_input = TerminalInput.prompt_with_esc(UI.prompt_text(_("prompt_channel_force")))
     if force_input is None:
         return
     try:
@@ -328,14 +337,14 @@ async def _handle_menu_export_channel(ctx) -> None:
         return
 
     output_dir_input = TerminalInput.prompt_with_esc(
-        _("prompt_channel_output_dir") + ": "
+        UI.prompt_text(_("prompt_channel_output_dir"))
     )
     if output_dir_input is None:
         return
     output_dir = output_dir_input.strip() or None
 
     max_media_size_input = TerminalInput.prompt_with_esc(
-        _("prompt_channel_max_media_size") + ": "
+        UI.prompt_text(_("prompt_channel_max_media_size"))
     )
     if max_media_size_input is None:
         return
@@ -351,7 +360,7 @@ async def _handle_menu_export_channel(ctx) -> None:
         return
 
     media_types_input = TerminalInput.prompt_with_esc(
-        _("prompt_channel_media_types") + ": "
+        UI.prompt_text(_("prompt_channel_media_types"))
     )
     if media_types_input is None:
         return
@@ -388,10 +397,10 @@ async def _handle_menu_export_channel(ctx) -> None:
 
 async def _handle_menu_retry(ctx) -> None:
     UI.print_header(_("menu_retry"), _("sub_retry_info"))
-    print(f"  [1] {_('retry_action_run')}")
-    print(f"  [2] {_('retry_action_list')}")
-    print(f"  [3] {_('retry_action_cleanup')}")
-    choice = TerminalInput.prompt_with_esc("\n" + _("retry_action_prompt") + ": ")
+    print(UI.menu_row("1", _("retry_action_run")))
+    print(UI.menu_row("2", _("retry_action_list")))
+    print(UI.menu_row("3", _("retry_action_cleanup")))
+    choice = TerminalInput.prompt_with_esc(UI.prompt_text("\n" + _("retry_action_prompt")))
     if choice is None:
         return
 
@@ -409,9 +418,9 @@ async def _handle_menu_retry(ctx) -> None:
 
 async def _handle_menu_report(ctx) -> None:
     UI.print_header(_("menu_report"), _("sub_report_info"))
-    print(f"  [1] {_('report_format_markdown')}")
-    print(f"  [2] {_('report_format_json')}")
-    choice = TerminalInput.prompt_with_esc("\n" + _("report_format_prompt") + ": ")
+    print(UI.menu_row("1", _("report_format_markdown")))
+    print(UI.menu_row("2", _("report_format_json")))
+    choice = TerminalInput.prompt_with_esc(UI.prompt_text("\n" + _("report_format_prompt")))
     if choice is None:
         return
 

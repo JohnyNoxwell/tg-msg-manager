@@ -48,6 +48,8 @@ STAGE:
 
 Limits:
 
+- Show `CHANGED`, `CHECKS`, and `PRESERVED` only when they contain meaningful content.
+- Omit those sections entirely when they would otherwise be empty or only carry `n/a` placeholders.
 - Final response: max 1200 characters unless explicitly requested otherwise.
 - Interim response: max 600 characters.
 - Plan: max 5 bullets.

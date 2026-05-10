@@ -101,7 +101,7 @@ async def _run_export_sync(
             limit=limit,
         )
     print(
-        f"{UI.paint('✖', UI.CLR_ERROR, bold=True)} {UI.paint(_('text_could_not_resolve_target', target=final_uid), UI.CLR_ERROR)}"
+        f"{UI.paint(UI.ICON_ERROR, UI.CLR_ERROR, bold=True)} {UI.paint(_('text_could_not_resolve_target', target=final_uid), UI.CLR_ERROR)}"
     )
     return 0
 
@@ -117,14 +117,14 @@ async def _emit_export_summary(
     show_saved_path: bool = True,
 ) -> None:
     if show_finalize_section:
-        print(f"\n{UI.section(_('section_finalizing_export'), icon='⬢')}")
+        print(f"\n{UI.section(_('section_finalizing_export'), icon=UI.ICON_SECTION)}")
 
     path = await ctx.db_exporter.export_user_messages(
         final_uid, as_json=as_json, include_date=False, txt_profile=txt_profile
     )
     if show_saved_path and path:
         print(
-            f"{UI.paint('✓', UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_export_saved'), UI.CLR_SUCCESS)}  {UI.muted(path)}"
+            f"{UI.paint(UI.ICON_SUCCESS, UI.CLR_SUCCESS, bold=True)} {UI.paint(_('text_export_saved'), UI.CLR_SUCCESS)}  {UI.muted(path)}"
         )
 
     telemetry.log_summary("Export telemetry summary")
