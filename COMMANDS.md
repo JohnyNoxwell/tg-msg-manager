@@ -93,6 +93,7 @@ exports/
       messages.jsonl
       messages.txt
       media_manifest.jsonl
+      run_changelog.jsonl
       channel_export_state.json
       media/
       discussion_metadata.jsonl       # only with --discussion metadata
@@ -122,6 +123,7 @@ Notes:
 - Discussion comments are not persisted to SQLite, and no SQLite migration is required.
 - Successful runs create/update `channel_export_state.json` with the last exported message id and aggregate counters.
 - A second run without `--force` exports only posts newer than `last_exported_message_id` and appends to `messages.jsonl`, `messages.txt`, and `media_manifest.jsonl`.
+- Every completed run appends one summary row to `run_changelog.jsonl` with previous/new cursor, new message ids, date range, run mode, and artifact paths. No-new-posts runs append a row with `new_message_count: 0`.
 - Channel and discussion payload appends use temp-file copy/append/replace, so a write-session failure does not partially append final payload files.
 - `channel_export_state.json` and `discussion_export_state.json` advance only after required payload and manifest writes succeed.
 - If there are no new posts, the command reports that state clearly and does not advance the export cursor.
@@ -145,7 +147,8 @@ Arguments:
 Notes:
 
 - The command is read-only and does not require Telegram credentials or a Telegram client connection.
-- Validation checks required files, JSON/JSONL parseability, duplicate post ids, manifest/state counter sanity, media manifest paths/statuses, and optional discussion files when present.
+- Validation checks required files, JSON/JSONL parseability, duplicate post ids, message-id gaps, reply links where exported fields are available, manifest/state counter sanity, media manifest ids/paths/statuses, and optional discussion files when present.
+- Message-id gaps and missing reply parents are warnings by default because Telegram deletions, unavailable parents, and scoped exports can produce the same local shape.
 - Status values are `ok`, `warnings`, and `errors`.
 - `errors` exits with code `1`; warnings do not fail the command.
 - The command does not repair, migrate, fetch, analyze content, OCR, STT, optimize media, or write SQLite data.

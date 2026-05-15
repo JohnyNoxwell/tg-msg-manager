@@ -243,7 +243,20 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(manifest["export"]["media_count"], 1)
             self.assertEqual(manifest["discussion"], {"mode": "none"})
             self.assertEqual(manifest["source"]["username"], "daily")
+            self.assertIn("run_changelog.jsonl", manifest["export"]["included_files"])
             self.assertEqual(state["last_exported_message_id"], 2)
+            changelog = [
+                json.loads(line)
+                for line in (result.manifest_path.parent / "run_changelog.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+            self.assertEqual(len(changelog), 1)
+            self.assertEqual(changelog[0]["run_mode"], "full")
+            self.assertEqual(changelog[0]["previous_cursor"], None)
+            self.assertEqual(changelog[0]["new_cursor"], 2)
+            self.assertEqual(changelog[0]["new_message_count"], 2)
+            self.assertEqual(changelog[0]["new_message_ids"], [1, 2])
             self.assertFalse(
                 (result.manifest_path.parent / "discussion_comments.jsonl").exists()
             )
@@ -858,6 +871,18 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(state["message_count_total"], 4)
             self.assertEqual(state["last_exported_message_id"], 4)
             self.assertEqual(second_client.calls[-1][-1], 2)
+            changelog = [
+                json.loads(line)
+                for line in (result.manifest_path.parent / "run_changelog.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+            self.assertEqual(len(changelog), 2)
+            self.assertEqual(changelog[1]["run_mode"], "incremental")
+            self.assertEqual(changelog[1]["previous_cursor"], 2)
+            self.assertEqual(changelog[1]["new_cursor"], 4)
+            self.assertEqual(changelog[1]["new_message_count"], 2)
+            self.assertEqual(changelog[1]["new_message_ids"], [3, 4])
 
     async def test_no_new_posts_emits_event_and_keeps_state_unchanged(self):
         entity = FakeChannelEntity()
@@ -896,6 +921,18 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(result.message_count, 1)
             self.assertEqual(state_path.read_text(encoding="utf-8"), initial_state)
             self.assertEqual(events[-2].name, "channel_export.no_new_posts")
+            changelog = [
+                json.loads(line)
+                for line in (Path(tmpdir) / "@daily__123" / "run_changelog.jsonl")
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+            self.assertEqual(len(changelog), 2)
+            self.assertEqual(changelog[1]["run_mode"], "incremental")
+            self.assertEqual(changelog[1]["previous_cursor"], 1)
+            self.assertEqual(changelog[1]["new_cursor"], 1)
+            self.assertEqual(changelog[1]["new_message_count"], 0)
+            self.assertEqual(changelog[1]["new_message_ids"], [])
 
     async def test_force_reexport_overwrites_existing_dataset(self):
         entity = FakeChannelEntity()

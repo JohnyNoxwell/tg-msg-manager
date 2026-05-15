@@ -8,7 +8,7 @@ def build_included_files(
     options: ChannelExportOptions,
     discussion_result: Any = None,
 ) -> tuple[str, ...]:
-    included = ["manifest.json", "media_manifest.jsonl"]
+    included = ["manifest.json", "media_manifest.jsonl", "run_changelog.jsonl"]
     if options.include_jsonl:
         included.append("messages.jsonl")
     if options.include_txt:

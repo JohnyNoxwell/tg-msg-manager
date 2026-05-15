@@ -25,7 +25,12 @@ class MediaValidationResult:
     issues: tuple[ValidationIssue, ...]
 
 
-def validate_media_manifest(dataset_path: Path) -> MediaValidationResult:
+def validate_media_manifest(
+    dataset_path: Path,
+    *,
+    message_records: tuple[JsonlRecord, ...] = (),
+    message_ids: frozenset[int] = frozenset(),
+) -> MediaValidationResult:
     path = dataset_path / MEDIA_MANIFEST_JSONL
     issues: list[ValidationIssue] = []
     records: tuple[JsonlRecord, ...] = ()
@@ -48,7 +53,67 @@ def validate_media_manifest(dataset_path: Path) -> MediaValidationResult:
     issues.extend(loaded.issues)
 
     status_counts: dict[str, int] = {}
+    manifest_media_ids: set[str] = set()
+    message_media_ids = _message_media_ids(message_records)
     for record in records:
+        media_id = record.payload.get("media_id")
+        if isinstance(media_id, str) and media_id:
+            if media_id in manifest_media_ids:
+                issues.append(
+                    issue_error(
+                        "duplicate_media_id",
+                        f"Duplicate media_id {media_id}",
+                        path=MEDIA_MANIFEST_JSONL,
+                        line=record.line,
+                    )
+                )
+            manifest_media_ids.add(media_id)
+        elif media_id is not None:
+            issues.append(
+                issue_error(
+                    "invalid_media_id",
+                    "Media record media_id must be a non-empty string when present",
+                    path=MEDIA_MANIFEST_JSONL,
+                    line=record.line,
+                )
+            )
+
+        message_id = record.payload.get("message_id")
+        if isinstance(message_id, int):
+            if message_ids and message_id not in message_ids:
+                issues.append(
+                    issue_warning(
+                        "media_message_unlinked",
+                        f"Media record references missing message_id {message_id}",
+                        path=MEDIA_MANIFEST_JSONL,
+                        line=record.line,
+                    )
+                )
+        elif message_id is not None:
+            issues.append(
+                issue_error(
+                    "invalid_media_message_id",
+                    "Media record message_id must be an integer when present",
+                    path=MEDIA_MANIFEST_JSONL,
+                    line=record.line,
+                )
+            )
+
+        if (
+            media_id
+            and message_media_ids
+            and isinstance(media_id, str)
+            and media_id not in message_media_ids
+        ):
+            issues.append(
+                issue_warning(
+                    "media_manifest_without_message_media",
+                    f"Media manifest record {media_id} is absent from messages.jsonl media",
+                    path=MEDIA_MANIFEST_JSONL,
+                    line=record.line,
+                )
+            )
+
         status = record.payload.get("download_status")
         if not isinstance(status, str) or not status:
             status = "unknown"
@@ -82,6 +147,15 @@ def validate_media_manifest(dataset_path: Path) -> MediaValidationResult:
             )
 
         issues.extend(_validate_media_path(dataset_path, record, status))
+
+    for media_id in sorted(message_media_ids - manifest_media_ids):
+        issues.append(
+            issue_warning(
+                "message_media_missing_manifest",
+                f"Message media record {media_id} is missing from media_manifest.jsonl",
+                path=MEDIA_MANIFEST_JSONL,
+            )
+        )
 
     return MediaValidationResult(
         records=records,
@@ -164,3 +238,18 @@ def _media_path_value(record: JsonlRecord):
         if value:
             return value
     return None
+
+
+def _message_media_ids(records: tuple[JsonlRecord, ...]) -> set[str]:
+    media_ids: set[str] = set()
+    for record in records:
+        media = record.payload.get("media")
+        if not isinstance(media, list):
+            continue
+        for item in media:
+            if not isinstance(item, dict):
+                continue
+            media_id = item.get("media_id")
+            if isinstance(media_id, str) and media_id:
+                media_ids.add(media_id)
+    return media_ids

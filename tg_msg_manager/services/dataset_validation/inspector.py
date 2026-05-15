@@ -23,6 +23,7 @@ KNOWN_DATASET_FILES = (
     "messages.jsonl",
     "messages.txt",
     "media_manifest.jsonl",
+    "run_changelog.jsonl",
     "channel_export_state.json",
     "discussion_comments.jsonl",
     "discussion_comments.txt",
@@ -57,7 +58,11 @@ def validate_dataset(options: DatasetValidationOptions) -> ValidationReport:
     message_result = validate_messages_jsonl(dataset_path)
     issues.extend(message_result.issues)
 
-    media_result = validate_media_manifest(dataset_path)
+    media_result = validate_media_manifest(
+        dataset_path,
+        message_records=message_result.records,
+        message_ids=message_result.message_ids,
+    )
     issues.extend(media_result.issues)
 
     discussion_result = validate_discussion_files(

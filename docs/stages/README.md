@@ -32,6 +32,21 @@ Current completed prompt groups:
 - Stage 4A.6 context-readable TXT fallback hardening task prompt.
 - Stage 4A.7 DB export TXT profile parity task prompt.
 - Stage 4A.8 discussion export policy hardening task prompt.
+- Stage 4B.1 dataset integrity audit-only task prompt.
+- Stage 4B.2 dataset validation hardening task prompt.
+- Stage 4B.3 run changelog artifact task prompt.
+
+Stage 4B.3 completed task files:
+
+- [`completed/stage_4b_3_run_changelog_artifact.md`](completed/stage_4b_3_run_changelog_artifact.md)
+
+Stage 4B.2 completed task files:
+
+- [`completed/stage_4b_2_dataset_validation_hardening.md`](completed/stage_4b_2_dataset_validation_hardening.md)
+
+Stage 4B.1 completed task files:
+
+- [`completed/stage_4b_1_dataset_integrity_audit_only.md`](completed/stage_4b_1_dataset_integrity_audit_only.md)
 
 Stage 4A.7 completed task files:
 
@@ -112,7 +127,7 @@ Archived launch prompts and prompt packs:
 
 Reports under [`reports/`](reports/) are factual completion records. They can contain time-bound claims that were true for a specific stage.
 
-Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, Stage 3E.4, Stage 3E.5, Stage 4A, Stage 4A.5, Stage 4A.6, Stage 4A.7, and Stage 4A.8 records:
+Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, Stage 3E.4, Stage 3E.5, Stage 4A, Stage 4A.5, Stage 4A.6, Stage 4A.7, Stage 4A.8, Stage 4B.1, Stage 4B.2, and Stage 4B.3 records:
 
 - [`reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md`](reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md)
 - [`reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md`](reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md)
@@ -134,6 +149,9 @@ Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, 
 - [`reports/STAGE_4A_7_DB_EXPORT_TXT_PROFILE_PARITY_REPORT.md`](reports/STAGE_4A_7_DB_EXPORT_TXT_PROFILE_PARITY_REPORT.md)
 - [`reports/STAGE_4A_8_DISCUSSION_EXPORT_POLICY_HARDENING_REPORT.md`](reports/STAGE_4A_8_DISCUSSION_EXPORT_POLICY_HARDENING_REPORT.md)
 - [`reports/STAGE_4B_0_CONSOLE_UTILITY_VISUAL_REFRESH_REPORT.md`](reports/STAGE_4B_0_CONSOLE_UTILITY_VISUAL_REFRESH_REPORT.md)
+- [`reports/STAGE_4B_1_DATASET_INTEGRITY_AUDIT_REPORT.md`](reports/STAGE_4B_1_DATASET_INTEGRITY_AUDIT_REPORT.md)
+- [`reports/STAGE_4B_2_DATASET_VALIDATION_HARDENING_REPORT.md`](reports/STAGE_4B_2_DATASET_VALIDATION_HARDENING_REPORT.md)
+- [`reports/STAGE_4B_3_RUN_CHANGELOG_ARTIFACT_REPORT.md`](reports/STAGE_4B_3_RUN_CHANGELOG_ARTIFACT_REPORT.md)
 
 ## Stage lifecycle
 

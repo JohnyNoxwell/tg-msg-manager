@@ -11,6 +11,7 @@ manifest.json
 messages.jsonl
 messages.txt
 media_manifest.jsonl
+run_changelog.jsonl
 channel_export_state.json
 media/
 discussion_metadata.jsonl
@@ -108,7 +109,41 @@ skipped_by_type
 failed
 ```
 
-## 4. discussion_comments.jsonl
+## 4. run_changelog.jsonl
+
+Each line is one completed `export-channel` run summary. It is a derived audit artifact; canonical post data remains in `messages.jsonl`.
+
+Top-level keys:
+
+```text
+run_id
+export_target_type
+export_target_id
+export_target_name
+run_mode
+started_at
+finished_at
+previous_cursor
+new_cursor
+new_message_count
+new_message_ids
+first_new_message_id
+last_new_message_id
+first_new_message_date
+last_new_message_date
+artifact_paths
+warnings
+```
+
+Contract notes:
+
+- `run_mode` is `full`, `force_full`, or `incremental`.
+- `previous_cursor` and `new_cursor` mirror `channel_export_state.json.last_exported_message_id` before and after the run.
+- `new_message_ids` lists message ids written in that run. No-new-posts runs write an entry with `new_message_count` `0` and an empty id list.
+- The changelog is append-only per dataset path. A force export overwrites payload files but preserves the run changelog history.
+- The changelog does not store message text and is not persisted to SQLite.
+
+## 5. discussion_comments.jsonl
 
 Each line is one discussion comment JSON object with exact keys:
 
@@ -136,7 +171,7 @@ Contract notes:
 - Discussion comment media is metadata-only; no full media download fields are required.
 - `media` is a list, usually empty in the current implementation.
 
-## 5. discussion_metadata.jsonl
+## 6. discussion_metadata.jsonl
 
 Each line is one compact channel-post discussion metadata object with exact keys:
 
@@ -157,7 +192,7 @@ Contract notes:
 - `source` is `raw_payload.replies` when extracted from Telegram replies metadata.
 - Full `raw_payload` is not duplicated in metadata records.
 
-## 6. discussion_threads.jsonl
+## 7. discussion_threads.jsonl
 
 Each line is one discussion thread status JSON object with exact keys:
 
@@ -184,7 +219,7 @@ partial
 failed
 ```
 
-## 7. manifest.json
+## 8. manifest.json
 
 Top-level manifest keys:
 
@@ -232,7 +267,7 @@ max_comments_per_post
 included_files
 ```
 
-## 8. channel_export_state.json
+## 9. channel_export_state.json
 
 Channel state exact keys:
 
@@ -260,7 +295,7 @@ last_manifest_path
 
 The current `schema_version` is `1.0`.
 
-## 9. discussion_export_state.json
+## 10. discussion_export_state.json
 
 Discussion state exact keys:
 
@@ -278,13 +313,13 @@ updated_at
 
 The current `schema_version` is `1.0`.
 
-## 10. TXT Projections
+## 11. TXT Projections
 
 `messages.txt` and `discussion_comments.txt` are human-readable projections.
 
 Contract tests only smoke-check stable identifying content such as message ids, timestamps, author/channel context, media sections, and comment text. They are not full golden snapshots.
 
-## 11. Compatibility Rules
+## 12. Compatibility Rules
 
 Compatibility rules:
 
@@ -295,7 +330,7 @@ Compatibility rules:
 - No-new-posts runs must not mutate discussion state.
 - SQLite schema is unrelated to this filesystem dataset and must not be changed for dataset-format work.
 
-## 12. Schema Change Policy
+## 13. Schema Change Policy
 
 Any dataset schema change requires:
 

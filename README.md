@@ -62,7 +62,7 @@ python3 -m tg_msg_manager.cli report
 * 💬 **Архив лички (`export-pm`)** — Текстовый бэкап приватного чата с подготовленной структурой папок под медиа.
 * 🗄️ **SQLite База данных** — Все данные хранятся в структурированной базе `messages.db`. Это обеспечивает мгновенный поиск и отсутствие дубликатов.
 * 📤 **Экспорт из БД** — Выгрузка накопленных данных из SQLite в JSON/Text. JSONL по умолчанию теперь компактный и ориентирован на анализ нейросетью.
-* 📡 **Прямой экспорт канала (`export-channel`)** — Файловый dataset export постов Telegram-канала в `manifest.json`, `messages.jsonl`, `messages.txt`, `media_manifest.jsonl` и, при явном `--discussion full`, discussion dataset files.
+* 📡 **Прямой экспорт канала (`export-channel`)** — Файловый dataset export постов Telegram-канала в `manifest.json`, `messages.jsonl`, `messages.txt`, `media_manifest.jsonl`, `run_changelog.jsonl` и, при явном `--discussion full`, discussion dataset files.
 * ✅ **Dataset validation / inspection** — `validate-dataset` проверяет структуру channel dataset, а `inspect-dataset` показывает deterministic counts/statuses без Telegram access, repair/migration или analytics.
 * ♻️ **Retry Queue (`retry`)** — Управление повторными задачами для recoverable sync/archive ошибок без ручного вмешательства в БД.
 * 📋 **Audit Report (`report`)** — Read-only диагностика локальной БД, retry-очереди, export artifacts и состояния tracked targets без доступа к Telegram.
@@ -112,6 +112,7 @@ python3 -m tg_msg_manager.cli report
     Имена media-файлов и итоговые media-подпапки выбираются из безопасного Telegram original filename, затем MIME type, затем лёгких magic bytes; `.bin` остаётся fallback только для неизвестного типа.
     `media_manifest.jsonl` фиксирует итоговый путь media. OCR, speech-to-text, media analysis, transcoding и ffmpeg processing не выполняются.
     В `full` режиме `media_manifest.jsonl` фиксирует итоговые статусы `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type` и `failed`.
+    `run_changelog.jsonl` получает одну строку на каждый завершенный запуск с предыдущим/новым cursor, run mode, списком новых message IDs и artifact paths; no-new-posts run пишет строку с `new_message_count: 0`.
     Интерактивный пункт меню `10` теперь запрашивает discussion mode, max comments per post, force, output directory, max media size и media types; пустой ввод сохраняет defaults прямой CLI-команды.
 *   **Проверка / инспекция channel dataset**:
     `python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example`
@@ -194,7 +195,7 @@ Legacy aliases still supported:
 * `--limit` ограничивает обработку в рамках одного `sync_chat`; при экспорте пользователя по нескольким диалогам лимит применяется к каждому диалогу отдельно.
 * `export-pm` пишет текстовый лог и медиа-структуру, но не восстанавливает Telegram-специфичные сущности как полноценный replay архива.
 * `export-channel` в Stage 3A/3A.1/3B/3C является filesystem-first dataset projection pipeline: channel posts и discussion comments не пишутся в SQLite, analytics не выполняется.
-* `validate-dataset` и `inspect-dataset` проверяют только структуру, deterministic counts/statuses и связи файлов; они не анализируют содержание сообщений и не проверяют SHA-256 media по умолчанию.
+* `validate-dataset` и `inspect-dataset` проверяют только структуру, deterministic counts/statuses и связи файлов; validation также предупреждает о message-id gaps, missing reply parents и media linkage drift, но не анализирует содержание сообщений и не проверяет SHA-256 media по умолчанию.
 * Безопасный режим по умолчанию для `export-channel` — `--media metadata`; `--media full` работает только при явном указании и использует size/type guardrails.
 * Discussion export выключен по умолчанию через `--discussion none`; `--discussion metadata` сохраняет только компактный `discussion_metadata.jsonl`, а `--discussion full` экспортирует comments/threads только для постов текущего run и является heavy mode для малых scoped runs.
 * Discussion resolver сначала использует linked discussion metadata канала, затем fallback из Telegram metadata поста (`raw_payload.replies.channel_id`), если channel-level link недоступен.
@@ -286,7 +287,7 @@ Core system capabilities:
 * 💬 **PM Archive (`export-pm`)** — Text backup for private conversations with a prepared folder structure for media.
 * 🗄️ **SQLite Storage** — All messages are stored in a structured `messages.db` for instant querying and zero duplicates.
 * 📤 **Database Export** — Export collected SQLite records into JSON or Text. JSONL now defaults to a compact AI-friendly profile.
-* 📡 **Direct Channel Export (`export-channel`)** — Filesystem-first dataset export of Telegram channel posts into `manifest.json`, `messages.jsonl`, `messages.txt`, `media_manifest.jsonl`, and optional discussion dataset files when `--discussion full` is explicit.
+* 📡 **Direct Channel Export (`export-channel`)** — Filesystem-first dataset export of Telegram channel posts into `manifest.json`, `messages.jsonl`, `messages.txt`, `media_manifest.jsonl`, `run_changelog.jsonl`, and optional discussion dataset files when `--discussion full` is explicit.
 * ✅ **Dataset Validation / Inspection** — `validate-dataset` checks channel dataset structure, while `inspect-dataset` reports deterministic counts/statuses without Telegram access, repair/migration, or analytics.
 * ♻️ **Retry Queue (`retry`)** — Replays recoverable sync/archive failures through typed retry tasks instead of manual DB surgery.
 * 📋 **Audit Report (`report`)** — Read-only diagnostics for local DB state, retry backlog, export artifacts, and tracked-target health without Telegram access.
@@ -344,6 +345,7 @@ Subcommands can be executed directly for automation:
     Media filenames and final media subdirectories are resolved from a safe Telegram original filename, then MIME type, then lightweight magic bytes; `.bin` remains the fallback only for unknown types.
     `media_manifest.jsonl` records the final media path. OCR, speech-to-text, media analysis, transcoding, and ffmpeg processing are not performed.
     In `full` mode, `media_manifest.jsonl` records final statuses such as `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type`, and `failed`.
+    `run_changelog.jsonl` gets one row per completed run with previous/new cursor, run mode, new message IDs, and artifact paths; no-new-posts runs write a row with `new_message_count: 0`.
     Interactive menu item `10` now prompts for discussion mode, max comments per post, force, output directory, max media size, and media types; empty input preserves the direct CLI defaults.
 *   **Channel Dataset Validation / Inspection**:
     `python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example`
@@ -426,7 +428,7 @@ Supported legacy aliases:
 * `--limit` caps work inside a single `sync_chat`; when exporting a user across multiple dialogs, the cap applies per dialog.
 * `export-pm` produces a text-and-media archive, not a full Telegram-native replayable backup.
 * `export-channel` in Stage 3A/3A.1/3B/3C is a filesystem-first dataset projection pipeline; channel posts and discussion comments are not written to SQLite, and analytics are not performed.
-* `validate-dataset` and `inspect-dataset` check only structure, deterministic counts/statuses, and file relationships; they do not analyze message content and do not verify media SHA-256 by default.
+* `validate-dataset` and `inspect-dataset` check only structure, deterministic counts/statuses, and file relationships; validation also warns about message-id gaps, missing reply parents, and media linkage drift, but does not analyze message content or verify media SHA-256 by default.
 * The safe default for `export-channel` remains `--media metadata`; `--media full` works only when requested explicitly and runs through size/type guardrails.
 * Discussion export is disabled by default with `--discussion none`; `--discussion metadata` saves only compact `discussion_metadata.jsonl`, while `--discussion full` exports comments/threads only for posts fetched in the current run and is heavy mode for small scoped runs.
 * Discussion resolution uses channel linked-discussion metadata first, then per-post Telegram metadata (`raw_payload.replies.channel_id`) when the channel-level link is unavailable.

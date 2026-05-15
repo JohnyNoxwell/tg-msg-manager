@@ -140,6 +140,13 @@ def _validate_comments(
 ) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
     seen_comment_ids: set[int] = set()
+    comment_ids = {
+        record.payload.get("message_id")
+        for record in comments
+        if isinstance(record.payload.get("message_id"), int)
+    }
+    min_comment_id = min(comment_ids) if comment_ids else None
+    max_comment_id = max(comment_ids) if comment_ids else None
     for record in comments:
         comment_id = record.payload.get("message_id")
         if isinstance(comment_id, int):
@@ -168,6 +175,13 @@ def _validate_comments(
             issues,
             DISCUSSION_COMMENTS_JSONL,
         )
+        _validate_comment_reply_link(
+            record,
+            comment_ids,
+            min_comment_id,
+            max_comment_id,
+            issues,
+        )
         channel_post_id = record.payload.get("channel_message_id")
         if isinstance(channel_post_id, int) and channel_post_id not in message_ids:
             issues.append(
@@ -189,6 +203,49 @@ def _validate_comments(
             )
         )
     return issues
+
+
+def _validate_comment_reply_link(
+    record: JsonlRecord,
+    comment_ids: set[int],
+    min_comment_id: int | None,
+    max_comment_id: int | None,
+    issues: list[ValidationIssue],
+) -> None:
+    reply_to_id = record.payload.get("reply_to_id")
+    if reply_to_id is None or not isinstance(reply_to_id, int) or not comment_ids:
+        return
+    if reply_to_id in comment_ids:
+        return
+    if reply_to_id == record.payload.get("discussion_root_message_id"):
+        return
+    if min_comment_id is None or max_comment_id is None:
+        return
+    comment_id = record.payload.get("message_id")
+    if reply_to_id < min_comment_id or reply_to_id > max_comment_id:
+        issues.append(
+            issue_warning(
+                "discussion_reply_parent_outside_export_scope",
+                (
+                    f"Discussion comment {comment_id} replies to {reply_to_id}, "
+                    "which is outside the exported discussion comment id range"
+                ),
+                path=DISCUSSION_COMMENTS_JSONL,
+                line=record.line,
+            )
+        )
+        return
+    issues.append(
+        issue_warning(
+            "discussion_reply_parent_missing",
+            (
+                f"Discussion comment {comment_id} replies to missing comment "
+                f"{reply_to_id} inside the exported discussion comment id range"
+            ),
+            path=DISCUSSION_COMMENTS_JSONL,
+            line=record.line,
+        )
+    )
 
 
 def _validate_threads(

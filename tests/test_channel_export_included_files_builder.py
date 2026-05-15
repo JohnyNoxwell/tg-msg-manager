@@ -27,6 +27,7 @@ class TestChannelExportIncludedFilesBuilder(unittest.TestCase):
             (
                 "manifest.json",
                 "media_manifest.jsonl",
+                "run_changelog.jsonl",
                 "messages.jsonl",
                 "messages.txt",
             ),

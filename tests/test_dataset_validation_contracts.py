@@ -125,6 +125,95 @@ class TestDatasetValidationContracts(unittest.TestCase):
             self.assertIn(section, inspection_md)
 
 
+class TestDatasetValidationMessageRelationships(unittest.TestCase):
+    def _copy_minimal_fixture(self, tmpdir: str) -> Path:
+        target = Path(tmpdir) / "dataset"
+        shutil.copytree(fixture_path("valid_minimal_channel_dataset"), target)
+        return target
+
+    def test_message_id_gap_warns_without_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dataset = self._copy_minimal_fixture(tmpdir)
+            self._write_messages(dataset, [_message(1), _message(3)])
+            self._patch_message_counts(dataset, message_count=2, last_message_id=3)
+
+            report = validate_dataset(DatasetValidationOptions(dataset))
+
+        self.assertEqual(report.status, "warnings")
+        self.assertIn("message_id_gap_detected", issue_codes(report))
+
+    def test_reply_parent_missing_inside_exported_range_warns(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dataset = self._copy_minimal_fixture(tmpdir)
+            self._write_messages(
+                dataset,
+                [
+                    _message(1),
+                    _message(
+                        3,
+                        raw_payload={"reply_to": {"reply_to_msg_id": 2}},
+                    ),
+                ],
+            )
+            self._patch_message_counts(dataset, message_count=2, last_message_id=3)
+
+            report = validate_dataset(DatasetValidationOptions(dataset))
+
+        self.assertEqual(report.status, "warnings")
+        self.assertIn("reply_parent_missing", issue_codes(report))
+
+    def test_reply_parent_outside_export_scope_warns(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dataset = self._copy_minimal_fixture(tmpdir)
+            self._write_messages(
+                dataset,
+                [
+                    _message(
+                        2,
+                        raw_payload={"reply_to": {"reply_to_msg_id": 1}},
+                    )
+                ],
+            )
+            self._patch_message_counts(dataset, message_count=1, last_message_id=2)
+
+            report = validate_dataset(DatasetValidationOptions(dataset))
+
+        self.assertEqual(report.status, "warnings")
+        self.assertIn("reply_parent_outside_export_scope", issue_codes(report))
+
+    def _write_messages(self, dataset: Path, messages: list[dict]) -> None:
+        (dataset / "messages.jsonl").write_text(
+            "".join(json.dumps(message, sort_keys=True) + "\n" for message in messages),
+            encoding="utf-8",
+        )
+        (dataset / "messages.txt").write_text(
+            "\n".join(f"message_id={message['message_id']}" for message in messages)
+            + "\n",
+            encoding="utf-8",
+        )
+
+    def _patch_message_counts(
+        self,
+        dataset: Path,
+        *,
+        message_count: int,
+        last_message_id: int,
+    ) -> None:
+        manifest_path = dataset / "manifest.json"
+        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+        manifest["export"]["message_count"] = message_count
+        manifest_path.write_text(
+            json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
+        )
+        state_path = dataset / "channel_export_state.json"
+        state = json.loads(state_path.read_text(encoding="utf-8"))
+        state["message_count_total"] = message_count
+        state["last_exported_message_id"] = last_message_id
+        state_path.write_text(
+            json.dumps(state, indent=2, sort_keys=True), encoding="utf-8"
+        )
+
+
 class TestDatasetValidationMediaRelationships(unittest.TestCase):
     def _copy_minimal_fixture(self, tmpdir: str) -> Path:
         target = Path(tmpdir) / "dataset"
@@ -190,15 +279,70 @@ class TestDatasetValidationMediaRelationships(unittest.TestCase):
         self.assertEqual(report.status, "errors")
         self.assertIn("media_path_escape", issue_codes(report))
 
+    def test_duplicate_media_id_is_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dataset = self._copy_minimal_fixture(tmpdir)
+            self._write_messages_with_media(dataset, "1_01")
+            self._write_media_manifest_records(
+                dataset,
+                [
+                    self._media_record("1_01", 1, "metadata_only", None),
+                    self._media_record("1_01", 1, "metadata_only", None),
+                ],
+            )
+            self._patch_manifest_media_counts(dataset, media_count=2)
+
+            report = validate_dataset(DatasetValidationOptions(dataset))
+
+        self.assertEqual(report.status, "errors")
+        self.assertIn("duplicate_media_id", issue_codes(report))
+
+    def test_media_record_for_missing_message_warns(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dataset = self._copy_minimal_fixture(tmpdir)
+            self._write_media_manifest_records(
+                dataset,
+                [self._media_record("999_01", 999, "metadata_only", None)],
+            )
+            self._patch_manifest_media_counts(dataset, media_count=1)
+
+            report = validate_dataset(DatasetValidationOptions(dataset))
+
+        self.assertEqual(report.status, "warnings")
+        self.assertIn("media_message_unlinked", issue_codes(report))
+
+    def test_message_media_missing_manifest_warns(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dataset = self._copy_minimal_fixture(tmpdir)
+            self._write_messages_with_media(dataset, "1_01")
+
+            report = validate_dataset(DatasetValidationOptions(dataset))
+
+        self.assertEqual(report.status, "warnings")
+        self.assertIn("message_media_missing_manifest", issue_codes(report))
+
     def _write_media_manifest(
         self,
         dataset: Path,
         status: str,
         final_path: Optional[str],
     ) -> None:
-        record = {
-            "media_id": "1_01",
-            "message_id": 1,
+        record = self._media_record("1_01", 1, status, final_path)
+        (dataset / "media_manifest.jsonl").write_text(
+            json.dumps(record, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+    def _media_record(
+        self,
+        media_id: str,
+        message_id: int,
+        status: str,
+        final_path: Optional[str],
+    ) -> dict:
+        return {
+            "media_id": media_id,
+            "message_id": message_id,
             "media_index": 1,
             "media_type": "photo",
             "mime_type": "image/jpeg",
@@ -217,8 +361,36 @@ class TestDatasetValidationMediaRelationships(unittest.TestCase):
             "final_filename": "photo.jpg",
             "final_path": final_path,
         }
+
+    def _write_media_manifest_records(self, dataset: Path, records: list[dict]) -> None:
         (dataset / "media_manifest.jsonl").write_text(
-            json.dumps(record, sort_keys=True) + "\n",
+            "".join(json.dumps(record, sort_keys=True) + "\n" for record in records),
+            encoding="utf-8",
+        )
+
+    def _write_messages_with_media(self, dataset: Path, media_id: str) -> None:
+        message = _message(
+            1,
+            media=[
+                {
+                    "media_id": media_id,
+                    "message_id": 1,
+                    "media_index": 1,
+                    "media_type": "photo",
+                    "mime_type": "image/jpeg",
+                    "file_name": "photo.jpg",
+                    "file_size": 4,
+                    "width": 10,
+                    "height": 10,
+                    "duration": None,
+                    "local_path": None,
+                    "sha256": None,
+                    "download_status": "metadata_only",
+                }
+            ],
+        )
+        (dataset / "messages.jsonl").write_text(
+            json.dumps(message, sort_keys=True) + "\n",
             encoding="utf-8",
         )
 
@@ -315,6 +487,66 @@ class TestDatasetValidationDiscussionRelationships(unittest.TestCase):
 
         self.assertEqual(report.status, "errors")
         self.assertIn("duplicate_discussion_comment_id", issue_codes(report))
+
+    def test_missing_discussion_reply_parent_warns(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dataset = Path(tmpdir) / "dataset"
+            shutil.copytree(fixture_path("valid_discussion_dataset"), dataset)
+            first = json.loads((dataset / "discussion_comments.jsonl").read_text())
+            second = dict(first)
+            second["message_id"] = 102
+            second["reply_to_id"] = 101
+            (dataset / "discussion_comments.jsonl").write_text(
+                json.dumps(first, sort_keys=True)
+                + "\n"
+                + json.dumps(second, sort_keys=True)
+                + "\n",
+                encoding="utf-8",
+            )
+            thread = json.loads((dataset / "discussion_threads.jsonl").read_text())
+            thread["comments_count"] = 2
+            thread["exported_comments_count"] = 2
+            (dataset / "discussion_threads.jsonl").write_text(
+                json.dumps(thread, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            manifest = json.loads((dataset / "manifest.json").read_text())
+            manifest["discussion"]["comment_count"] = 2
+            (dataset / "manifest.json").write_text(
+                json.dumps(manifest, indent=2, sort_keys=True), encoding="utf-8"
+            )
+            state = json.loads((dataset / "discussion_export_state.json").read_text())
+            state["comment_count_total"] = 2
+            (dataset / "discussion_export_state.json").write_text(
+                json.dumps(state, indent=2, sort_keys=True), encoding="utf-8"
+            )
+
+            report = validate_dataset(DatasetValidationOptions(dataset))
+
+        self.assertEqual(report.status, "warnings")
+        self.assertIn("discussion_reply_parent_missing", issue_codes(report))
+
+
+def _message(
+    message_id: int,
+    *,
+    raw_payload: Optional[dict] = None,
+    media: Optional[list[dict]] = None,
+) -> dict:
+    return {
+        "message_id": message_id,
+        "channel_id": 777,
+        "channel_title": "Daily",
+        "channel_username": "daily",
+        "timestamp": "2026-05-08T12:00:00+00:00",
+        "text": f"message {message_id}",
+        "views": 1,
+        "forwards": 0,
+        "replies_count": 0,
+        "reactions": {},
+        "media": media or [],
+        "raw_payload": raw_payload or {},
+    }
 
 
 class TestDatasetValidationCLI(unittest.IsolatedAsyncioTestCase):

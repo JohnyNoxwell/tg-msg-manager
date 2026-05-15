@@ -11,6 +11,7 @@ from .media_manifest_writer import ChannelMediaManifestWriter
 from .media_processor import ChannelExportMediaProcessor
 from .media_policy import validate_media_mode
 from .result_builder import build_channel_export_result
+from .run_changelog import ChannelRunChangelogWriter, RUN_CHANGELOG_JSONL
 from .discussions import (
     DISCUSSION_MODE_FULL,
     DISCUSSION_MODE_METADATA,
@@ -62,6 +63,7 @@ class ChannelExportService:
         media_manifest_writer: Optional[ChannelMediaManifestWriter] = None,
         manifest_writer: Optional[ChannelManifestWriter] = None,
         payload_writer: Optional[ChannelPayloadWriter] = None,
+        run_changelog_writer: Optional[ChannelRunChangelogWriter] = None,
         media_downloader: Optional[ChannelMediaDownloader] = None,
         discussion_resolver: Optional[ChannelDiscussionResolver] = None,
         discussion_exporter: Optional[ChannelDiscussionExporter] = None,
@@ -82,6 +84,7 @@ class ChannelExportService:
         )
         self.manifest_writer = manifest_writer or ChannelManifestWriter()
         self.payload_writer = payload_writer or ChannelPayloadWriter()
+        self.run_changelog_writer = run_changelog_writer or ChannelRunChangelogWriter()
         self.media_downloader = media_downloader or ChannelMediaDownloader(client)
         self.discussion_resolver = discussion_resolver or ChannelDiscussionResolver(
             client
@@ -252,6 +255,15 @@ class ChannelExportService:
             discussion_result=discussion_result,
         )
         self.manifest_writer.write(plan.manifest_path, manifest)
+        self._write_run_changelog(
+            plan=plan,
+            channel_identity=channel_identity,
+            run_mode=run_mode,
+            previous_state=None,
+            completed_state=completed_state,
+            run_stats=run_stats,
+            posts=tuple(current_run_records),
+        )
         self.state_manager.save(plan.state_path, completed_state)
         if discussion_result is not None:
             self.discussion_exporter.save_result_state(discussion_result)
@@ -323,6 +335,15 @@ class ChannelExportService:
                 date_to=None,
                 last_exported_message_id=state.last_exported_message_id,
             )
+            self._write_run_changelog(
+                plan=plan,
+                channel_identity=channel_identity,
+                run_mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
+                previous_state=state,
+                completed_state=state,
+                run_stats=empty_stats,
+                posts=(),
+            )
             result = build_channel_export_result(
                 channel=channel_identity,
                 plan=plan,
@@ -380,6 +401,15 @@ class ChannelExportService:
             discussion_result=discussion_result,
         )
         self.manifest_writer.write(plan.manifest_path, manifest)
+        self._write_run_changelog(
+            plan=plan,
+            channel_identity=channel_identity,
+            run_mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
+            previous_state=state,
+            completed_state=completed_state,
+            run_stats=run_stats,
+            posts=tuple(mapped_records),
+        )
         self.state_manager.save(plan.state_path, completed_state)
         if discussion_result is not None:
             self.discussion_exporter.save_result_state(discussion_result)
@@ -413,6 +443,35 @@ class ChannelExportService:
             failed_media_count_this_run=result.failed_media_count_this_run,
             manifest_path=str(result.manifest_path),
             state_path=str(result.state_path),
+        )
+
+    def _write_run_changelog(
+        self,
+        *,
+        plan: Any,
+        channel_identity: Any,
+        run_mode: str,
+        previous_state: Any,
+        completed_state: Any,
+        run_stats: ChannelExportRunStats,
+        posts: tuple[Any, ...],
+    ) -> None:
+        self.run_changelog_writer.append_entry(
+            output_dir=plan.output_dir,
+            channel=channel_identity,
+            run_mode=run_mode,
+            previous_state=previous_state,
+            new_state=completed_state,
+            run_stats=run_stats,
+            posts=posts,
+            artifact_paths={
+                "manifest": "manifest.json",
+                "messages_jsonl": "messages.jsonl",
+                "messages_txt": "messages.txt",
+                "media_manifest": "media_manifest.jsonl",
+                "state": "channel_export_state.json",
+                "run_changelog": RUN_CHANGELOG_JSONL,
+            },
         )
 
     async def _prepare_record(

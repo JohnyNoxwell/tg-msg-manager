@@ -5,7 +5,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from .models import MessageSummary, ValidationIssue, issue_error
+from .models import MessageSummary, ValidationIssue, issue_error, issue_warning
 
 MESSAGES_JSONL = "messages.jsonl"
 MESSAGES_TXT = "messages.txt"
@@ -135,6 +135,8 @@ def validate_messages_jsonl(dataset_path: Path) -> MessageValidationResult:
         seen_ids.add(message_id)
 
     sorted_ids = sorted(seen_ids | duplicate_ids)
+    issues.extend(_validate_message_id_gaps(sorted_ids))
+    issues.extend(_validate_message_reply_links(records, frozenset(sorted_ids)))
     summary = MessageSummary(
         count=len(records),
         min_message_id=sorted_ids[0] if sorted_ids else None,
@@ -146,3 +148,96 @@ def validate_messages_jsonl(dataset_path: Path) -> MessageValidationResult:
         summary=summary,
         issues=tuple(issues),
     )
+
+
+def _validate_message_id_gaps(sorted_ids: list[int]) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    if len(sorted_ids) < 2:
+        return issues
+    previous = sorted_ids[0]
+    for current in sorted_ids[1:]:
+        if current == previous:
+            continue
+        if current > previous + 1:
+            missing_count = current - previous - 1
+            issues.append(
+                issue_warning(
+                    "message_id_gap_detected",
+                    (
+                        "Message id gap detected; Telegram deletions or unavailable "
+                        f"messages may also cause this: {previous + 1}-{current - 1} "
+                        f"({missing_count} missing)"
+                    ),
+                    path=MESSAGES_JSONL,
+                )
+            )
+        previous = current
+    return issues
+
+
+def _validate_message_reply_links(
+    records: tuple[JsonlRecord, ...],
+    message_ids: frozenset[int],
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    if not message_ids:
+        return issues
+    min_message_id = min(message_ids)
+    max_message_id = max(message_ids)
+    for record in records:
+        message_id = record.payload.get("message_id")
+        reply_to_id = _extract_reply_to_id(record.payload)
+        if reply_to_id is None:
+            continue
+        if not isinstance(reply_to_id, int) or reply_to_id < 0:
+            issues.append(
+                issue_error(
+                    "invalid_reply_to_id",
+                    "Message reply_to_id must be a non-negative integer when present",
+                    path=MESSAGES_JSONL,
+                    line=record.line,
+                )
+            )
+            continue
+        if reply_to_id in message_ids:
+            continue
+        if reply_to_id < min_message_id or reply_to_id > max_message_id:
+            issues.append(
+                issue_warning(
+                    "reply_parent_outside_export_scope",
+                    (
+                        f"Message {message_id} replies to {reply_to_id}, which is "
+                        "outside the exported message id range"
+                    ),
+                    path=MESSAGES_JSONL,
+                    line=record.line,
+                )
+            )
+            continue
+        issues.append(
+            issue_warning(
+                "reply_parent_missing",
+                (
+                    f"Message {message_id} replies to missing message {reply_to_id} "
+                    "inside the exported message id range"
+                ),
+                path=MESSAGES_JSONL,
+                line=record.line,
+            )
+        )
+    return issues
+
+
+def _extract_reply_to_id(payload: dict[str, Any]) -> Any:
+    if "reply_to_id" in payload:
+        return payload.get("reply_to_id")
+    raw_payload = payload.get("raw_payload")
+    if isinstance(raw_payload, dict):
+        if "reply_to_id" in raw_payload:
+            return raw_payload.get("reply_to_id")
+        reply_to = raw_payload.get("reply_to")
+        if isinstance(reply_to, dict):
+            return reply_to.get("reply_to_msg_id")
+        if isinstance(reply_to, int):
+            return reply_to
+    return None
