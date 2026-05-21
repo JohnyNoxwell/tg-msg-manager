@@ -1,10 +1,11 @@
 import sys
 import os
 import unittest
-from contextlib import redirect_stdout
+from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from argparse import Namespace
 from unittest.mock import AsyncMock, MagicMock, patch
+from telethon.errors import FloodWaitError, PhoneNumberFloodError
 
 # Add project root to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -12,6 +13,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from tg_msg_manager.cli import (
     CLIContext,
     _dispatch_main_menu_choice,
+    _format_telegram_login_error,
     build_cli_parser,
     get_dirty_target_ids,
     run_cli,
@@ -131,6 +133,76 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
             await ctx.shutdown()
             mock_client.disconnect.assert_awaited_once()
 
+    @patch("tg_msg_manager.cli.setup_logging")
+    @patch("tg_msg_manager.cli.PrivateArchiveService")
+    @patch("tg_msg_manager.cli.ChannelExportService")
+    @patch("tg_msg_manager.cli.DBExportService")
+    @patch("tg_msg_manager.cli.CleanerService")
+    @patch("tg_msg_manager.cli.ExportService")
+    @patch("tg_msg_manager.cli.TelethonClientWrapper")
+    @patch("tg_msg_manager.cli.SQLiteStorage")
+    async def test_initialize_login_flood_wait_exits_with_readable_message(
+        self,
+        mock_storage_cls,
+        mock_client_cls,
+        mock_exporter_cls,
+        mock_cleaner_cls,
+        mock_db_exporter_cls,
+        mock_channel_export_cls,
+        mock_private_archive_cls,
+        mock_setup_logging,
+    ):
+        mock_storage = MagicMock()
+        mock_storage.start = AsyncMock()
+        mock_storage.close = AsyncMock()
+        mock_storage_cls.return_value = mock_storage
+        mock_db_exporter_cls.return_value = MagicMock()
+
+        mock_client = MagicMock()
+        mock_client.connect = AsyncMock(
+            side_effect=FloodWaitError(request=None, capture=86400)
+        )
+        mock_client.disconnect = AsyncMock()
+        mock_client_cls.return_value = mock_client
+
+        error_output = StringIO()
+        with (
+            patch("tg_msg_manager.cli.ProcessManager.acquire_lock", return_value=True),
+            patch("tg_msg_manager.cli.ProcessManager.setup_async_signals"),
+            patch("tg_msg_manager.cli.ProcessManager.release_lock"),
+            redirect_stderr(error_output),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            ctx = CLIContext(self.runtime, needs_client=True)
+            await ctx.initialize()
+
+        self.assertEqual(raised.exception.code, 1)
+        rendered = error_output.getvalue()
+        self.assertIn("Не удалось войти в Telegram", rendered)
+        self.assertIn("24 ч.", rendered)
+        mock_exporter_cls.assert_not_called()
+        mock_private_archive_cls.assert_not_called()
+        mock_channel_export_cls.assert_not_called()
+        mock_cleaner_cls.assert_not_called()
+
+        await ctx.shutdown()
+        mock_storage.close.assert_awaited_once()
+        mock_client.disconnect.assert_awaited_once()
+
+    def test_login_phone_flood_without_seconds_gets_readable_message(self):
+        message = _format_telegram_login_error(PhoneNumberFloodError(request=None))
+
+        self.assertIn("Не удалось войти в Telegram", message)
+        self.assertIn("до 24 часов", message)
+
+    def test_login_connection_error_gets_readable_message(self):
+        message = _format_telegram_login_error(
+            ConnectionError("Connection to Telegram failed 5 time(s)")
+        )
+
+        self.assertIn("Не удалось подключиться к Telegram", message)
+        self.assertIn("Проверьте интернет-соединение", message)
+
     def test_print_update_summary_renders_per_user_breakdown(self):
         stats = TrackedSyncRunReport.coerce(
             {
@@ -177,7 +249,7 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(get_dirty_target_ids(stats), [2, 4])
 
     @patch("tg_msg_manager.cli_support.telemetry.log_summary")
-    @patch("tg_msg_manager.cli_commands.get_safe_user_and_chat")
+    @patch("tg_msg_manager.cli.commands.export.get_safe_user_and_chat")
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_export_logs_telemetry_summary(
         self,
@@ -243,8 +315,8 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
 
         mock_ctx.retry_worker.run_due_tasks.assert_awaited_once_with(limit=2)
 
-    @patch("tg_msg_manager.cli_commands.enqueue_archive_pm_retry_task")
-    @patch("tg_msg_manager.cli_commands.get_safe_user_and_chat")
+    @patch("tg_msg_manager.cli.commands.export.enqueue_archive_pm_retry_task")
+    @patch("tg_msg_manager.cli.commands.export.get_safe_user_and_chat")
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_export_pm_enqueues_retry_on_failure(
         self,
@@ -329,8 +401,8 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(keep_running)
 
     @patch("builtins.print")
-    @patch("tg_msg_manager.cli_commands.render_report_json", return_value="{}")
-    @patch("tg_msg_manager.cli_commands.ReportCollector")
+    @patch("tg_msg_manager.cli.commands.report.render_report_json", return_value="{}")
+    @patch("tg_msg_manager.cli.commands.report.ReportCollector")
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_report_uses_read_only_context(
         self,
@@ -359,7 +431,7 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         mock_print.assert_called()
 
     @patch("tg_msg_manager.cli_support.telemetry.log_summary")
-    @patch("tg_msg_manager.cli_commands.get_safe_user_and_chat")
+    @patch("tg_msg_manager.cli.commands.export.get_safe_user_and_chat")
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_export_uses_numeric_user_id_fallback_when_entity_is_unresolved(
         self,
@@ -439,8 +511,8 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
 
         self.assertEqual(observed["lang"], "en")
 
-    @patch("tg_msg_manager.cli_commands._print_scheduler_setup_result")
-    @patch("tg_msg_manager.cli_commands.setup_scheduler", new_callable=AsyncMock)
+    @patch("tg_msg_manager.cli.commands.setup._print_scheduler_setup_result")
+    @patch("tg_msg_manager.cli.commands.setup.setup_scheduler", new_callable=AsyncMock)
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_schedule_passes_typed_request_to_scheduler(
         self,
@@ -472,7 +544,7 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         mock_print_scheduler_setup_result.assert_called_once()
 
     @patch("tg_msg_manager.cli_support.telemetry.log_summary")
-    @patch("tg_msg_manager.cli_commands.get_safe_user_and_chat")
+    @patch("tg_msg_manager.cli.commands.export.get_safe_user_and_chat")
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_export_without_json_writes_txt_summary(
         self,

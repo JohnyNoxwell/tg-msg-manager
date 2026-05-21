@@ -31,7 +31,7 @@ Interpretation:
 
 ### CLI and runtime
 
-- `tg_msg_manager/cli.py` imports `PrivateArchiveService` from `tg_msg_manager.services.private_archive`
+- `tg_msg_manager/cli/__init__.py` imports `PrivateArchiveService` from `tg_msg_manager.services.private_archive`
 - `tg_msg_manager/testing/runtime.py` imports `PrivateArchiveService` from `tg_msg_manager.services.private_archive`
 
 ### Tests using public package path

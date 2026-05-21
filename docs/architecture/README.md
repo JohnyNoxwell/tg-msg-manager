@@ -30,6 +30,7 @@ Architecture docs are stable references for repository boundaries, storage/model
 Current channel export service organization:
 
 - `tg_msg_manager/services/channel_export/service.py` is the orchestration facade.
+- Full, incremental, and no-new-posts run paths are delegated to `tg_msg_manager/services/channel_export/workflows/`.
 - Dataset included-file construction is delegated to `included_files_builder.py`.
 - Manifest construction coordination is delegated to `manifest_coordinator.py`.
 - `ChannelExportResult` construction is delegated to `result_builder.py`.

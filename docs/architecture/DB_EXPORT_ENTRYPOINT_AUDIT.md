@@ -18,7 +18,7 @@
 
 ### CLI and runtime
 
-- `tg_msg_manager/cli.py` imports `DBExportService` from `tg_msg_manager.services.db_export`
+- `tg_msg_manager/cli/__init__.py` imports `DBExportService` from `tg_msg_manager.services.db_export`
 - `tg_msg_manager/testing/runtime.py` imports `DBExportService` from `tg_msg_manager.services.db_export`
 - `tg_msg_manager/services/export/export_writer.py` imports `DBExportService` from `tg_msg_manager.services.db_export`
 

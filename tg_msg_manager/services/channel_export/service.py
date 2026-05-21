@@ -3,25 +3,17 @@ from pathlib import Path
 from typing import Any, Optional
 
 from .event_emitter import ChannelExportEventEmitter
-from .manifest_coordinator import build_channel_export_manifest
 from .jsonl_renderer import ChannelJsonlRenderer
 from .manifest_writer import ChannelManifestWriter
 from .media_downloader import ChannelMediaDownloader
 from .media_manifest_writer import ChannelMediaManifestWriter
 from .media_processor import ChannelExportMediaProcessor
 from .media_policy import validate_media_mode
-from .result_builder import build_channel_export_result
-from .run_changelog import ChannelRunChangelogWriter, RUN_CHANGELOG_JSONL
+from .run_changelog import ChannelRunChangelogWriter
 from .discussions import (
-    DISCUSSION_MODE_FULL,
-    DISCUSSION_MODE_METADATA,
-    DISCUSSION_MODE_NONE,
-    DISCUSSION_SOURCE_STATUS_DISABLED,
     ChannelDiscussionExporter,
     ChannelDiscussionFetcher,
-    ChannelDiscussionOptions,
     ChannelDiscussionResolver,
-    ChannelDiscussionSource,
     validate_discussion_mode,
     validate_max_comments_per_post,
 )
@@ -30,14 +22,8 @@ from .models import (
     CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
     ChannelExportOptions,
     ChannelExportResult,
-    ChannelExportRunStats,
-    ChannelExportState,
 )
-from .payload_writer import (
-    WRITE_MODE_APPEND,
-    WRITE_MODE_OVERWRITE,
-    ChannelPayloadWriter,
-)
+from .payload_writer import ChannelPayloadWriter
 from .plan_builder import ChannelExportPlanBuilder
 from .post_fetcher import ChannelPostFetcher
 from .post_mapper import ChannelPostMapper
@@ -45,6 +31,11 @@ from .size_parser import DEFAULT_MAX_MEDIA_SIZE_BYTES
 from .source_resolver import ChannelSourceResolver
 from .state_manager import ChannelExportStateManager
 from .txt_renderer import ChannelTxtRenderer
+from .workflows import (
+    ChannelExportWorkflowContext,
+    run_full_export,
+    run_incremental_export,
+)
 
 
 class ChannelExportService:
@@ -115,6 +106,7 @@ class ChannelExportService:
             max_comments_per_post,
         )
         self.media_processor.reset_progress()
+        workflow = self._build_workflow_context()
         plan = None
         channel_identity = None
         run_mode = None
@@ -168,7 +160,8 @@ class ChannelExportService:
                 )
 
             if run_mode == CHANNEL_EXPORT_RUN_MODE_INCREMENTAL and state is not None:
-                return await self._run_incremental_export(
+                return await run_incremental_export(
+                    workflow,
                     entity=entity,
                     channel_identity=channel_identity,
                     plan=plan,
@@ -177,7 +170,8 @@ class ChannelExportService:
                     state=state,
                 )
 
-            return await self._run_full_export(
+            return await run_full_export(
+                workflow,
                 entity=entity,
                 channel_identity=channel_identity,
                 plan=plan,
@@ -194,347 +188,22 @@ class ChannelExportService:
             )
             raise
 
-    async def _run_full_export(
-        self,
-        *,
-        entity: Any,
-        channel_identity: Any,
-        plan: Any,
-        options: ChannelExportOptions,
-        media_mode: str,
-        run_mode: str,
-    ) -> ChannelExportResult:
-        write_session = self.payload_writer.open_session(
-            plan=plan,
+    def _build_workflow_context(self) -> ChannelExportWorkflowContext:
+        return ChannelExportWorkflowContext(
+            post_fetcher=self.post_fetcher,
+            post_mapper=self.post_mapper,
+            media_processor=self.media_processor,
+            payload_writer=self.payload_writer,
             jsonl_renderer=self.jsonl_renderer,
             txt_renderer=self.txt_renderer,
             media_manifest_writer=self.media_manifest_writer,
-            run_mode=run_mode,
-            write_mode=WRITE_MODE_OVERWRITE,
-            include_jsonl=options.include_jsonl,
-            include_txt=options.include_txt,
-            progress_callback=self._emit_progress,
+            manifest_writer=self.manifest_writer,
+            run_changelog_writer=self.run_changelog_writer,
+            state_manager=self.state_manager,
+            discussion_resolver=self.discussion_resolver,
+            discussion_exporter=self.discussion_exporter,
+            event_emitter=self.event_emitter,
             progress_interval=self.progress_interval,
-        )
-
-        with write_session as session:
-            current_run_records = []
-            async for message in self.post_fetcher.iter_posts(
-                entity,
-                limit=options.limit,
-            ):
-                mapped_record = await self._prepare_record(
-                    message=message,
-                    channel_identity=channel_identity,
-                    options=options,
-                    media_mode=media_mode,
-                    output_dir=plan.output_dir,
-                )
-                session.write_record(mapped_record)
-                current_run_records.append(mapped_record)
-            run_stats = session.finish()
-
-        discussion_result = await self._export_discussions_for_posts(
-            entity=entity,
-            channel_identity=channel_identity,
-            plan=plan,
-            options=options,
-            run_mode=run_mode,
-            posts=current_run_records,
-        )
-        completed_state = self.state_manager.build_completed_state(
-            channel=channel_identity,
-            stats=run_stats,
-            manifest_path=plan.manifest_path,
-        )
-        manifest = build_channel_export_manifest(
-            channel=channel_identity,
-            state=completed_state,
-            options=options,
-            media_mode=media_mode,
-            discussion_result=discussion_result,
-        )
-        self.manifest_writer.write(plan.manifest_path, manifest)
-        self._write_run_changelog(
-            plan=plan,
-            channel_identity=channel_identity,
-            run_mode=run_mode,
-            previous_state=None,
-            completed_state=completed_state,
-            run_stats=run_stats,
-            posts=tuple(current_run_records),
-        )
-        self.state_manager.save(plan.state_path, completed_state)
-        if discussion_result is not None:
-            self.discussion_exporter.save_result_state(discussion_result)
-        result = build_channel_export_result(
-            channel=channel_identity,
-            plan=plan,
-            options=options,
-            run_mode=run_mode,
-            state=completed_state,
-            run_stats=run_stats,
-            discussion_result=discussion_result,
-        )
-        self._emit_completed(result)
-        return result
-
-    async def _run_incremental_export(
-        self,
-        *,
-        entity: Any,
-        channel_identity: Any,
-        plan: Any,
-        options: ChannelExportOptions,
-        media_mode: str,
-        state: ChannelExportState,
-    ) -> ChannelExportResult:
-        mapped_records = []
-        async for message in self.post_fetcher.iter_posts(
-            entity,
-            limit=options.limit,
-            min_message_id=state.last_exported_message_id,
-        ):
-            mapped_records.append(
-                await self._prepare_record(
-                    message=message,
-                    channel_identity=channel_identity,
-                    options=options,
-                    media_mode=media_mode,
-                    output_dir=plan.output_dir,
-                )
-            )
-
-        mapped_records.sort(key=lambda record: (record.message_id, record.timestamp))
-        if not mapped_records:
-            manifest = build_channel_export_manifest(
-                channel=channel_identity,
-                state=state,
-                options=options,
-                media_mode=media_mode,
-                discussion_result=None,
-            )
-            self.manifest_writer.write(plan.manifest_path, manifest)
-            self.event_emitter.emit_no_new_posts(
-                channel_id=channel_identity.channel_id,
-                state_path=str(plan.state_path),
-                last_exported_message_id=state.last_exported_message_id,
-                total_known_posts=state.message_count_total,
-            )
-            empty_stats = ChannelExportRunStats(
-                mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
-                posts_exported=0,
-                media_records_added=0,
-                downloaded_media_count=0,
-                already_existing_media_count=0,
-                skipped_media_count=0,
-                skipped_by_size_count=0,
-                skipped_by_type_count=0,
-                failed_media_count=0,
-                date_from=None,
-                date_to=None,
-                last_exported_message_id=state.last_exported_message_id,
-            )
-            self._write_run_changelog(
-                plan=plan,
-                channel_identity=channel_identity,
-                run_mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
-                previous_state=state,
-                completed_state=state,
-                run_stats=empty_stats,
-                posts=(),
-            )
-            result = build_channel_export_result(
-                channel=channel_identity,
-                plan=plan,
-                options=options,
-                run_mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
-                state=state,
-                run_stats=empty_stats,
-                discussion_result=None,
-            )
-            self._emit_completed(result)
-            return result
-
-        write_session = self.payload_writer.open_session(
-            plan=plan,
-            jsonl_renderer=self.jsonl_renderer,
-            txt_renderer=self.txt_renderer,
-            media_manifest_writer=self.media_manifest_writer,
-            run_mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
-            write_mode=WRITE_MODE_APPEND,
-            include_jsonl=options.include_jsonl,
-            include_txt=options.include_txt,
-            progress_callback=self._emit_progress,
-            progress_interval=self.progress_interval,
-        )
-        with write_session as session:
-            for record in mapped_records:
-                session.write_record(record)
-            run_stats = session.finish()
-
-        previous_discussion_state = None
-        if options.discussion_mode == DISCUSSION_MODE_FULL:
-            previous_discussion_state = self.discussion_exporter.load_state(
-                plan.discussion_state_path
-            )
-        discussion_result = await self._export_discussions_for_posts(
-            entity=entity,
-            channel_identity=channel_identity,
-            plan=plan,
-            options=options,
-            run_mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
-            posts=mapped_records,
-            previous_discussion_state=previous_discussion_state,
-        )
-        completed_state = self.state_manager.build_completed_state(
-            channel=channel_identity,
-            stats=run_stats,
-            manifest_path=plan.manifest_path,
-            previous_state=state,
-        )
-        manifest = build_channel_export_manifest(
-            channel=channel_identity,
-            state=completed_state,
-            options=options,
-            media_mode=media_mode,
-            discussion_result=discussion_result,
-        )
-        self.manifest_writer.write(plan.manifest_path, manifest)
-        self._write_run_changelog(
-            plan=plan,
-            channel_identity=channel_identity,
-            run_mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
-            previous_state=state,
-            completed_state=completed_state,
-            run_stats=run_stats,
-            posts=tuple(mapped_records),
-        )
-        self.state_manager.save(plan.state_path, completed_state)
-        if discussion_result is not None:
-            self.discussion_exporter.save_result_state(discussion_result)
-        result = build_channel_export_result(
-            channel=channel_identity,
-            plan=plan,
-            options=options,
-            run_mode=CHANNEL_EXPORT_RUN_MODE_INCREMENTAL,
-            state=completed_state,
-            run_stats=run_stats,
-            discussion_result=discussion_result,
-        )
-        self._emit_completed(result)
-        return result
-
-    def _emit_completed(
-        self,
-        result: ChannelExportResult,
-    ) -> None:
-        self.event_emitter.emit_completed(
-            channel_id=result.channel.channel_id,
-            run_mode=result.run_mode,
-            posts_exported_this_run=result.posts_exported_this_run,
-            total_known_posts=result.message_count,
-            media_records_added_this_run=result.media_records_added_this_run,
-            total_known_media=result.media_count,
-            downloaded_media_count_this_run=result.downloaded_media_count_this_run,
-            already_existing_media_count_this_run=result.already_existing_media_count_this_run,
-            skipped_by_size_count_this_run=result.skipped_by_size_count_this_run,
-            skipped_by_type_count_this_run=result.skipped_by_type_count_this_run,
-            failed_media_count_this_run=result.failed_media_count_this_run,
-            manifest_path=str(result.manifest_path),
-            state_path=str(result.state_path),
-        )
-
-    def _write_run_changelog(
-        self,
-        *,
-        plan: Any,
-        channel_identity: Any,
-        run_mode: str,
-        previous_state: Any,
-        completed_state: Any,
-        run_stats: ChannelExportRunStats,
-        posts: tuple[Any, ...],
-    ) -> None:
-        self.run_changelog_writer.append_entry(
-            output_dir=plan.output_dir,
-            channel=channel_identity,
-            run_mode=run_mode,
-            previous_state=previous_state,
-            new_state=completed_state,
-            run_stats=run_stats,
-            posts=posts,
-            artifact_paths={
-                "manifest": "manifest.json",
-                "messages_jsonl": "messages.jsonl",
-                "messages_txt": "messages.txt",
-                "media_manifest": "media_manifest.jsonl",
-                "state": "channel_export_state.json",
-                "run_changelog": RUN_CHANGELOG_JSONL,
-            },
-        )
-
-    async def _prepare_record(
-        self,
-        *,
-        message: Any,
-        channel_identity: Any,
-        options: ChannelExportOptions,
-        media_mode: str,
-        output_dir: Path,
-    ):
-        mapped_record = self.post_mapper.map_post(
-            message,
-            channel_identity,
-            media_mode=media_mode,
-        )
-        return await self.media_processor.prepare_record(
-            record=mapped_record,
-            media_mode=media_mode,
-            media_ref=getattr(message, "media_ref", None),
-            output_dir=output_dir,
-            max_media_size=options.max_media_size,
-            media_types=options.media_types,
-        )
-
-    async def _export_discussions_for_posts(
-        self,
-        *,
-        entity: Any,
-        channel_identity: Any,
-        plan: Any,
-        options: ChannelExportOptions,
-        run_mode: str,
-        posts: list[Any],
-        previous_discussion_state: Any = None,
-    ):
-        if options.discussion_mode == DISCUSSION_MODE_NONE or not posts:
-            return None
-        if options.discussion_mode == DISCUSSION_MODE_METADATA:
-            discussion_source = ChannelDiscussionSource(
-                status=DISCUSSION_SOURCE_STATUS_DISABLED,
-                discussion_chat_id=None,
-                discussion_entity=None,
-                error=None,
-            )
-        else:
-            discussion_source = await self.discussion_resolver.resolve(
-                entity, posts=posts
-            )
-        discussion_options = ChannelDiscussionOptions(
-            mode=options.discussion_mode,
-            max_comments_per_post=options.max_comments_per_post,
-        )
-        return await self.discussion_exporter.export_for_posts(
-            channel_entity=entity,
-            channel_identity=channel_identity,
-            discussion_source=discussion_source,
-            posts=posts,
-            plan=plan,
-            discussion_options=discussion_options,
-            run_mode=run_mode,
-            previous_state=previous_discussion_state,
-            save_state=False,
         )
 
     @staticmethod
@@ -552,11 +221,3 @@ class ChannelExportService:
         if media_mode == "full" and options.max_media_size is None:
             return replace(options, max_media_size=DEFAULT_MAX_MEDIA_SIZE_BYTES)
         return options
-
-    def _emit_progress(self, payload: dict[str, object]) -> None:
-        event_payload = dict(payload)
-        event_payload["elapsed_seconds"] = round(
-            self.event_emitter.elapsed_seconds(),
-            3,
-        )
-        self.event_emitter.emit_progress(**event_payload)

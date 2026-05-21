@@ -31,6 +31,6 @@ Primary Python entrypoint:
 
 Protected by:
 
-- `tests.test_cli.TestCLIParser.test_build_cli_parser_preserves_stage0_command_surface`
-- `tests.test_cli.TestCLIParser.test_help_lists_stage0_commands_and_export_args`
-- `tests.test_cli.TestCLIContext.test_run_cli_without_command_in_non_tty_prints_help`
+- `tests.cli.test_cli.TestCLIParser.test_build_cli_parser_preserves_stage0_command_surface`
+- `tests.cli.test_cli.TestCLIParser.test_help_lists_stage0_commands_and_export_args`
+- `tests.cli.test_cli.TestCLIContext.test_run_cli_without_command_in_non_tty_prints_help`

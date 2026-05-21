@@ -26,7 +26,7 @@ from tg_msg_manager.services.dataset_validation import (
     validate_dataset,
 )
 
-FIXTURES = Path(__file__).parent / "fixtures" / "dataset_validation"
+FIXTURES = Path(__file__).parents[2] / "fixtures" / "dataset_validation"
 
 
 def fixture_path(name: str) -> Path:

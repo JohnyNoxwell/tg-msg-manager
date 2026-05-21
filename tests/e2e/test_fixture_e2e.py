@@ -15,7 +15,7 @@ from tg_msg_manager.testing import (
 )
 
 
-FIXTURE_DIR = Path(__file__).parent / "fixtures" / "stage5"
+FIXTURE_DIR = Path(__file__).parents[1] / "fixtures" / "stage5"
 
 
 class TestFixtureBackedE2E(unittest.IsolatedAsyncioTestCase):

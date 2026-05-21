@@ -43,7 +43,8 @@
 - `tg_msg_manager/services/context/resolvers.py` -> `448` строк
 
 Для Stage 0 hot-path сравнения отдельно важно:
-- `tg_msg_manager/cli.py` -> `256` строк
+- `tg_msg_manager/cli/__init__.py` -> `319` строк
+- `tg_msg_manager/cli_commands.py` -> compatibility aggregator
 - `tg_msg_manager/services/exporter.py` -> `6` строк
 - `tg_msg_manager/services/export/service.py` -> `192` строки
 - `tg_msg_manager/services/context_engine.py` -> `6` строк
@@ -66,7 +67,8 @@
 
 - DB export active implementation: `tg_msg_manager/services/db_export/service.py`
 - Private archive active implementation: `tg_msg_manager/services/private_archive/service.py`
-- Direct channel export active implementation: `tg_msg_manager/services/channel_export/service.py`
+- Direct channel export facade: `tg_msg_manager/services/channel_export/service.py`
+- Direct channel export workflows: `tg_msg_manager/services/channel_export/workflows/`
 - Direct channel export media hardening:
   - media downloader: `tg_msg_manager/services/channel_export/media_downloader.py`
   - size parser: `tg_msg_manager/services/channel_export/size_parser.py`
@@ -85,6 +87,7 @@
   - state manager: `tg_msg_manager/services/channel_export/state_manager.py`
   - event emitter: `tg_msg_manager/services/channel_export/event_emitter.py`
   - append/stream writer: `tg_msg_manager/services/channel_export/payload_writer.py`
+  - full/incremental/no-new-posts run paths: `tg_msg_manager/services/channel_export/workflows/`
   - controlled full-media path with sha256/status tracking under `services/channel_export/`
   - channel export remains filesystem-only and does not persist channel posts into SQLite
 - Context relation decision: `message_context_links` is documented as legacy compatibility, while `reply_to_id`, `context_group_id`, and `message_target_links` remain first-class hot-path relations
@@ -162,9 +165,10 @@ Telethon + SQLite + filesystem
 ### 5.1 Presentation / CLI
 
 Файлы:
-- `tg_msg_manager/cli.py`
+- `tg_msg_manager/cli/__init__.py`
 - `tg_msg_manager/cli_parser.py`
 - `tg_msg_manager/cli_commands.py`
+- `tg_msg_manager/cli/commands/`
 - `tg_msg_manager/cli_menu.py`
 - `tg_msg_manager/cli_support.py`
 - `tg_msg_manager/cli_io.py`
@@ -172,9 +176,10 @@ Telethon + SQLite + filesystem
 - `tg_msg_manager/i18n.py`
 
 Ответственность слоя:
-- `cli.py` -> thin entry point / runtime wiring / dispatch
+- `cli/__init__.py` -> thin entry point / runtime wiring / dispatch
 - `cli_parser.py` -> argparse construction
-- `cli_commands.py` -> command handlers
+- `cli_commands.py` -> compatibility re-export for command handlers
+- `cli/commands/` -> focused direct CLI command handlers
 - `cli_menu.py` -> interactive menu flows
 - `cli_support.py` -> shared CLI-side helpers
 - `cli_io.py` / `ui.py` -> terminal input and rendering
@@ -722,9 +727,11 @@ Fingerprint включает:
 
 Содержит реальную persistence implementation и ее contracts.
 
-### `cli.py` + `cli_*` + `cli_io.py`
+### `cli/` + `cli_*` + `cli_io.py`
 
-Содержат composition root + parser/handler/menu/support glue.
+Содержат composition root + parser/handler/menu/support glue. Direct command
+handlers live in `tg_msg_manager/cli/commands/`, while `cli_commands.py`
+remains a compatibility re-export.
 
 Это хороший признак зрелости: entrypoint, dispatch, menu-flow и rendering уже разведены по отдельным модулям.
 
@@ -1012,32 +1019,33 @@ Windows-путь:
 Если другая модель будет читать исходники, лучший маршрут такой:
 
 1. `README.md`
-2. `tg_msg_manager/cli.py`
+2. `tg_msg_manager/cli/__init__.py`
 3. `tg_msg_manager/cli_parser.py`
-4. `tg_msg_manager/cli_commands.py`
-5. `tg_msg_manager/cli_menu.py`
-6. `tg_msg_manager/core/runtime.py`
-7. `tg_msg_manager/core/config.py`
-8. `tg_msg_manager/services/exporter.py`
-9. `tg_msg_manager/services/sync/`
-10. `tg_msg_manager/services/context_engine.py`
-11. `tg_msg_manager/services/context/`
-12. `tg_msg_manager/infrastructure/storage/sqlite.py`
-13. `tg_msg_manager/infrastructure/storage/_sqlite_schema.py`
-14. `tg_msg_manager/infrastructure/storage/_sqlite_write_path.py`
-15. `tg_msg_manager/infrastructure/storage/_sqlite_read_path.py`
-16. `tg_msg_manager/infrastructure/storage/read/`
-17. `tg_msg_manager/services/db_exporter.py`
-18. `tg_msg_manager/services/db_export/`
-19. `tg_msg_manager/services/cleaner.py`
-20. `tg_msg_manager/services/private_archive.py`
-21. `tests/test_sync_system.py`
-22. `tests/test_storage_sqlite.py`
-23. `docs/refactor/README.md`
-24. `docs/refactor/STAGE_3A_1_CHANNEL_EXPORT_OPERATIONAL_HARDENING_REPORT.md`
-25. `docs/refactor/STAGE_0_FINAL_REPORT.md`
-26. `CHANGELOG.md`
-27. `backlog/archive/TODO.md`
+4. `tg_msg_manager/cli/commands/`
+5. `tg_msg_manager/cli_commands.py`
+6. `tg_msg_manager/cli_menu.py`
+7. `tg_msg_manager/core/runtime.py`
+8. `tg_msg_manager/core/config.py`
+9. `tg_msg_manager/services/exporter.py`
+10. `tg_msg_manager/services/sync/`
+11. `tg_msg_manager/services/context_engine.py`
+12. `tg_msg_manager/services/context/`
+13. `tg_msg_manager/infrastructure/storage/sqlite.py`
+14. `tg_msg_manager/infrastructure/storage/_sqlite_schema.py`
+15. `tg_msg_manager/infrastructure/storage/_sqlite_write_path.py`
+16. `tg_msg_manager/infrastructure/storage/_sqlite_read_path.py`
+17. `tg_msg_manager/infrastructure/storage/read/`
+18. `tg_msg_manager/services/db_exporter.py`
+19. `tg_msg_manager/services/db_export/`
+20. `tg_msg_manager/services/cleaner.py`
+21. `tg_msg_manager/services/private_archive.py`
+22. `tests/test_sync_system.py`
+23. `tests/test_storage_sqlite.py`
+24. `docs/refactor/README.md`
+25. `docs/refactor/STAGE_3A_1_CHANNEL_EXPORT_OPERATIONAL_HARDENING_REPORT.md`
+26. `docs/refactor/STAGE_0_FINAL_REPORT.md`
+27. `CHANGELOG.md`
+28. `backlog/archive/TODO.md`
 
 Такой порядок даст:
 - сначала картину продукта

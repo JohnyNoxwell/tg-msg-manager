@@ -1,4 +1,4 @@
-# tests/test_data_model.py
+# tests/core/test_data_model.py
 import importlib
 import os
 import sys

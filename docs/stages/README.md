@@ -8,6 +8,10 @@ Current active stage files:
 
 - none
 
+Stage 4C.0 Unit A is recorded in [`reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md`](reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md).
+Stage 4C.0B is recorded in [`reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md`](reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md).
+Stage 4C.0C is recorded in [`reports/STAGE_4C_0C_TEST_LAYOUT_GROUPING_REPORT.md`](reports/STAGE_4C_0C_TEST_LAYOUT_GROUPING_REPORT.md).
+
 The [`active/`](active/) directory must contain only unfinished or next active work. Do not leave completed stage task files, general launch prompts, prompt packs, or historical records there.
 
 ## Completed stages
@@ -35,6 +39,16 @@ Current completed prompt groups:
 - Stage 4B.1 dataset integrity audit-only task prompt.
 - Stage 4B.2 dataset validation hardening task prompt.
 - Stage 4B.3 run changelog artifact task prompt.
+- Stage 4C.0B channel export workflow split task prompt.
+- Stage 4C.0C test layout grouping task prompt.
+
+Stage 4C.0C completed task files:
+
+- [`completed/stage_4c_0c_test_layout_grouping.md`](completed/stage_4c_0c_test_layout_grouping.md)
+
+Stage 4C.0B completed task files:
+
+- [`completed/stage_4c_0b_channel_export_workflow_split.md`](completed/stage_4c_0b_channel_export_workflow_split.md)
 
 Stage 4B.3 completed task files:
 
@@ -127,7 +141,7 @@ Archived launch prompts and prompt packs:
 
 Reports under [`reports/`](reports/) are factual completion records. They can contain time-bound claims that were true for a specific stage.
 
-Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, Stage 3E.4, Stage 3E.5, Stage 4A, Stage 4A.5, Stage 4A.6, Stage 4A.7, Stage 4A.8, Stage 4B.1, Stage 4B.2, and Stage 4B.3 records:
+Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, Stage 3E.4, Stage 3E.5, Stage 4A, Stage 4A.5, Stage 4A.6, Stage 4A.7, Stage 4A.8, Stage 4B.1, Stage 4B.2, Stage 4B.3, Stage 4C.0, Stage 4C.0B, and Stage 4C.0C records:
 
 - [`reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md`](reports/STAGE_3D_0_1_DOCUMENTATION_AUDIT.md)
 - [`reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md`](reports/STAGE_3D_0_2_TARGET_DOCS_STRUCTURE_PLAN.md)
@@ -152,6 +166,9 @@ Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, 
 - [`reports/STAGE_4B_1_DATASET_INTEGRITY_AUDIT_REPORT.md`](reports/STAGE_4B_1_DATASET_INTEGRITY_AUDIT_REPORT.md)
 - [`reports/STAGE_4B_2_DATASET_VALIDATION_HARDENING_REPORT.md`](reports/STAGE_4B_2_DATASET_VALIDATION_HARDENING_REPORT.md)
 - [`reports/STAGE_4B_3_RUN_CHANGELOG_ARTIFACT_REPORT.md`](reports/STAGE_4B_3_RUN_CHANGELOG_ARTIFACT_REPORT.md)
+- [`reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md`](reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md)
+- [`reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md`](reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md)
+- [`reports/STAGE_4C_0C_TEST_LAYOUT_GROUPING_REPORT.md`](reports/STAGE_4C_0C_TEST_LAYOUT_GROUPING_REPORT.md)
 
 ## Stage lifecycle
 

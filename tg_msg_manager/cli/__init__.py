@@ -3,7 +3,9 @@ import logging
 import sys
 from typing import Optional
 
-from .cli_commands import (
+from telethon.errors import RPCError
+
+from ..cli_commands import (
     _handle_clean_command,
     _handle_db_export_command,
     _handle_delete_command,
@@ -18,37 +20,37 @@ from .cli_commands import (
     _handle_update_command,
     _handle_validate_dataset_command,
 )
-from .cli_menu import (
+from ..cli_menu import (
     _dispatch_main_menu_choice,
     _handle_menu_report,
     _handle_menu_retry,
 )
-from .cli_parser import build_cli_parser
-from .cli_support import (
+from ..cli_parser import build_cli_parser
+from ..cli_support import (
     _print_scheduler_setup_result,
     get_dirty_target_ids,
     get_safe_user_and_chat,
     resolve_id,
 )
-from .core.logging import setup_logging
-from .core.process import ProcessManager
-from .core.runtime import AppRuntime, build_app_runtime
-from .core.telemetry import telemetry
-from .core.telegram.client import TelethonClientWrapper
-from .cli_io import (
+from ..core.logging import setup_logging
+from ..core.process import ProcessManager
+from ..core.runtime import AppRuntime, build_app_runtime
+from ..core.telemetry import telemetry
+from ..core.telegram.client import TelethonClientWrapper
+from ..cli_io import (
     TerminalInput,
     render_main_menu,
     render_service_event,
 )
-from .i18n import _, use_lang
-from .infrastructure.storage.sqlite import SQLiteStorage
-from .services.alias_manager import AliasManager
-from .services.channel_export import ChannelExportService
-from .services.cleaner import CleanerService
-from .services.db_export import DBExportService
-from .services.exporter import ExportService
-from .services.private_archive import PrivateArchiveService
-from .services.retry_worker import RetryWorker
+from ..i18n import _, use_lang
+from ..infrastructure.storage.sqlite import SQLiteStorage
+from ..services.alias_manager import AliasManager
+from ..services.channel_export import ChannelExportService
+from ..services.cleaner import CleanerService
+from ..services.db_export import DBExportService
+from ..services.exporter import ExportService
+from ..services.private_archive import PrivateArchiveService
+from ..services.retry_worker import RetryWorker
 
 
 logger = logging.getLogger(__name__)
@@ -67,6 +69,36 @@ __all__ = [
     "_handle_setup_command",
     "_print_scheduler_setup_result",
 ]
+
+
+def _format_wait_seconds(seconds: int) -> str:
+    seconds = max(0, int(seconds))
+    if seconds >= 3600 and seconds % 3600 == 0:
+        hours = seconds // 3600
+        return _("telegram_login_wait_hours", count=hours)
+    if seconds >= 60 and seconds % 60 == 0:
+        minutes = seconds // 60
+        return _("telegram_login_wait_minutes", count=minutes)
+    return _("telegram_login_wait_seconds", count=seconds)
+
+
+def _format_telegram_login_error(error: BaseException) -> Optional[str]:
+    if isinstance(error, RPCError):
+        wait_seconds = getattr(error, "seconds", None)
+        error_name = error.__class__.__name__
+        if wait_seconds is not None:
+            return _(
+                "telegram_login_failed_flood_wait",
+                wait=_format_wait_seconds(wait_seconds),
+            )
+        if "Flood" in error_name:
+            return _("telegram_login_failed_flood_unknown")
+        return _("telegram_login_failed_rpc", reason=str(error))
+    if isinstance(error, EOFError):
+        return _("telegram_login_failed_no_input")
+    if isinstance(error, (ConnectionError, TimeoutError, OSError)):
+        return _("telegram_login_failed_network", reason=str(error))
+    return None
 
 
 class CLIContext:
@@ -129,7 +161,15 @@ class CLIContext:
                 self.settings.api_hash,
                 max_rps=self.settings.max_rps,
             )
-            await self.client.connect()
+            try:
+                await self.client.connect()
+            except Exception as exc:
+                message = _format_telegram_login_error(exc)
+                if message is None:
+                    raise
+                sys.stderr.write(f"{message}\n")
+                sys.stderr.flush()
+                sys.exit(1)
             sys.stdout.write("Telegram connection established.\n")
             sys.stdout.flush()
             self.exporter = ExportService(
