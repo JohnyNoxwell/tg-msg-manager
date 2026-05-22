@@ -108,7 +108,9 @@ class UI:
         return f"{prompt}{suffix}"
 
     @classmethod
-    def menu_row(cls, hotkey: str, title: Any, description: Optional[Any] = None) -> str:
+    def menu_row(
+        cls, hotkey: str, title: Any, description: Optional[Any] = None
+    ) -> str:
         row = (
             f" {cls.paint(f'{hotkey:>2}', cls.CLR_ACCENT, bold=True)}"
             f" {cls.paint(cls.ICON_MENU, cls.CLR_BORDER, bold=True)}"
@@ -183,7 +185,9 @@ class UI:
             else ""
         )
         extra_text = cls.muted(extra) if extra else ""
-        pieces = [piece for piece in (icon_text, label_text, value_text, extra_text) if piece]
+        pieces = [
+            piece for piece in (icon_text, label_text, value_text, extra_text) if piece
+        ]
         sys.stdout.write(f"\r   {'  '.join(pieces)}\033[K")
         sys.stdout.flush()
 
@@ -259,7 +263,9 @@ class UI:
         now_str = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         print()
         print(cls.rule(72))
-        print(f" {cls.section(_(title_key), icon=cls.ICON_SECTION)}  {cls.muted(now_str)}")
+        print(
+            f" {cls.section(_(title_key), icon=cls.ICON_SECTION)}  {cls.muted(now_str)}"
+        )
         print(cls.rule(72))
 
         for item in summaries:

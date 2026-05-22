@@ -15,14 +15,21 @@ def test_prompt_text_uses_plain_suffix_without_tty():
 
 def test_menu_row_uses_compact_alignment_without_tty():
     with patch.object(UI, "is_tty", return_value=False):
-        assert UI.menu_row("01", "Экспорт", "История сообщений") == " 01 ▸ Экспорт  История сообщений"
+        assert (
+            UI.menu_row("01", "Экспорт", "История сообщений")
+            == " 01 ▸ Экспорт  История сообщений"
+        )
 
 
 def test_render_main_menu_uses_compact_menu_rows_without_tty():
     output = StringIO()
-    with use_lang("ru"), patch.object(UI, "clear_screen"), patch.object(
-        UI, "print_gradient_banner"
-    ), patch.object(UI, "is_tty", return_value=False), redirect_stdout(output):
+    with (
+        use_lang("ru"),
+        patch.object(UI, "clear_screen"),
+        patch.object(UI, "print_gradient_banner"),
+        patch.object(UI, "is_tty", return_value=False),
+        redirect_stdout(output),
+    ):
         render_main_menu(123)
 
     text = output.getvalue()
@@ -34,10 +41,18 @@ def test_render_main_menu_uses_compact_menu_rows_without_tty():
 def test_print_update_summary_renders_divided_lines_without_tty():
     output = StringIO()
     stats = {
-        42: {"name": "Target", "count": 3, "dirty": True, "own_messages": 2, "with_context": 1}
+        42: {
+            "name": "Target",
+            "count": 3,
+            "dirty": True,
+            "own_messages": 2,
+            "with_context": 1,
+        }
     }
-    with use_lang("ru"), patch.object(UI, "is_tty", return_value=False), redirect_stdout(
-        output
+    with (
+        use_lang("ru"),
+        patch.object(UI, "is_tty", return_value=False),
+        redirect_stdout(output),
     ):
         print_update_summary(stats, title="Update")
 
@@ -52,8 +67,10 @@ def test_print_update_summary_renders_divided_lines_without_tty():
 
 def test_print_update_summary_empty_state_is_neutral_without_tty():
     output = StringIO()
-    with use_lang("ru"), patch.object(UI, "is_tty", return_value=False), redirect_stdout(
-        output
+    with (
+        use_lang("ru"),
+        patch.object(UI, "is_tty", return_value=False),
+        redirect_stdout(output),
     ):
         print_update_summary({}, title="Update")
 
@@ -65,8 +82,10 @@ def test_print_update_summary_empty_state_is_neutral_without_tty():
 
 def test_final_summary_uses_divider_between_label_and_value_without_tty():
     output = StringIO()
-    with use_lang("ru"), patch.object(UI, "is_tty", return_value=False), redirect_stdout(
-        output
+    with (
+        use_lang("ru"),
+        patch.object(UI, "is_tty", return_value=False),
+        redirect_stdout(output),
     ):
         UI.print_final_summary(
             "sync_summary_title",

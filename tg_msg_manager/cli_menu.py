@@ -69,9 +69,7 @@ async def _handle_menu_export(ctx) -> None:
         return
 
     deep_choice = TerminalInput.prompt_with_esc(
-        UI.prompt_text(
-            _("prompt_deep").replace("[y/N]", "[y]").replace("[Y/n]", "[y]")
-        )
+        UI.prompt_text(_("prompt_deep").replace("[y/N]", "[y]").replace("[Y/n]", "[y]"))
     )
     if deep_choice is None:
         return
@@ -85,7 +83,9 @@ async def _handle_menu_export(ctx) -> None:
         if depth_str and depth_str.isdigit():
             active_depth = int(depth_str)
 
-    fmt = TerminalInput.prompt_with_esc(UI.prompt_text(_("label_format_prompt"), suffix=""))
+    fmt = TerminalInput.prompt_with_esc(
+        UI.prompt_text(_("label_format_prompt"), suffix="")
+    )
     if fmt is None:
         return
     normalized_fmt = fmt.strip()
@@ -227,10 +227,14 @@ async def _handle_menu_db_export(ctx) -> None:
     users = ctx.storage.get_primary_targets()
     if users:
         print_target_list(users)
-        idx_str = TerminalInput.prompt_with_esc(UI.prompt_text("\n" + _("choice_prompt")))
+        idx_str = TerminalInput.prompt_with_esc(
+            UI.prompt_text("\n" + _("choice_prompt"))
+        )
         if idx_str and idx_str.isdigit() and 1 <= int(idx_str) <= len(users):
             target = PrimaryTarget.coerce(users[int(idx_str) - 1])
-            fmt = TerminalInput.prompt_with_esc(UI.prompt_text(_("label_format_prompt"), suffix=""))
+            fmt = TerminalInput.prompt_with_esc(
+                UI.prompt_text(_("label_format_prompt"), suffix="")
+            )
             if fmt == "1":
                 await ctx.db_exporter.export_user_messages(
                     target.user_id,
@@ -267,11 +271,15 @@ async def _handle_menu_export_channel(ctx) -> None:
     if channel is None or not channel.strip():
         return
 
-    limit_input = TerminalInput.prompt_with_esc(UI.prompt_text(_("prompt_limit_optional")))
+    limit_input = TerminalInput.prompt_with_esc(
+        UI.prompt_text(_("prompt_limit_optional"))
+    )
     if limit_input is None:
         return
 
-    media = TerminalInput.prompt_with_esc(UI.prompt_text(_("prompt_channel_media_mode")))
+    media = TerminalInput.prompt_with_esc(
+        UI.prompt_text(_("prompt_channel_media_mode"))
+    )
     if media is None:
         return
 
@@ -326,7 +334,9 @@ async def _handle_menu_export_channel(ctx) -> None:
         pause_for_enter()
         return
 
-    force_input = TerminalInput.prompt_with_esc(UI.prompt_text(_("prompt_channel_force")))
+    force_input = TerminalInput.prompt_with_esc(
+        UI.prompt_text(_("prompt_channel_force"))
+    )
     if force_input is None:
         return
     try:
@@ -400,7 +410,9 @@ async def _handle_menu_retry(ctx) -> None:
     print(UI.menu_row("1", _("retry_action_run")))
     print(UI.menu_row("2", _("retry_action_list")))
     print(UI.menu_row("3", _("retry_action_cleanup")))
-    choice = TerminalInput.prompt_with_esc(UI.prompt_text("\n" + _("retry_action_prompt")))
+    choice = TerminalInput.prompt_with_esc(
+        UI.prompt_text("\n" + _("retry_action_prompt"))
+    )
     if choice is None:
         return
 
@@ -420,7 +432,9 @@ async def _handle_menu_report(ctx) -> None:
     UI.print_header(_("menu_report"), _("sub_report_info"))
     print(UI.menu_row("1", _("report_format_markdown")))
     print(UI.menu_row("2", _("report_format_json")))
-    choice = TerminalInput.prompt_with_esc(UI.prompt_text("\n" + _("report_format_prompt")))
+    choice = TerminalInput.prompt_with_esc(
+        UI.prompt_text("\n" + _("report_format_prompt"))
+    )
     if choice is None:
         return
 
