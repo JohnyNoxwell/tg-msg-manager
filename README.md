@@ -144,7 +144,10 @@ make lint
 make format-check
 make test
 make verify
+make pre-commit
 ```
+
+Перед коммитом запускайте `make pre-commit`: он применяет `ruff format`, затем выполняет полный `make verify`.
 
 Offline regression harness:
 
@@ -377,7 +380,10 @@ make lint
 make format-check
 make test
 make verify
+make pre-commit
 ```
+
+Before committing, run `make pre-commit`: it applies `ruff format`, then runs the full `make verify`.
 
 Offline regression harness:
 

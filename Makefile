@@ -1,7 +1,7 @@
 PYTHON ?= python3
 RUFF ?= ruff
 
-.PHONY: lint format format-check test verify
+.PHONY: lint format format-check test verify pre-commit
 
 lint:
 	$(PYTHON) -m compileall tg_msg_manager tests
@@ -20,3 +20,7 @@ verify:
 	$(MAKE) lint
 	$(MAKE) format-check
 	$(MAKE) test
+
+pre-commit:
+	$(MAKE) format
+	$(MAKE) verify

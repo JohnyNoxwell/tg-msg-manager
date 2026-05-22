@@ -257,6 +257,7 @@ ruff check tg_msg_manager tests
 ruff format --check tg_msg_manager tests
 make test
 make verify
+make pre-commit
 ```
 
 Docs-only changes do not require every code test unless the task requires final verification.
