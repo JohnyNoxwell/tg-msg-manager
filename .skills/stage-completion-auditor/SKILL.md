@@ -1,43 +1,53 @@
+---
+name: stage-completion-auditor
+description: Audit completed Codex work for a tg-msg-manager stage after implementation, checks, report, or lifecycle cleanup and before accepting the stage as complete. Use when Codex claims a stage is complete and the result must be checked against AGENTS.md, the active stage file, stage report, changed files, test/check output, docs rules, and lifecycle state.
+---
+
 # Stage Completion Auditor
 
 ## Purpose
 
 Audit completed Codex work for a stage.
 
-Use this skill after Codex claims a stage is complete. The goal is to determine whether the stage is actually complete according to the stage file and `AGENTS.md`.
+Determine whether the stage is complete according to the stage file and `AGENTS.md`.
 
-This skill audits. It does not implement missing work unless explicitly requested.
+Do not implement missing work unless explicitly requested.
 
 ## When To Use
 
-Use after implementation, tests, report generation, or lifecycle cleanup.
+Use:
 
-Do not use before implementation. Use `stage-reviewer` instead.
+```text
+after Codex claims a stage is complete
+after implementation/checks/report/lifecycle cleanup
+before accepting a stage as complete
+```
+
+Do not use:
+
+```text
+before implementation
+for architecture-only review before code changes
+```
+
+If `.skills/stage-reviewer` exists, use `stage-reviewer` for pre-implementation review.
 
 ## Inputs
 
-Required:
+Request these inputs when available:
 
 ```text
 AGENTS.md
 active stage file
-stage report if it exists
-changed files list or diff summary
+stage report
 Codex final response
-```
-
-Optional:
-
-```text
-changed file contents
-test output
+changed files list
+test/check output
 relevant docs changed
-docs/stages/README.md
-current docs/stages/active listing
-current docs/stages/completed listing
+lifecycle file locations
 ```
 
-Do not inspect unrelated source code or docs.
+Do not require full diffs unless necessary.
 
 ## Audit Checklist
 
@@ -49,12 +59,12 @@ Check:
 changed files are within stage scope
 optional files were changed only if justified
 unrelated files were not changed
-protected files, if touched, contain no new feature logic
+protected files were not changed beyond allowed mechanical wiring
 ```
 
 ### Behavior Preservation
 
-Check that these are unchanged unless explicitly scoped:
+Check that these remain unchanged unless explicitly scoped:
 
 ```text
 CLI command names
@@ -63,14 +73,16 @@ defaults
 output filenames
 output directory layout
 SQLite schema
+dataset formats
 export behavior
 sync behavior
 delete behavior
 retry behavior
 scheduler behavior
-state/incremental behavior
-force/no-new-work behavior
-data flow
+media behavior
+discussion behavior
+validation/inspection behavior
+state/incremental/force/no-new-work behavior
 ```
 
 ### Architecture Compliance
@@ -78,9 +90,9 @@ data flow
 Check:
 
 ```text
-no raw SQL added to service layer
-no business logic added to compatibility wrappers
-no analytics/profiling/OSINT/LLM logic added to exporter
+no raw SQL in service layer
+no business logic in compatibility wrappers
+no analytics/profiling/OSINT/LLM logic in exporter core
 no broad refactor mixed into feature stage
 protected files contain only orchestration or mechanical wiring
 ```
@@ -91,12 +103,11 @@ Check:
 
 ```text
 required commands were run or inability documented
-test claims include exact commands
+exact commands are recorded
 failures are recorded
 skipped checks have exact reason
+do not accept "tests passed" without command evidence
 ```
-
-Do not accept “tests passed” without exact command evidence.
 
 ### Docs And Report
 
@@ -110,25 +121,25 @@ report records what changed
 report records what remained unchanged
 report records what was not run and why
 report records completion status
-README/COMMANDS/CHANGELOG/docs were updated only when required
+docs were updated only if required
 no docs churn
 ```
 
 ### Lifecycle
 
-If stage is fully complete, check:
+Check:
 
 ```text
 completed stage files moved out of docs/stages/active/
 completed stage files moved to docs/stages/completed/
-general prompts moved to docs/archive/old_prompts/ when applicable
+launch prompts archived when project rules require it
 docs/stages/README.md updated if lifecycle changed
-docs/stages/active/ contains only unfinished or next active work
+active directory contains only unfinished or next active work
 ```
 
 ## Output Format
 
-Return only:
+Return exactly:
 
 ```text
 VERDICT:
@@ -157,13 +168,17 @@ PATCHES:
 
 No long prose.
 
-No implementation suggestions unless needed to fix a blocker.
+No full diffs.
 
-Do not restate the stage.
+Do not restate the whole stage.
 
-Do not paste full diffs.
+Do not implement fixes unless explicitly requested.
 
-If incomplete, list only the minimum required fixes.
+If incomplete, list only minimum required fixes.
+
+If complete, keep notes short.
+
+If evidence is insufficient, mark incomplete and name the missing evidence.
 
 ## Example
 
@@ -171,8 +186,8 @@ Input state:
 
 ```text
 report exists
-compile and pytest ran
-stage task file still remains in docs/stages/active/
+tests ran
+stage file still remains in docs/stages/active/
 ```
 
 Output:
@@ -182,20 +197,20 @@ VERDICT:
 - incomplete
 
 BLOCKERS:
-- lifecycle cleanup missing: completed stage file still in docs/stages/active/
+- lifecycle cleanup missing
 
 SCOPE:
 - pass: changed files are within stage scope
 
 CHECKS:
-- pass: required checks were recorded
+- pass: exact test commands are recorded
 
 DOCS:
 - pass: required report exists
 
 LIFECYCLE:
-- fail: active directory still contains completed stage task
+- fail: completed stage file remains in docs/stages/active/
 
 PATCHES:
-- move completed stage task to docs/stages/completed/ and update docs/stages/README.md
+- move completed stage file to docs/stages/completed/
 ```

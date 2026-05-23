@@ -186,16 +186,33 @@ Do not duplicate large docs content inside `AGENTS.md`; link to docs instead.
 
 ## Skill Selection
 
-Use the narrowest matching skill:
+Use the narrowest matching skill.
 
-- `stage-reviewer` before implementing a stage file.
-- `stage-completion-auditor` after claimed stage completion.
-- `architecture-guard` for CLI, services, storage, protected files, or architecture-boundary changes.
-- `discussion-export-diagnoser` for channel discussion export failures/artifacts.
-- `bugfix-stage-writer` when creating a bugfix stage from an observed defect.
+Required skill use:
+
+- Use `stage-reviewer` before implementing any stage file.
+- Use `stage-completion-auditor` after a stage is claimed complete.
+- Use `architecture-guard` when changes touch CLI, services, storage, protected files, compatibility wrappers, dataset validation/doctor, post-processing boundaries, or architecture rules.
+- Use `discussion-export-diagnoser` for channel discussion export failures/artifacts.
+- Use `bugfix-stage-writer` when creating a bugfix stage from an observed defect.
+
+If a skill is not available as an agent tool, read and apply the matching file manually:
+
+- `.skills/stage-reviewer/SKILL.md`
+- `.skills/stage-completion-auditor/SKILL.md`
+- `.skills/architecture-guard/SKILL.md`
+- `.skills/discussion-export-diagnoser/SKILL.md`
+- `.skills/bugfix-stage-writer/SKILL.md`
+
+When applying a skill manually, say in the report:
+
+`<skill-name>: applied from .skills/<skill-name>/SKILL.md`
+
+Do not report `no such skill/tool is available` until the matching `.skills/<skill-name>/SKILL.md` file has been checked.
 
 If the user names a skill, use it.
-Do not use multiple skills unless clearly required.
+
+If several skills apply, use only the narrowest one unless the stage explicitly requires more than one.
 
 ## 7. Stage workflow
 
