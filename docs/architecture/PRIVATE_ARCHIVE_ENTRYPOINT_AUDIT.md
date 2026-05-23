@@ -36,13 +36,13 @@ Interpretation:
 
 ### Tests using public package path
 
-- `tests/test_services.py`
-- `tests/test_compat_imports.py`
-- `tests/test_cli.py` patches `tg_msg_manager.cli.PrivateArchiveService`
+- `tests/services/test_services.py`
+- `tests/architecture/test_compat_imports.py`
+- `tests/cli/test_cli.py` patches `tg_msg_manager.cli.PrivateArchiveService`
 
 ### Tests using direct implementation path
 
-- `tests/test_compat_imports.py`
+- `tests/architecture/test_compat_imports.py`
 
 ## 5. CLI wiring status
 

@@ -11,6 +11,12 @@ Current active stage files:
 Stage 4C.0 Unit A is recorded in [`reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md`](reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md).
 Stage 4C.0B is recorded in [`reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md`](reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md).
 Stage 4C.0C is recorded in [`reports/STAGE_4C_0C_TEST_LAYOUT_GROUPING_REPORT.md`](reports/STAGE_4C_0C_TEST_LAYOUT_GROUPING_REPORT.md).
+Stage 4C.0 architecture stabilization audit is recorded in [`reports/STAGE_4C_0_ARCHITECTURE_STABILIZATION_AUDIT_BEFORE_EXPANSION_REPORT.md`](reports/STAGE_4C_0_ARCHITECTURE_STABILIZATION_AUDIT_BEFORE_EXPANSION_REPORT.md).
+Stage 4C.1 architecture rules sync is recorded in [`reports/STAGE_4C_1_ARCHITECTURE_RULES_SYNC_AFTER_AUDIT_REPORT.md`](reports/STAGE_4C_1_ARCHITECTURE_RULES_SYNC_AFTER_AUDIT_REPORT.md).
+Stage 4D.0 dataset contract v1 design is recorded in [`reports/STAGE_4D_0_DATASET_CONTRACT_V1_DESIGN_REPORT.md`](reports/STAGE_4D_0_DATASET_CONTRACT_V1_DESIGN_REPORT.md).
+Stage 4D.1 dataset validation contract alignment is recorded in [`reports/STAGE_4D_1_DATASET_VALIDATION_CONTRACT_ALIGNMENT_REPORT.md`](reports/STAGE_4D_1_DATASET_VALIDATION_CONTRACT_ALIGNMENT_REPORT.md).
+Stage 4D.2 read-only dataset doctor is recorded in [`reports/STAGE_4D_2_READ_ONLY_DATASET_DOCTOR_REPORT.md`](reports/STAGE_4D_2_READ_ONLY_DATASET_DOCTOR_REPORT.md).
+Stage 5A.0 external post-processing boundary skeleton is recorded in [`reports/STAGE_5A_0_EXTERNAL_POST_PROCESSING_BOUNDARY_SKELETON_REPORT.md`](reports/STAGE_5A_0_EXTERNAL_POST_PROCESSING_BOUNDARY_SKELETON_REPORT.md).
 
 The [`active/`](active/) directory must contain only unfinished or next active work. Do not leave completed stage task files, general launch prompts, prompt packs, or historical records there.
 
@@ -39,8 +45,38 @@ Current completed prompt groups:
 - Stage 4B.1 dataset integrity audit-only task prompt.
 - Stage 4B.2 dataset validation hardening task prompt.
 - Stage 4B.3 run changelog artifact task prompt.
+- Stage 4C.0 architecture stabilization audit before expansion task prompt.
+- Stage 4C.1 architecture rules sync after audit task prompt.
 - Stage 4C.0B channel export workflow split task prompt.
 - Stage 4C.0C test layout grouping task prompt.
+- Stage 4D.0 dataset contract v1 design task prompt.
+- Stage 4D.1 dataset validation contract alignment task prompt.
+- Stage 4D.2 read-only dataset doctor task prompt.
+- Stage 5A.0 external post-processing boundary skeleton task prompt.
+
+Stage 5A.0 external post-processing boundary skeleton task files:
+
+- [`completed/stage_5a_0_external_post_processing_boundary_skeleton.md`](completed/stage_5a_0_external_post_processing_boundary_skeleton.md)
+
+Stage 4D.2 read-only dataset doctor task files:
+
+- [`completed/stage_4d_2_read_only_dataset_doctor.md`](completed/stage_4d_2_read_only_dataset_doctor.md)
+
+Stage 4D.1 dataset validation contract alignment task files:
+
+- [`completed/stage_4d_1_dataset_validation_contract_alignment.md`](completed/stage_4d_1_dataset_validation_contract_alignment.md)
+
+Stage 4D.0 dataset contract v1 design task files:
+
+- [`completed/stage_4d_0_dataset_contract_v1_design.md`](completed/stage_4d_0_dataset_contract_v1_design.md)
+
+Stage 4C.1 architecture rules sync task files:
+
+- [`completed/stage_4c_1_architecture_rules_sync_after_audit.md`](completed/stage_4c_1_architecture_rules_sync_after_audit.md)
+
+Stage 4C.0 architecture stabilization audit task files:
+
+- [`completed/stage_4c_0_architecture_stabilization_audit_before_expansion.md`](completed/stage_4c_0_architecture_stabilization_audit_before_expansion.md)
 
 Stage 4C.0C completed task files:
 
@@ -166,9 +202,15 @@ Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, 
 - [`reports/STAGE_4B_1_DATASET_INTEGRITY_AUDIT_REPORT.md`](reports/STAGE_4B_1_DATASET_INTEGRITY_AUDIT_REPORT.md)
 - [`reports/STAGE_4B_2_DATASET_VALIDATION_HARDENING_REPORT.md`](reports/STAGE_4B_2_DATASET_VALIDATION_HARDENING_REPORT.md)
 - [`reports/STAGE_4B_3_RUN_CHANGELOG_ARTIFACT_REPORT.md`](reports/STAGE_4B_3_RUN_CHANGELOG_ARTIFACT_REPORT.md)
+- [`reports/STAGE_4C_0_ARCHITECTURE_STABILIZATION_AUDIT_BEFORE_EXPANSION_REPORT.md`](reports/STAGE_4C_0_ARCHITECTURE_STABILIZATION_AUDIT_BEFORE_EXPANSION_REPORT.md)
 - [`reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md`](reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md)
 - [`reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md`](reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md)
 - [`reports/STAGE_4C_0C_TEST_LAYOUT_GROUPING_REPORT.md`](reports/STAGE_4C_0C_TEST_LAYOUT_GROUPING_REPORT.md)
+- [`reports/STAGE_4C_1_ARCHITECTURE_RULES_SYNC_AFTER_AUDIT_REPORT.md`](reports/STAGE_4C_1_ARCHITECTURE_RULES_SYNC_AFTER_AUDIT_REPORT.md)
+- [`reports/STAGE_4D_0_DATASET_CONTRACT_V1_DESIGN_REPORT.md`](reports/STAGE_4D_0_DATASET_CONTRACT_V1_DESIGN_REPORT.md)
+- [`reports/STAGE_4D_1_DATASET_VALIDATION_CONTRACT_ALIGNMENT_REPORT.md`](reports/STAGE_4D_1_DATASET_VALIDATION_CONTRACT_ALIGNMENT_REPORT.md)
+- [`reports/STAGE_4D_2_READ_ONLY_DATASET_DOCTOR_REPORT.md`](reports/STAGE_4D_2_READ_ONLY_DATASET_DOCTOR_REPORT.md)
+- [`reports/STAGE_5A_0_EXTERNAL_POST_PROCESSING_BOUNDARY_SKELETON_REPORT.md`](reports/STAGE_5A_0_EXTERNAL_POST_PROCESSING_BOUNDARY_SKELETON_REPORT.md)
 
 ## Stage lifecycle
 

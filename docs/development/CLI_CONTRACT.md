@@ -25,7 +25,7 @@ Primary Python entrypoint:
 | `setup` | none | none | Install aliases / setup shell helpers |
 | `db-export` | `--user-id` | `--json=False` | Export already-synced local DB data |
 | `validate-dataset` | `--path` | `--json=False` | Validate an exported channel dataset from local files only |
-| `inspect-dataset` | `--path` | `--json=False` | Summarize deterministic counts/statuses for an exported channel dataset |
+| `inspect-dataset` | `--path` | `--json=False`, `--doctor=False` | Summarize deterministic counts/statuses, or emit a read-only doctor report for an exported channel dataset |
 
 ## Contract Tests
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
+from .contract_validator import validate_contract_v1_files
 from .discussion_validator import validate_discussion_files
 from .jsonl_validator import validate_messages_jsonl
 from .manifest_validator import validate_manifest_shape
@@ -25,6 +26,7 @@ KNOWN_DATASET_FILES = (
     "media_manifest.jsonl",
     "run_changelog.jsonl",
     "channel_export_state.json",
+    "discussion_metadata.jsonl",
     "discussion_comments.jsonl",
     "discussion_comments.txt",
     "discussion_threads.jsonl",
@@ -91,9 +93,18 @@ def validate_dataset(options: DatasetValidationOptions) -> ValidationReport:
         media_count=media_result.summary.record_count,
         discussion_comment_count=discussion_result.summary.comment_count,
         discussion_thread_count=discussion_result.summary.thread_count,
-        discussion_payload_present=discussion_result.summary.present,
+        discussion_payload_present=bool(
+            discussion_result.summary.comment_count
+            or discussion_result.summary.thread_count
+        ),
     )
     issues.extend(state_result.issues)
+    issues.extend(
+        validate_contract_v1_files(
+            dataset_path,
+            manifest=manifest_result.manifest,
+        )
+    )
 
     issues.extend(_detect_unknown_files(dataset_path))
     return _build_report(

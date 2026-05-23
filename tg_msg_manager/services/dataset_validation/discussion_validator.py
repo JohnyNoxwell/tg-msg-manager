@@ -10,11 +10,13 @@ from .models import DiscussionSummary, ValidationIssue, issue_error, issue_warni
 DISCUSSION_COMMENTS_JSONL = "discussion_comments.jsonl"
 DISCUSSION_COMMENTS_TXT = "discussion_comments.txt"
 DISCUSSION_THREADS_JSONL = "discussion_threads.jsonl"
+DISCUSSION_METADATA_JSONL = "discussion_metadata.jsonl"
 DISCUSSION_STATE_JSON = "discussion_export_state.json"
 
 
 @dataclass(frozen=True)
 class DiscussionValidationResult:
+    metadata: tuple[JsonlRecord, ...]
     comments: tuple[JsonlRecord, ...]
     threads: tuple[JsonlRecord, ...]
     summary: DiscussionSummary
@@ -27,9 +29,11 @@ def validate_discussion_files(
     message_ids: frozenset[int],
 ) -> DiscussionValidationResult:
     issues: list[ValidationIssue] = []
+    metadata: tuple[JsonlRecord, ...] = ()
     comments: tuple[JsonlRecord, ...] = ()
     threads: tuple[JsonlRecord, ...] = ()
     discussion_paths = {
+        DISCUSSION_METADATA_JSONL: dataset_path / DISCUSSION_METADATA_JSONL,
         DISCUSSION_COMMENTS_JSONL: dataset_path / DISCUSSION_COMMENTS_JSONL,
         DISCUSSION_COMMENTS_TXT: dataset_path / DISCUSSION_COMMENTS_TXT,
         DISCUSSION_THREADS_JSONL: dataset_path / DISCUSSION_THREADS_JSONL,
@@ -38,11 +42,23 @@ def validate_discussion_files(
     present_names = {name for name, path in discussion_paths.items() if path.exists()}
     if not present_names:
         return DiscussionValidationResult(
+            metadata=metadata,
             comments=comments,
             threads=threads,
             summary=DiscussionSummary(present=False),
             issues=(),
         )
+
+    if DISCUSSION_METADATA_JSONL in present_names:
+        loaded = load_jsonl_records(
+            discussion_paths[DISCUSSION_METADATA_JSONL],
+            DISCUSSION_METADATA_JSONL,
+        )
+        metadata = loaded.records
+        issues.extend(
+            _rewrite_jsonl_codes(loaded.issues, "invalid_discussion_metadata_jsonl")
+        )
+        issues.extend(_validate_metadata(metadata, message_ids))
 
     if DISCUSSION_COMMENTS_JSONL in present_names:
         loaded = load_jsonl_records(
@@ -94,10 +110,12 @@ def validate_discussion_files(
         )
 
     return DiscussionValidationResult(
+        metadata=metadata,
         comments=comments,
         threads=threads,
         summary=DiscussionSummary(
             present=True,
+            metadata_count=len(metadata),
             comment_count=len(comments),
             thread_count=len(threads),
         ),
@@ -106,11 +124,13 @@ def validate_discussion_files(
 
 
 def summarize_discussion_records(
+    metadata: tuple[JsonlRecord, ...],
     comments: tuple[JsonlRecord, ...],
     threads: tuple[JsonlRecord, ...],
 ) -> DiscussionSummary:
     return DiscussionSummary(
-        present=bool(comments or threads),
+        present=bool(metadata or comments or threads),
+        metadata_count=len(metadata),
         comment_count=len(comments),
         thread_count=len(threads),
     )
@@ -132,6 +152,47 @@ def _rewrite_jsonl_codes(
         )
         for issue in issues
     ]
+
+
+def _validate_metadata(
+    metadata: tuple[JsonlRecord, ...],
+    message_ids: frozenset[int],
+) -> list[ValidationIssue]:
+    issues: list[ValidationIssue] = []
+    for record in metadata:
+        channel_post_id = record.payload.get("channel_message_id")
+        if isinstance(channel_post_id, int):
+            if message_ids and channel_post_id not in message_ids:
+                issues.append(
+                    issue_warning(
+                        "discussion_metadata_unlinked",
+                        f"Discussion metadata references missing channel post {channel_post_id}",
+                        path=DISCUSSION_METADATA_JSONL,
+                        line=record.line,
+                    )
+                )
+        elif channel_post_id is not None:
+            issues.append(
+                issue_error(
+                    "negative_count",
+                    "Discussion metadata channel_message_id must be an integer when present",
+                    path=DISCUSSION_METADATA_JSONL,
+                    line=record.line,
+                )
+            )
+        replies_count = record.payload.get("replies_count")
+        if replies_count is not None and (
+            not isinstance(replies_count, int) or replies_count < 0
+        ):
+            issues.append(
+                issue_error(
+                    "negative_count",
+                    "Discussion metadata replies_count must be a non-negative integer when present",
+                    path=DISCUSSION_METADATA_JSONL,
+                    line=record.line,
+                )
+            )
+    return issues
 
 
 def _validate_comments(

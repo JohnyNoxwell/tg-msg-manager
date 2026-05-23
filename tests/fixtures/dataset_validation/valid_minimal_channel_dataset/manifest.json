@@ -28,6 +28,7 @@
       "messages.jsonl",
       "messages.txt",
       "media_manifest.jsonl",
+      "run_changelog.jsonl",
       "channel_export_state.json"
     ]
   },

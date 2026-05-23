@@ -108,6 +108,12 @@ def build_cli_parser() -> argparse.ArgumentParser:
     inspect_dataset_parser = subparsers.add_parser("inspect-dataset")
     inspect_dataset_parser.add_argument("--path", required=True)
     inspect_dataset_parser.add_argument("--json", action="store_true", default=False)
+    inspect_dataset_parser.add_argument(
+        "--doctor",
+        action="store_true",
+        default=False,
+        help="Run the read-only dataset doctor report",
+    )
 
     export_channel_parser = subparsers.add_parser("export-channel")
     export_channel_parser.add_argument("--channel", required=True)

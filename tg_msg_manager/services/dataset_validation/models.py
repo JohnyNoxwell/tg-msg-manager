@@ -60,12 +60,14 @@ class MediaSummary:
 @dataclass(frozen=True)
 class DiscussionSummary:
     present: bool = False
+    metadata_count: int = 0
     comment_count: int = 0
     thread_count: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "present": self.present,
+            "metadata_count": self.metadata_count,
             "comment_count": self.comment_count,
             "thread_count": self.thread_count,
         }

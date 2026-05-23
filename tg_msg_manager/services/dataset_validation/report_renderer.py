@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from typing import Any
 
+from .doctor import DatasetDoctorReport
 from .models import DatasetInspectionReport, ValidationIssue, ValidationReport
 
 
@@ -56,6 +57,38 @@ def render_inspection_report_markdown(report: DatasetInspectionReport) -> str:
 
 
 def render_inspection_report_json(report: DatasetInspectionReport) -> str:
+    return json.dumps(report.to_dict(), indent=2, sort_keys=True)
+
+
+def render_doctor_report_markdown(report: DatasetDoctorReport) -> str:
+    lines = [
+        "# Dataset Doctor Report",
+        "",
+        "## Status",
+        report.status,
+        "",
+        "## Dataset Path",
+        str(report.dataset_path),
+        "",
+        "## Summary",
+        f"- errors: {report.error_count}",
+        f"- warnings: {report.warning_count}",
+        "",
+        "## Findings",
+    ]
+    if not report.findings:
+        lines.append("None")
+    else:
+        for finding in report.findings:
+            location = f" ({finding.path})" if finding.path else ""
+            lines.append(
+                f"- {finding.severity.value} {finding.code}{location}: "
+                f"{finding.message} Action: {finding.suggested_action}"
+            )
+    return "\n".join(lines) + "\n"
+
+
+def render_doctor_report_json(report: DatasetDoctorReport) -> str:
     return json.dumps(report.to_dict(), indent=2, sort_keys=True)
 
 

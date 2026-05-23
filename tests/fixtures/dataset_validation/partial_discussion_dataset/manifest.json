@@ -14,7 +14,7 @@
     "failed_media_count": 0,
     "formats": ["jsonl", "txt"],
     "media_mode": "metadata",
-    "included_files": ["manifest.json", "messages.jsonl", "messages.txt", "media_manifest.jsonl", "channel_export_state.json"]
+    "included_files": ["manifest.json", "messages.jsonl", "messages.txt", "media_manifest.jsonl", "run_changelog.jsonl", "channel_export_state.json"]
   },
   "discussion": {"mode": "full", "thread_count": 1, "comment_count": 1, "failed_thread_count": 0},
   "status": "completed"

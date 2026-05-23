@@ -63,7 +63,7 @@ python3 -m tg_msg_manager.cli report
 * 🗄️ **SQLite База данных** — Все данные хранятся в структурированной базе `messages.db`. Это обеспечивает мгновенный поиск и отсутствие дубликатов.
 * 📤 **Экспорт из БД** — Выгрузка накопленных данных из SQLite в JSON/Text. JSONL по умолчанию теперь компактный и ориентирован на анализ нейросетью.
 * 📡 **Прямой экспорт канала (`export-channel`)** — Файловый dataset export постов Telegram-канала в `manifest.json`, `messages.jsonl`, `messages.txt`, `media_manifest.jsonl`, `run_changelog.jsonl` и, при явном `--discussion full`, discussion dataset files.
-* ✅ **Dataset validation / inspection** — `validate-dataset` проверяет структуру channel dataset, а `inspect-dataset` показывает deterministic counts/statuses без Telegram access, repair/migration или analytics.
+* ✅ **Dataset validation / inspection** — `validate-dataset` проверяет структуру channel dataset, `inspect-dataset` показывает deterministic counts/statuses, а `inspect-dataset --doctor` даёт read-only diagnostic findings без Telegram access, repair/migration или analytics.
 * ♻️ **Retry Queue (`retry`)** — Управление повторными задачами для recoverable sync/archive ошибок без ручного вмешательства в БД.
 * 📋 **Audit Report (`report`)** — Read-only диагностика локальной БД, retry-очереди, export artifacts и состояния tracked targets без доступа к Telegram.
 
@@ -119,7 +119,8 @@ python3 -m tg_msg_manager.cli report
     `python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example --json`
     `python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example`
     `python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example --json`
-    Команды read-only, не требуют Telegram credentials, не чинят и не мигрируют dataset, не выполняют analytics/OCR/STT/media processing.
+    `python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example --doctor`
+    Команды read-only, не требуют Telegram credentials, не чинят и не мигрируют dataset, не выполняют analytics/OCR/STT/media processing. Doctor mode добавляет severity, artifact path и suggested next action для validation findings.
 *   **Полное удаление локальных данных**:
     `python3 -m tg_msg_manager.cli delete --user-id 123456789`
 *   **Планировщик (macOS)**:
@@ -152,7 +153,7 @@ make pre-commit
 Offline regression harness:
 
 ```bash
-python3 -m unittest tests.test_fixture_e2e -q
+python3 -m unittest tests.e2e.test_fixture_e2e -q
 ```
 
 Минимальный smoke-check с текущей Telegram-сессией:
@@ -219,7 +220,7 @@ Legacy aliases still supported:
 Начиная с foundation stages `3`–`5`, в репо есть автономная offline harness:
 - `tests/fixtures/stage5/*.jsonl` — anonymized Telegram-like fixtures;
 - `tg_msg_manager/testing/` — `FakeTelegramClient`, fixture loaders, temp runtime helpers;
-- `tests/test_fixture_e2e.py` — end-to-end покрытие для `sync`, `context`, `db-export`, `retry`, `report`.
+- `tests/e2e/test_fixture_e2e.py` — end-to-end покрытие для `sync`, `context`, `db-export`, `retry`, `report`.
 
 Эта harness не требует сети и используется как regression-опора для дальнейших refactor/change batches.
 
@@ -291,7 +292,7 @@ Core system capabilities:
 * 🗄️ **SQLite Storage** — All messages are stored in a structured `messages.db` for instant querying and zero duplicates.
 * 📤 **Database Export** — Export collected SQLite records into JSON or Text. JSONL now defaults to a compact AI-friendly profile.
 * 📡 **Direct Channel Export (`export-channel`)** — Filesystem-first dataset export of Telegram channel posts into `manifest.json`, `messages.jsonl`, `messages.txt`, `media_manifest.jsonl`, `run_changelog.jsonl`, and optional discussion dataset files when `--discussion full` is explicit.
-* ✅ **Dataset Validation / Inspection** — `validate-dataset` checks channel dataset structure, while `inspect-dataset` reports deterministic counts/statuses without Telegram access, repair/migration, or analytics.
+* ✅ **Dataset Validation / Inspection** — `validate-dataset` checks channel dataset structure, `inspect-dataset` reports deterministic counts/statuses, and `inspect-dataset --doctor` emits read-only diagnostic findings without Telegram access, repair/migration, or analytics.
 * ♻️ **Retry Queue (`retry`)** — Replays recoverable sync/archive failures through typed retry tasks instead of manual DB surgery.
 * 📋 **Audit Report (`report`)** — Read-only diagnostics for local DB state, retry backlog, export artifacts, and tracked-target health without Telegram access.
 
@@ -355,7 +356,8 @@ Subcommands can be executed directly for automation:
     `python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example --json`
     `python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example`
     `python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example --json`
-    These commands are read-only, require no Telegram credentials, do not repair or migrate datasets, and do not perform analytics/OCR/STT/media processing.
+    `python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example --doctor`
+    These commands are read-only, require no Telegram credentials, do not repair or migrate datasets, and do not perform analytics/OCR/STT/media processing. Doctor mode adds severity, artifact path, and suggested next action for validation findings.
 *   **Full Local Purge**:
     `python3 -m tg_msg_manager.cli delete --user-id 123456789`
 *   **Scheduler (macOS)**:
@@ -388,7 +390,7 @@ Before committing, run `make pre-commit`: it applies `ruff format`, then runs th
 Offline regression harness:
 
 ```bash
-python3 -m unittest tests.test_fixture_e2e -q
+python3 -m unittest tests.e2e.test_fixture_e2e -q
 ```
 
 Minimal live smoke-check with the current Telegram session:
@@ -455,7 +457,7 @@ Supported legacy aliases:
 Since foundation stages `3`–`5`, the repo ships an autonomous offline harness:
 - `tests/fixtures/stage5/*.jsonl` — anonymized Telegram-like fixtures;
 - `tg_msg_manager/testing/` — `FakeTelegramClient`, fixture loaders, and temporary runtime helpers;
-- `tests/test_fixture_e2e.py` — end-to-end coverage for `sync`, `context`, `db-export`, `retry`, and `report`.
+- `tests/e2e/test_fixture_e2e.py` — end-to-end coverage for `sync`, `context`, `db-export`, `retry`, and `report`.
 
 This harness requires no network access and acts as the regression baseline for future refactor and feature batches.
 

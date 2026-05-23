@@ -147,7 +147,7 @@ Arguments:
 Notes:
 
 - The command is read-only and does not require Telegram credentials or a Telegram client connection.
-- Validation checks required files, JSON/JSONL parseability, duplicate post ids, message-id gaps, reply links where exported fields are available, manifest/state counter sanity, media manifest ids/paths/statuses, and optional discussion files when present.
+- Validation checks required files, JSON/JSONL parseability, duplicate post ids, message-id gaps, reply links where exported fields are available, manifest/state counter sanity, media manifest ids/paths/statuses, `run_changelog.jsonl`, and mode-specific discussion files declared by the manifest.
 - Message-id gaps and missing reply parents are warnings by default because Telegram deletions, unavailable parents, and scoped exports can produce the same local shape.
 - Status values are `ok`, `warnings`, and `errors`.
 - `errors` exits with code `1`; warnings do not fail the command.
@@ -162,17 +162,21 @@ Examples:
 ```bash
 python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example
 python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example --json
+python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example --doctor
+python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example --doctor --json
 ```
 
 Arguments:
 
 - `--path` required. Path to an exported channel dataset directory.
 - `--json` optional. Emit deterministic JSON instead of the default Markdown report.
+- `--doctor` optional. Emit a read-only doctor report with severity, artifact path, message, and suggested next action for each validation finding.
 
 Notes:
 
 - The command is read-only and does not require Telegram credentials or a Telegram client connection.
 - Inspection summarizes detected files, message counts, media status counts, discussion presence/counts, manifest summary, state cursor, and validation note counts.
+- Doctor mode reuses validation findings and adds deterministic remediation guidance without repairing or rewriting files.
 - Inspection does not interpret message/comment text or perform analytics.
 
 ## Interactive Menu

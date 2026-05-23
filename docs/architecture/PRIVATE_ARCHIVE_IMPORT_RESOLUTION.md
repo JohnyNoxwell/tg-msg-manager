@@ -40,6 +40,6 @@ has service: True
 
 ## 7. Guard tests
 
-- `tests/test_architecture_wrappers.py::test_private_archive_wrapper_has_no_active_class_definition`
-- `tests/test_architecture_wrappers.py::test_private_archive_import_resolution_uses_package`
-- `tests/test_architecture_wrappers.py::test_private_archive_compat_import_points_to_new_service`
+- `tests/architecture/test_architecture_wrappers.py::TestArchitectureWrappers::test_private_archive_wrapper_has_no_active_class_definition`
+- `tests/architecture/test_architecture_wrappers.py::TestArchitectureWrappers::test_private_archive_import_resolution_uses_package`
+- `tests/architecture/test_architecture_wrappers.py::TestArchitectureWrappers::test_private_archive_compat_import_points_to_new_service`

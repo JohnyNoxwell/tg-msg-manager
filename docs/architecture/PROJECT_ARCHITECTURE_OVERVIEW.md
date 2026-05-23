@@ -1039,8 +1039,8 @@ Windows-путь:
 19. `tg_msg_manager/services/db_export/`
 20. `tg_msg_manager/services/cleaner.py`
 21. `tg_msg_manager/services/private_archive.py`
-22. `tests/test_sync_system.py`
-23. `tests/test_storage_sqlite.py`
+22. `tests/services/sync/test_sync_system.py`
+23. `tests/infrastructure/storage/test_storage_sqlite.py`
 24. `docs/refactor/README.md`
 25. `docs/refactor/STAGE_3A_1_CHANNEL_EXPORT_OPERATIONAL_HARDENING_REPORT.md`
 26. `docs/refactor/STAGE_0_FINAL_REPORT.md`

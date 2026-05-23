@@ -4,6 +4,9 @@ from pathlib import Path
 from ...services.dataset_validation import (
     DatasetInspectionOptions,
     DatasetValidationOptions,
+    diagnose_dataset,
+    render_doctor_report_json,
+    render_doctor_report_markdown,
     inspect_dataset,
     render_inspection_report_json,
     render_inspection_report_markdown,
@@ -30,6 +33,17 @@ async def _handle_validate_dataset_command(ctx, args: argparse.Namespace) -> Non
 
 async def _handle_inspect_dataset_command(ctx, args: argparse.Namespace) -> None:
     del ctx
+    if args.doctor:
+        report = diagnose_dataset(
+            DatasetValidationOptions(dataset_path=Path(args.path).expanduser())
+        )
+        output = (
+            render_doctor_report_json(report)
+            if args.json
+            else render_doctor_report_markdown(report)
+        )
+        print(output)
+        return
     report = inspect_dataset(
         DatasetInspectionOptions(dataset_path=Path(args.path).expanduser())
     )

@@ -18,7 +18,9 @@ Architecture docs are stable references for repository boundaries, storage/model
 - [`PAYLOADS_SPLIT_MAP.md`](PAYLOADS_SPLIT_MAP.md) - payload module split.
 - [`DATASET_WRITE_SAFETY.md`](DATASET_WRITE_SAFETY.md) - direct channel export filesystem write/commit safety contract.
 - [`DATASET_FORMAT.md`](DATASET_FORMAT.md) - direct channel export dataset, manifest, and state schema contract.
+- [`DATASET_CONTRACT_V1.md`](DATASET_CONTRACT_V1.md) - formal v1 filesystem dataset contract for current direct channel export datasets.
 - [`DATASET_VALIDATION.md`](DATASET_VALIDATION.md) - read-only dataset validation / inspection boundary and command contract.
+- [`POST_PROCESSING_BOUNDARY.md`](POST_PROCESSING_BOUNDARY.md) - external post-processing boundary after export, validation, inspection, and doctor reports.
 - [`STATE_AND_INCREMENTAL_MODEL.md`](STATE_AND_INCREMENTAL_MODEL.md) - direct channel export state and incremental consistency model.
 - [`TXT_RENDERING.md`](TXT_RENDERING.md) - TXT profile projection boundary for user/group export.
 
@@ -36,6 +38,7 @@ Current channel export service organization:
 - `ChannelExportResult` construction is delegated to `result_builder.py`.
 - Media behavior remains in media-specific channel export modules.
 - Discussion behavior remains under `tg_msg_manager/services/channel_export/discussions/`.
+- `ChannelExportWorkflowContext` is workflow wiring/helper context; new product or dataset logic belongs in focused channel export modules.
 
 These modules preserve the existing dataset, manifest, state, media, discussion, and CLI behavior. They do not add product features or SQLite persistence.
 

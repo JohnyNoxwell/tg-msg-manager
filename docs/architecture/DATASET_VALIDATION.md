@@ -44,6 +44,7 @@ Validation reports use three statuses:
 Validation checks deterministic dataset structure and relationships:
 
 - required base files: `manifest.json`, `messages.jsonl`, `messages.txt`, `media_manifest.jsonl`, `channel_export_state.json`;
+- required contract artifact: `run_changelog.jsonl`;
 - parseable JSON and JSONL;
 - duplicate, invalid, or gapped channel post `message_id`;
 - channel post reply references where `reply_to_id` is available directly or through `raw_payload.reply_to.reply_to_msg_id`;
@@ -55,6 +56,7 @@ Validation checks deterministic dataset structure and relationships:
 - downloaded or already-existing media paths exist and stay inside the dataset root;
 - media records present in `messages.jsonl` but absent from `media_manifest.jsonl`;
 - optional discussion JSONL files when present;
+- mode-specific discussion files declared by `manifest.json` discussion mode;
 - discussion comments and threads link to known channel post ids where the current schema provides those fields;
 - discussion comment reply links where the current exported comment records provide enough information;
 - optional discussion state consistency when present.
@@ -75,6 +77,12 @@ Additional Stage 4B.2 relationship checks use these stable codes:
 - `message_media_missing_manifest` warning: a nested `messages.jsonl` media record is absent from `media_manifest.jsonl`.
 - `discussion_reply_parent_outside_export_scope` warning: a discussion comment replies to an id outside the exported discussion comment id range and not to the discussion root.
 - `discussion_reply_parent_missing` warning: a discussion comment replies to an id inside the exported discussion comment id range, but that parent comment row is absent.
+- `missing_conditional_file` error: a manifest-declared mode requires a conditional artifact that is absent, such as `discussion_metadata.jsonl` for metadata mode or discussion payload/state files for full mode.
+- `unexpected_discussion_file_for_mode` warning: a discussion artifact exists for a manifest discussion mode where current contract does not expect it.
+- `invalid_discussion_metadata_jsonl` error: `discussion_metadata.jsonl` is present but contains invalid JSONL.
+- `discussion_metadata_unlinked` warning: a discussion metadata row references a channel post missing from `messages.jsonl`.
+- `dataset_type_mismatch` warning: manifest `dataset_type` differs from the current contract value `direct_channel_export`.
+- `schema_version_mismatch` warning: manifest `schema_version` differs from the current contract version `1.0`.
 
 ## What is not checked
 

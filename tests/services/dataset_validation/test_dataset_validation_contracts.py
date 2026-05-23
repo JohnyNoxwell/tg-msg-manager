@@ -11,14 +11,21 @@ from typing import Optional
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from tg_msg_manager.cli import _command_needs_client, run_cli
-from tg_msg_manager.cli_commands import _handle_validate_dataset_command
+from tg_msg_manager.cli_commands import (
+    _handle_inspect_dataset_command,
+    _handle_validate_dataset_command,
+)
 from tg_msg_manager.cli_parser import build_cli_parser
 from tg_msg_manager.core.config import Settings
 from tg_msg_manager.core.runtime import AppPaths, AppRuntime
 from tg_msg_manager.services.dataset_validation import (
     DatasetInspectionOptions,
     DatasetValidationOptions,
+    DoctorSeverity,
+    diagnose_dataset,
     inspect_dataset,
+    render_doctor_report_json,
+    render_doctor_report_markdown,
     render_inspection_report_json,
     render_inspection_report_markdown,
     render_validation_report_json,
@@ -86,8 +93,159 @@ class TestDatasetValidationContracts(unittest.TestCase):
             DatasetValidationOptions(fixture_path("partial_discussion_dataset"))
         )
 
-        self.assertEqual(report.status, "warnings")
+        self.assertEqual(report.status, "errors")
         self.assertIn("discussion_payload_without_state", issue_codes(report))
+        self.assertIn("missing_conditional_file", issue_codes(report))
+
+    def test_missing_run_changelog_reports_contract_error(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dataset = Path(tmpdir) / "dataset"
+            shutil.copytree(fixture_path("valid_minimal_channel_dataset"), dataset)
+            (dataset / "run_changelog.jsonl").unlink()
+
+            report = validate_dataset(DatasetValidationOptions(dataset))
+
+        self.assertEqual(report.status, "errors")
+        self.assertIn("missing_required_file", issue_codes(report))
+        self.assertTrue(
+            any(issue.path == "run_changelog.jsonl" for issue in report.errors)
+        )
+
+    def test_discussion_metadata_mode_requires_metadata_file(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dataset = Path(tmpdir) / "dataset"
+            shutil.copytree(fixture_path("valid_minimal_channel_dataset"), dataset)
+            manifest_path = dataset / "manifest.json"
+            manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+            manifest["discussion"] = {
+                "mode": "metadata",
+                "discussion_chat_id": 222,
+                "metadata_count": 1,
+                "comment_count": 0,
+                "comments_exported": False,
+                "included_files": ["discussion_metadata.jsonl"],
+            }
+            manifest["export"]["included_files"].append("discussion_metadata.jsonl")
+            manifest_path.write_text(
+                json.dumps(manifest, indent=2, sort_keys=True),
+                encoding="utf-8",
+            )
+
+            missing_report = validate_dataset(DatasetValidationOptions(dataset))
+            (dataset / "discussion_metadata.jsonl").write_text(
+                json.dumps(
+                    {
+                        "channel_id": 777,
+                        "channel_message_id": 1,
+                        "has_comments": True,
+                        "discussion_chat_id": 222,
+                        "replies_count": 3,
+                        "comments_exported": False,
+                        "source": "raw_payload.replies",
+                    },
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            valid_report = validate_dataset(DatasetValidationOptions(dataset))
+
+        self.assertEqual(missing_report.status, "errors")
+        self.assertIn("missing_conditional_file", issue_codes(missing_report))
+        self.assertEqual(valid_report.status, "ok")
+        self.assertEqual(valid_report.summary["discussions"]["metadata_count"], 1)
+
+    def test_validate_and_inspect_dataset_are_read_only(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dataset = Path(tmpdir) / "dataset"
+            shutil.copytree(fixture_path("valid_minimal_channel_dataset"), dataset)
+            before = _snapshot_files(dataset)
+
+            validate_dataset(DatasetValidationOptions(dataset))
+            inspect_dataset(DatasetInspectionOptions(dataset))
+
+            after = _snapshot_files(dataset)
+
+        self.assertEqual(after, before)
+
+
+class TestDatasetDoctor(unittest.TestCase):
+    def test_healthy_dataset_has_no_error_findings(self):
+        report = diagnose_dataset(
+            DatasetValidationOptions(fixture_path("valid_minimal_channel_dataset"))
+        )
+
+        self.assertEqual(report.status, "ok")
+        self.assertFalse(
+            any(finding.severity is DoctorSeverity.ERROR for finding in report.findings)
+        )
+        self.assertEqual(report.findings[0].code, "dataset_healthy")
+
+    def test_missing_required_file_produces_error_finding(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dataset = Path(tmpdir) / "dataset"
+            shutil.copytree(fixture_path("valid_minimal_channel_dataset"), dataset)
+            (dataset / "manifest.json").unlink()
+
+            report = diagnose_dataset(DatasetValidationOptions(dataset))
+
+        self.assertEqual(report.status, "errors")
+        self.assertTrue(
+            any(
+                finding.severity is DoctorSeverity.ERROR
+                and finding.path == "manifest.json"
+                for finding in report.findings
+            )
+        )
+
+    def test_optional_missing_discussion_file_does_not_produce_error(self):
+        report = diagnose_dataset(
+            DatasetValidationOptions(fixture_path("valid_minimal_channel_dataset"))
+        )
+
+        self.assertFalse(
+            any(
+                finding.severity is DoctorSeverity.ERROR
+                and finding.path == "discussion_metadata.jsonl"
+                for finding in report.findings
+            )
+        )
+
+    def test_invalid_jsonl_produces_error_finding(self):
+        report = diagnose_dataset(
+            DatasetValidationOptions(fixture_path("invalid_bad_jsonl"))
+        )
+
+        self.assertEqual(report.status, "errors")
+        self.assertTrue(
+            any(
+                finding.severity is DoctorSeverity.ERROR
+                and finding.code == "invalid_jsonl"
+                for finding in report.findings
+            )
+        )
+
+    def test_doctor_is_read_only(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            dataset = Path(tmpdir) / "dataset"
+            shutil.copytree(fixture_path("valid_minimal_channel_dataset"), dataset)
+            before = _snapshot_files(dataset)
+
+            diagnose_dataset(DatasetValidationOptions(dataset))
+
+            after = _snapshot_files(dataset)
+
+        self.assertEqual(after, before)
+
+    def test_doctor_renderers_are_deterministic(self):
+        report = diagnose_dataset(
+            DatasetValidationOptions(fixture_path("valid_minimal_channel_dataset"))
+        )
+        payload = json.loads(render_doctor_report_json(report))
+        markdown = render_doctor_report_markdown(report)
+
+        self.assertEqual(payload["status"], "ok")
+        self.assertIn("Dataset Doctor Report", markdown)
 
     def test_renderers_emit_deterministic_json_and_required_markdown_sections(self):
         validation = validate_dataset(
@@ -549,6 +707,14 @@ def _message(
     }
 
 
+def _snapshot_files(dataset: Path) -> dict[str, bytes]:
+    return {
+        str(path.relative_to(dataset)): path.read_bytes()
+        for path in sorted(dataset.rglob("*"))
+        if path.is_file()
+    }
+
+
 class TestDatasetValidationCLI(unittest.IsolatedAsyncioTestCase):
     def setUp(self):
         self.runtime = AppRuntime(
@@ -575,6 +741,15 @@ class TestDatasetValidationCLI(unittest.IsolatedAsyncioTestCase):
             parser.parse_args(["validate-dataset"])
         with self.assertRaises(SystemExit):
             parser.parse_args(["inspect-dataset"])
+        args = parser.parse_args(
+            [
+                "inspect-dataset",
+                "--path",
+                str(fixture_path("valid_minimal_channel_dataset")),
+                "--doctor",
+            ]
+        )
+        self.assertTrue(args.doctor)
 
     async def test_run_cli_validate_dataset_does_not_initialize_context(self):
         mock_ctx = MagicMock()
@@ -613,3 +788,47 @@ class TestDatasetValidationCLI(unittest.IsolatedAsyncioTestCase):
             await _handle_validate_dataset_command(MagicMock(), args)
 
         self.assertEqual(raised.exception.code, 1)
+
+    async def test_inspect_dataset_handler_renders_doctor_json(self):
+        args = Namespace(
+            path=str(fixture_path("valid_minimal_channel_dataset")),
+            json=True,
+            doctor=True,
+        )
+        output = StringIO()
+
+        with redirect_stdout(output):
+            await _handle_inspect_dataset_command(MagicMock(), args)
+
+        payload = json.loads(output.getvalue())
+        self.assertEqual(payload["status"], "ok")
+        self.assertEqual(payload["findings"][0]["code"], "dataset_healthy")
+
+    async def test_run_cli_inspect_dataset_doctor_does_not_initialize_context(self):
+        mock_ctx = MagicMock()
+        mock_ctx.initialize = AsyncMock()
+        mock_ctx.shutdown = AsyncMock()
+
+        with (
+            patch("tg_msg_manager.cli.CLIContext", return_value=mock_ctx) as mock_cls,
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "prog",
+                    "inspect-dataset",
+                    "--path",
+                    str(fixture_path("valid_minimal_channel_dataset")),
+                    "--doctor",
+                ],
+            ),
+            patch(
+                "tg_msg_manager.cli._handle_inspect_dataset_command",
+                new_callable=AsyncMock,
+            ) as mock_handler,
+        ):
+            await run_cli(runtime=self.runtime)
+
+        mock_cls.assert_not_called()
+        self.assertFalse(_command_needs_client("inspect-dataset"))
+        mock_handler.assert_awaited_once()

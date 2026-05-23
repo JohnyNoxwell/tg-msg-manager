@@ -24,13 +24,13 @@
 
 ### Tests using compatibility path
 
-- `tests/test_db_exporter.py`
-- `tests/test_db_export_components.py`
-- `tests/test_compat_imports.py`
+- `tests/services/db_export/test_db_exporter.py`
+- `tests/services/db_export/test_db_export_components.py`
+- `tests/architecture/test_compat_imports.py`
 
 ### Tests using direct implementation path
 
-- `tests/test_compat_imports.py`
+- `tests/architecture/test_compat_imports.py`
 
 ## 4. CLI wiring status
 
