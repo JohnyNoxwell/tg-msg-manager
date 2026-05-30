@@ -91,6 +91,7 @@ class PrivateArchiveService:
             media_dir=archive_context.media_dir,
             writer=writer,
         )
+        await self.storage.flush()
         self.event_emitter.emit_completed(
             target_name=archive_context.target_name,
             count=count,

@@ -76,7 +76,7 @@ class PrivateArchiveStreamProcessor:
         stats: PrivateArchiveMediaStats,
         archive_stats: PrivateArchiveTransferStats,
     ) -> None:
-        await self.storage.save_message(message, target_id=user_id)
+        await self.storage.save_message(message, target_id=user_id, flush=False)
         await self.process_media(
             message,
             media_dir=media_dir,

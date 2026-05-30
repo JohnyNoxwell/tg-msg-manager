@@ -25,6 +25,7 @@ class ChannelRunChangelogWriter:
         run_stats: Any,
         posts: tuple[Any, ...],
         artifact_paths: dict[str, str],
+        summary: Any = None,
         warnings: tuple[str, ...] = (),
     ) -> Path:
         path = run_changelog_path(output_dir)
@@ -40,11 +41,11 @@ class ChannelRunChangelogWriter:
             "previous_cursor": _state_cursor(previous_state),
             "new_cursor": _state_cursor(new_state),
             "new_message_count": getattr(run_stats, "posts_exported", 0),
-            "new_message_ids": [post.message_id for post in posts],
-            "first_new_message_id": _first_post_attr(posts, "message_id"),
-            "last_new_message_id": _last_post_attr(posts, "message_id"),
-            "first_new_message_date": _first_post_date(posts),
-            "last_new_message_date": _last_post_date(posts),
+            "new_message_ids": _message_ids(posts, summary),
+            "first_new_message_id": _first_message_id(posts, summary),
+            "last_new_message_id": _last_message_id(posts, summary),
+            "first_new_message_date": _first_message_date(posts, summary),
+            "last_new_message_date": _last_message_date(posts, summary),
             "artifact_paths": artifact_paths,
             "warnings": list(warnings),
         }
@@ -84,6 +85,24 @@ def _last_post_attr(posts: tuple[Any, ...], attr: str) -> Any:
     return getattr(posts[-1], attr)
 
 
+def _message_ids(posts: tuple[Any, ...], summary: Any) -> list[int]:
+    if summary is not None:
+        return list(summary.message_ids)
+    return [post.message_id for post in posts]
+
+
+def _first_message_id(posts: tuple[Any, ...], summary: Any) -> Any:
+    if summary is not None:
+        return summary.first_message_id
+    return _first_post_attr(posts, "message_id")
+
+
+def _last_message_id(posts: tuple[Any, ...], summary: Any) -> Any:
+    if summary is not None:
+        return summary.last_message_id
+    return _last_post_attr(posts, "message_id")
+
+
 def _first_post_date(posts: tuple[Any, ...]) -> Optional[str]:
     if not posts:
         return None
@@ -94,3 +113,19 @@ def _last_post_date(posts: tuple[Any, ...]) -> Optional[str]:
     if not posts:
         return None
     return posts[-1].timestamp.isoformat()
+
+
+def _first_message_date(posts: tuple[Any, ...], summary: Any) -> Optional[str]:
+    if summary is not None:
+        if summary.first_message_timestamp is None:
+            return None
+        return summary.first_message_timestamp.isoformat()
+    return _first_post_date(posts)
+
+
+def _last_message_date(posts: tuple[Any, ...], summary: Any) -> Optional[str]:
+    if summary is not None:
+        if summary.last_message_timestamp is None:
+            return None
+        return summary.last_message_timestamp.isoformat()
+    return _last_post_date(posts)

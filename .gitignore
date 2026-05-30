@@ -61,8 +61,10 @@ build/
 
 # Системные файлы и черновики
 .DS_Store
+.swp
 scratch/
 BRAINSTORM.md
+scripts/partials.py
 *.tar.gz
 .pytest_cache/
 .coverage

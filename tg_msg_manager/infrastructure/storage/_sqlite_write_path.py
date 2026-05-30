@@ -22,12 +22,23 @@ class SQLiteWritePathMixin:
     DEPRECATED compatibility aggregator for the split SQLite write-side modules.
     """
 
+    async def _enqueue_write_item(self, item: tuple[MessageData, Optional[int]]) -> None:
+        queue_was_full = self._write_queue.full()
+        started_at = time.perf_counter() if queue_was_full else None
+        await self._write_queue.put(item)
+        if started_at is not None:
+            telemetry.track_counter("storage.queue_backpressure.wait_events", 1)
+            telemetry.track_duration(
+                "storage.queue_backpressure.wait_seconds",
+                time.perf_counter() - started_at,
+            )
+
     async def save_message(
         self, msg: MessageData, target_id: Optional[int] = None, flush: bool = True
     ) -> bool:
         """Queues a single message for background saving."""
         await self._ensure_worker_started()
-        self._write_queue.put_nowait((msg, target_id))
+        await self._enqueue_write_item((msg, target_id))
         telemetry.track_counter("storage.queue_messages", 1)
         telemetry.track_counter("storage.queue_batches", 1)
         if flush:
@@ -45,7 +56,7 @@ class SQLiteWritePathMixin:
             return 0
         await self._ensure_worker_started()
         for msg in msgs:
-            self._write_queue.put_nowait((msg, target_id))
+            await self._enqueue_write_item((msg, target_id))
         telemetry.track_counter("storage.queue_messages", len(msgs))
         telemetry.track_counter("storage.queue_batches", 1)
         if flush:

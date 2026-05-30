@@ -1,8 +1,10 @@
+import asyncio
 import sys
 import os
 import sqlite3
 import time
 import unittest
+from contextlib import suppress
 from datetime import datetime
 
 # Add project root to sys.path
@@ -48,6 +50,21 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
                 os.remove(path)
         self.storage = SQLiteStorage(self.db_path)
 
+    def _make_queue_test_message(self, message_id: int, chat_id: int = 9001):
+        return MessageData(
+            message_id=message_id,
+            chat_id=chat_id,
+            user_id=42,
+            author_name="Queue User",
+            timestamp=datetime.fromtimestamp(1700000000 + message_id),
+            text=f"queued {message_id}",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+
     def tearDown(self):
         # Cleanup test database
         if os.path.exists(self.db_path):
@@ -92,6 +109,69 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertIsInstance(self.storage, DBExportStorage)
         self.assertIsInstance(self.storage, ExportStorage)
         self.assertIsInstance(self.storage, PrivateArchiveStorage)
+
+    async def test_save_message_waits_when_write_queue_is_full(self):
+        self.storage._write_queue = asyncio.Queue(maxsize=1)
+        self.storage._worker_task = asyncio.get_running_loop().create_future()
+        await self.storage._write_queue.put((self._make_queue_test_message(1), None))
+        task = asyncio.create_task(
+            self.storage.save_message(self._make_queue_test_message(2), flush=False)
+        )
+
+        try:
+            await asyncio.sleep(0.05)
+            self.assertFalse(task.done())
+
+            first_item = self.storage._write_queue.get_nowait()
+            self.storage._write_queue.task_done()
+            self.assertEqual(first_item[0].message_id, 1)
+
+            await asyncio.wait_for(task, timeout=1)
+            second_item = self.storage._write_queue.get_nowait()
+            self.storage._write_queue.task_done()
+            self.assertEqual(second_item[0].message_id, 2)
+        finally:
+            if not task.done():
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+            self.storage._worker_task = None
+            while not self.storage._write_queue.empty():
+                self.storage._write_queue.get_nowait()
+                self.storage._write_queue.task_done()
+
+    async def test_flush_drains_all_queued_writes(self):
+        self.storage._write_queue = asyncio.Queue(maxsize=2)
+        msgs = [
+            self._make_queue_test_message(1, chat_id=9002),
+            self._make_queue_test_message(2, chat_id=9002),
+            self._make_queue_test_message(3, chat_id=9002),
+        ]
+
+        count = await self.storage.save_messages(msgs, flush=False)
+        await self.storage.flush()
+
+        self.assertEqual(count, 3)
+        self.assertEqual(self.storage.get_message_count(9002), 3)
+
+    async def test_close_drains_queued_writes_before_closing_connection(self):
+        msgs = [
+            self._make_queue_test_message(1, chat_id=9003),
+            self._make_queue_test_message(2, chat_id=9003),
+            self._make_queue_test_message(3, chat_id=9003),
+        ]
+
+        await self.storage.save_messages(msgs, flush=False)
+        await self.storage.close()
+
+        conn = sqlite3.connect(self.db_path)
+        try:
+            count = conn.execute(
+                "SELECT COUNT(*) FROM messages WHERE chat_id = ?", (9003,)
+            ).fetchone()[0]
+        finally:
+            conn.close()
+        self.assertEqual(count, 3)
 
     async def test_batch_save(self):
         msgs = [

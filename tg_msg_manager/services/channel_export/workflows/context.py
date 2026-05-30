@@ -76,6 +76,7 @@ class ChannelExportWorkflowContext:
         completed_state: Any,
         run_stats: ChannelExportRunStats,
         posts: tuple[Any, ...],
+        summary: Any = None,
     ) -> None:
         self.run_changelog_writer.append_entry(
             output_dir=plan.output_dir,
@@ -85,6 +86,7 @@ class ChannelExportWorkflowContext:
             new_state=completed_state,
             run_stats=run_stats,
             posts=posts,
+            summary=summary,
             artifact_paths={
                 "manifest": "manifest.json",
                 "messages_jsonl": "messages.jsonl",

@@ -16,6 +16,8 @@ from ...core.telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_WRITE_QUEUE_MAXSIZE = 10_000
+
 
 class SQLiteStorage(
     SQLiteSchemaMixin,
@@ -42,7 +44,7 @@ class SQLiteStorage(
         )
         self._init_db()
 
-        self._write_queue = asyncio.Queue()
+        self._write_queue = asyncio.Queue(maxsize=DEFAULT_WRITE_QUEUE_MAXSIZE)
         self._worker_task = None
         self._shutdown_event = asyncio.Event()
 

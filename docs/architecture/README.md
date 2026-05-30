@@ -13,6 +13,7 @@ Architecture docs are stable references for repository boundaries, storage/model
 - [`DB_EXPORT_SERVICE_SPLIT_MAP.md`](DB_EXPORT_SERVICE_SPLIT_MAP.md) - DB export split.
 - [`EXPORT_SERVICE_SPLIT_MAP.md`](EXPORT_SERVICE_SPLIT_MAP.md) - export service split.
 - [`PRIVATE_ARCHIVE_SPLIT_MAP.md`](PRIVATE_ARCHIVE_SPLIT_MAP.md) - private archive split.
+- [`SQLITE_SCHEMA_SPLIT_MAP.md`](SQLITE_SCHEMA_SPLIT_MAP.md) - SQLite schema split plan.
 - [`SQLITE_WRITE_PATH_SPLIT_MAP.md`](SQLITE_WRITE_PATH_SPLIT_MAP.md) - SQLite write path split.
 - [`STORAGE_CONTRACT_SPLIT_MAP.md`](STORAGE_CONTRACT_SPLIT_MAP.md) - storage contract split.
 - [`PAYLOADS_SPLIT_MAP.md`](PAYLOADS_SPLIT_MAP.md) - payload module split.
@@ -36,6 +37,7 @@ Current channel export service organization:
 - Dataset included-file construction is delegated to `included_files_builder.py`.
 - Manifest construction coordination is delegated to `manifest_coordinator.py`.
 - `ChannelExportResult` construction is delegated to `result_builder.py`.
+- Run changelog summary facts that do not require full post records are delegated to `run_summary.py`.
 - Media behavior remains in media-specific channel export modules.
 - Discussion behavior remains under `tg_msg_manager/services/channel_export/discussions/`.
 - `ChannelExportWorkflowContext` is workflow wiring/helper context; new product or dataset logic belongs in focused channel export modules.

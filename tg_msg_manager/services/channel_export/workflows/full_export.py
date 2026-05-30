@@ -1,9 +1,11 @@
 from typing import Any
 
+from ..discussions import DISCUSSION_MODE_NONE
 from ..manifest_coordinator import build_channel_export_manifest
 from ..models import ChannelExportOptions, ChannelExportResult
 from ..payload_writer import WRITE_MODE_OVERWRITE
 from ..result_builder import build_channel_export_result
+from ..run_summary import ChannelRunSummaryBuilder
 from .context import ChannelExportWorkflowContext
 
 
@@ -31,7 +33,10 @@ async def run_full_export(
     )
 
     with write_session as session:
-        current_run_records = []
+        summary_builder = ChannelRunSummaryBuilder()
+        current_run_records = (
+            None if options.discussion_mode == DISCUSSION_MODE_NONE else []
+        )
         async for message in workflow.post_fetcher.iter_posts(
             entity,
             limit=options.limit,
@@ -44,7 +49,9 @@ async def run_full_export(
                 output_dir=plan.output_dir,
             )
             session.write_record(mapped_record)
-            current_run_records.append(mapped_record)
+            summary_builder.record(mapped_record)
+            if current_run_records is not None:
+                current_run_records.append(mapped_record)
         run_stats = session.finish()
 
     discussion_result = await workflow.export_discussions_for_posts(
@@ -53,7 +60,7 @@ async def run_full_export(
         plan=plan,
         options=options,
         run_mode=run_mode,
-        posts=current_run_records,
+        posts=current_run_records if current_run_records is not None else [],
     )
     completed_state = workflow.state_manager.build_completed_state(
         channel=channel_identity,
@@ -75,7 +82,12 @@ async def run_full_export(
         previous_state=None,
         completed_state=completed_state,
         run_stats=run_stats,
-        posts=tuple(current_run_records),
+        posts=tuple(current_run_records or ()),
+        summary=(
+            summary_builder.build()
+            if options.discussion_mode == DISCUSSION_MODE_NONE
+            else None
+        ),
     )
     workflow.state_manager.save(plan.state_path, completed_state)
     if discussion_result is not None:

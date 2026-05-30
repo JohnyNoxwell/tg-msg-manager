@@ -6,7 +6,7 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- none
+- None.
 
 Stage 4C.0 Unit A is recorded in [`reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md`](reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md).
 Stage 4C.0B is recorded in [`reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md`](reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md).
@@ -17,6 +17,12 @@ Stage 4D.0 dataset contract v1 design is recorded in [`reports/STAGE_4D_0_DATASE
 Stage 4D.1 dataset validation contract alignment is recorded in [`reports/STAGE_4D_1_DATASET_VALIDATION_CONTRACT_ALIGNMENT_REPORT.md`](reports/STAGE_4D_1_DATASET_VALIDATION_CONTRACT_ALIGNMENT_REPORT.md).
 Stage 4D.2 read-only dataset doctor is recorded in [`reports/STAGE_4D_2_READ_ONLY_DATASET_DOCTOR_REPORT.md`](reports/STAGE_4D_2_READ_ONLY_DATASET_DOCTOR_REPORT.md).
 Stage 5A.0 external post-processing boundary skeleton is recorded in [`reports/STAGE_5A_0_EXTERNAL_POST_PROCESSING_BOUNDARY_SKELETON_REPORT.md`](reports/STAGE_5A_0_EXTERNAL_POST_PROCESSING_BOUNDARY_SKELETON_REPORT.md).
+Stage 5B.0 scalability baseline before growth hardening is recorded in [`reports/STAGE_5B_0_SCALABILITY_BASELINE_REPORT.md`](reports/STAGE_5B_0_SCALABILITY_BASELINE_REPORT.md).
+Stage 5B.1 private archive batched storage flush is recorded in [`reports/STAGE_5B_1_PRIVATE_ARCHIVE_BATCHED_STORAGE_FLUSH_REPORT.md`](reports/STAGE_5B_1_PRIVATE_ARCHIVE_BATCHED_STORAGE_FLUSH_REPORT.md).
+Stage 5B.2 channel export post buffer boundaries is recorded in [`reports/STAGE_5B_2_CHANNEL_EXPORT_POST_BUFFER_BOUNDARIES_REPORT.md`](reports/STAGE_5B_2_CHANNEL_EXPORT_POST_BUFFER_BOUNDARIES_REPORT.md).
+Stage 5B.3 DB export memory boundaries is recorded in [`reports/STAGE_5B_3_DB_EXPORT_MEMORY_BOUNDARIES_REPORT.md`](reports/STAGE_5B_3_DB_EXPORT_MEMORY_BOUNDARIES_REPORT.md).
+Stage 5B.4 SQLite write queue backpressure is recorded in [`reports/STAGE_5B_4_SQLITE_WRITE_QUEUE_BACKPRESSURE_REPORT.md`](reports/STAGE_5B_4_SQLITE_WRITE_QUEUE_BACKPRESSURE_REPORT.md).
+Stage 5B.5 SQLite schema decomposition plan is recorded in [`reports/STAGE_5B_5_SQLITE_SCHEMA_DECOMPOSITION_PLAN_REPORT.md`](reports/STAGE_5B_5_SQLITE_SCHEMA_DECOMPOSITION_PLAN_REPORT.md).
 
 The [`active/`](active/) directory must contain only unfinished or next active work. Do not leave completed stage task files, general launch prompts, prompt packs, or historical records there.
 
@@ -53,6 +59,36 @@ Current completed prompt groups:
 - Stage 4D.1 dataset validation contract alignment task prompt.
 - Stage 4D.2 read-only dataset doctor task prompt.
 - Stage 5A.0 external post-processing boundary skeleton task prompt.
+- Stage 5B.0 scalability baseline before growth hardening task prompt.
+- Stage 5B.1 private archive batched storage flush task prompt.
+- Stage 5B.2 channel export post buffer boundaries task prompt.
+- Stage 5B.3 DB export memory boundaries task prompt.
+- Stage 5B.4 SQLite write queue backpressure task prompt.
+- Stage 5B.5 SQLite schema decomposition plan task prompt.
+
+Stage 5B.5 SQLite schema decomposition plan task files:
+
+- [`completed/stage_5b_5_sqlite_schema_decomposition_plan.md`](completed/stage_5b_5_sqlite_schema_decomposition_plan.md)
+
+Stage 5B.4 SQLite write queue backpressure task files:
+
+- [`completed/stage_5b_4_sqlite_write_queue_backpressure.md`](completed/stage_5b_4_sqlite_write_queue_backpressure.md)
+
+Stage 5B.3 DB export memory boundaries task files:
+
+- [`completed/stage_5b_3_db_export_memory_boundaries.md`](completed/stage_5b_3_db_export_memory_boundaries.md)
+
+Stage 5B.2 channel export post buffer boundaries task files:
+
+- [`completed/stage_5b_2_channel_export_post_buffer_boundaries.md`](completed/stage_5b_2_channel_export_post_buffer_boundaries.md)
+
+Stage 5B.1 private archive batched storage flush task files:
+
+- [`completed/stage_5b_1_private_archive_batched_storage_flush.md`](completed/stage_5b_1_private_archive_batched_storage_flush.md)
+
+Stage 5B.0 scalability baseline before growth hardening task files:
+
+- [`completed/stage_5b_0_scalability_baseline_before_growth_hardening.md`](completed/stage_5b_0_scalability_baseline_before_growth_hardening.md)
 
 Stage 5A.0 external post-processing boundary skeleton task files:
 
@@ -211,6 +247,12 @@ Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, 
 - [`reports/STAGE_4D_1_DATASET_VALIDATION_CONTRACT_ALIGNMENT_REPORT.md`](reports/STAGE_4D_1_DATASET_VALIDATION_CONTRACT_ALIGNMENT_REPORT.md)
 - [`reports/STAGE_4D_2_READ_ONLY_DATASET_DOCTOR_REPORT.md`](reports/STAGE_4D_2_READ_ONLY_DATASET_DOCTOR_REPORT.md)
 - [`reports/STAGE_5A_0_EXTERNAL_POST_PROCESSING_BOUNDARY_SKELETON_REPORT.md`](reports/STAGE_5A_0_EXTERNAL_POST_PROCESSING_BOUNDARY_SKELETON_REPORT.md)
+- [`reports/STAGE_5B_0_SCALABILITY_BASELINE_REPORT.md`](reports/STAGE_5B_0_SCALABILITY_BASELINE_REPORT.md)
+- [`reports/STAGE_5B_1_PRIVATE_ARCHIVE_BATCHED_STORAGE_FLUSH_REPORT.md`](reports/STAGE_5B_1_PRIVATE_ARCHIVE_BATCHED_STORAGE_FLUSH_REPORT.md)
+- [`reports/STAGE_5B_2_CHANNEL_EXPORT_POST_BUFFER_BOUNDARIES_REPORT.md`](reports/STAGE_5B_2_CHANNEL_EXPORT_POST_BUFFER_BOUNDARIES_REPORT.md)
+- [`reports/STAGE_5B_3_DB_EXPORT_MEMORY_BOUNDARIES_REPORT.md`](reports/STAGE_5B_3_DB_EXPORT_MEMORY_BOUNDARIES_REPORT.md)
+- [`reports/STAGE_5B_4_SQLITE_WRITE_QUEUE_BACKPRESSURE_REPORT.md`](reports/STAGE_5B_4_SQLITE_WRITE_QUEUE_BACKPRESSURE_REPORT.md)
+- [`reports/STAGE_5B_5_SQLITE_SCHEMA_DECOMPOSITION_PLAN_REPORT.md`](reports/STAGE_5B_5_SQLITE_SCHEMA_DECOMPOSITION_PLAN_REPORT.md)
 
 ## Stage lifecycle
 

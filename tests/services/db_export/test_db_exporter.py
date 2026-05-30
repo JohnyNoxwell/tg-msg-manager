@@ -370,6 +370,86 @@ class TestDBExporter(unittest.TestCase):
         self.storage.get_user_export_rows.assert_not_called()
         self.assertTrue(os.path.exists(output_path))
 
+    def test_streaming_ai_json_output_matches_materialized_message_output(self):
+        message = MessageData(
+            message_id=1,
+            chat_id=2,
+            user_id=3,
+            author_name="Fast User",
+            timestamp=datetime.fromtimestamp(1700000000),
+            text="hello",
+            media_type=None,
+            reply_to_id=None,
+            fwd_from_id=None,
+            context_group_id=None,
+            raw_payload={},
+        )
+        row = {
+            "message_id": 1,
+            "chat_id": 2,
+            "user_id": 3,
+            "author_name": "Fast User",
+            "timestamp": 1700000000,
+            "text": "hello",
+            "media_type": None,
+            "reply_to_id": None,
+            "fwd_from_id": None,
+            "context_group_id": None,
+            "raw_payload": "{}",
+            "is_service": 0,
+        }
+        user = {
+            "user_id": 3,
+            "first_name": "Fast",
+            "last_name": "User",
+            "username": "fast",
+        }
+
+        materialized_storage = MagicMock()
+        materialized_storage.start_export_run.return_value = 44
+        materialized_storage.get_export_target.return_value = None
+        materialized_storage.get_user_export_summary.return_value = None
+        materialized_storage.get_user_export_rows.return_value = None
+        materialized_storage.get_user_messages.return_value = [message]
+        materialized_storage.get_user.return_value = user
+        materialized_path = asyncio.run(
+            DBExportService(materialized_storage).export_user_messages(
+                3,
+                output_dir=os.path.join(self.tmpdir, "materialized"),
+                as_json=True,
+            )
+        )
+
+        streaming_storage = MagicMock()
+        streaming_storage.start_export_run.return_value = 45
+        streaming_storage.get_export_target.return_value = None
+        streaming_storage.get_user_export_summary.return_value = {
+            "message_count": 1,
+            "first_message_id": 1,
+            "last_message_id": 1,
+            "first_timestamp": 1700000000,
+            "last_timestamp": 1700000000,
+            "target_author_name": "Fast User",
+        }
+        streaming_storage.iter_user_export_rows.side_effect = lambda user_id: iter([row])
+        streaming_storage.get_user.return_value = user
+        streaming_path = asyncio.run(
+            DBExportService(streaming_storage).export_user_messages(
+                3,
+                output_dir=os.path.join(self.tmpdir, "streaming"),
+                as_json=True,
+            )
+        )
+
+        with open(materialized_path, "r", encoding="utf-8") as handle:
+            materialized_payload = json.loads(handle.readline())
+        with open(streaming_path, "r", encoding="utf-8") as handle:
+            streaming_payload = json.loads(handle.readline())
+
+        self.assertEqual(streaming_payload, materialized_payload)
+        streaming_storage.get_user_messages.assert_not_called()
+        streaming_storage.get_user_export_rows.assert_not_called()
+
     def test_export_user_messages_updates_db_backed_export_target_state(self):
         message = MessageData(
             message_id=7,

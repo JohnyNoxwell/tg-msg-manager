@@ -20,6 +20,9 @@ from tg_msg_manager.services.channel_export.discussions.models import (
     ChannelDiscussionFetchResult,
     ChannelDiscussionSource,
 )
+from tg_msg_manager.services.channel_export.run_changelog import (
+    ChannelRunChangelogWriter,
+)
 
 
 class FakeChannelEntity:
@@ -82,6 +85,15 @@ class FailingManifestWriter:
     def write(self, path, manifest):
         del path, manifest
         raise RuntimeError("manifest write failed")
+
+
+class CapturingRunChangelogWriter(ChannelRunChangelogWriter):
+    def __init__(self):
+        self.calls = []
+
+    def append_entry(self, **kwargs):
+        self.calls.append(kwargs)
+        return super().append_entry(**kwargs)
 
 
 class FailingChannelPayloadSession:
@@ -221,7 +233,12 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
         )
 
         with tempfile.TemporaryDirectory(prefix="tg_channel_service_") as tmpdir:
-            service = ChannelExportService(client=client, base_dir=Path(tmpdir))
+            changelog_writer = CapturingRunChangelogWriter()
+            service = ChannelExportService(
+                client=client,
+                base_dir=Path(tmpdir),
+                run_changelog_writer=changelog_writer,
+            )
             result = await service.export_channel(
                 ChannelExportOptions(
                     channel="@daily",
@@ -257,6 +274,10 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(changelog[0]["new_cursor"], 2)
             self.assertEqual(changelog[0]["new_message_count"], 2)
             self.assertEqual(changelog[0]["new_message_ids"], [1, 2])
+            self.assertEqual(changelog_writer.calls[0]["posts"], ())
+            summary = changelog_writer.calls[0]["summary"]
+            self.assertEqual(summary.message_ids, (1, 2))
+            self.assertEqual(summary.message_count, 2)
             self.assertFalse(
                 (result.manifest_path.parent / "discussion_comments.jsonl").exists()
             )

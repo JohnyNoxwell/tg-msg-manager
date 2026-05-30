@@ -19,6 +19,7 @@ from tg_msg_manager.services.private_archive.planner import PrivateArchivePlanne
 from tg_msg_manager.services.private_archive.source_resolver import (
     PrivateArchiveSourceResolver,
 )
+from tg_msg_manager.services.private_archive.service import PrivateArchiveService
 from tg_msg_manager.services.private_archive.stream_processor import (
     PrivateArchiveStreamProcessor,
 )
@@ -140,8 +141,73 @@ class TestPrivateArchiveComponents(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(count, 1)
-        storage.save_message.assert_awaited_once()
+        storage.save_message.assert_awaited_once_with(
+            message, target_id=1, flush=False
+        )
         archive_writer.append_message.assert_awaited_once()
+
+    async def test_private_archive_flushes_before_marking_synced(self):
+        order = []
+        storage = MagicMock()
+        storage.flush = AsyncMock(side_effect=lambda: order.append("flush"))
+        archive_writer = MagicMock()
+        archive_writer.create_log_writer.return_value = MagicMock()
+        state_manager = MagicMock()
+        state_manager.get_last_msg_id.return_value = 0
+        state_manager.mark_synced.side_effect = lambda user_id: order.append("mark")
+        event_emitter = MagicMock()
+        event_emitter.emit_completed.side_effect = lambda **kwargs: order.append(
+            "completed"
+        )
+        stream_processor = MagicMock()
+        stream_processor.process_stream = AsyncMock(
+            side_effect=lambda *args, **kwargs: (
+                order.append("stream"),
+                (
+                    0,
+                    PrivateArchiveStreamProcessor.initial_media_stats(),
+                    PrivateArchiveStreamProcessor.initial_archive_stats(),
+                ),
+            )[1]
+        )
+        service = PrivateArchiveService(
+            MagicMock(),
+            storage,
+            archive_writer=archive_writer,
+            state_manager=state_manager,
+            event_emitter=event_emitter,
+            stream_processor=stream_processor,
+        )
+
+        await service.archive_pm(SimpleNamespace(id=1, first_name="PM"))
+
+        self.assertEqual(order, ["stream", "flush", "completed", "mark"])
+
+    async def test_private_archive_does_not_mark_synced_when_stream_raises(self):
+        storage = MagicMock()
+        storage.flush = AsyncMock()
+        archive_writer = MagicMock()
+        archive_writer.create_log_writer.return_value = MagicMock()
+        state_manager = MagicMock()
+        state_manager.get_last_msg_id.return_value = 0
+        event_emitter = MagicMock()
+        stream_processor = MagicMock()
+        stream_processor.process_stream = AsyncMock(side_effect=RuntimeError("boom"))
+        service = PrivateArchiveService(
+            MagicMock(),
+            storage,
+            archive_writer=archive_writer,
+            state_manager=state_manager,
+            event_emitter=event_emitter,
+            stream_processor=stream_processor,
+        )
+
+        with self.assertRaises(RuntimeError):
+            await service.archive_pm(SimpleNamespace(id=1, first_name="PM"))
+
+        storage.flush.assert_not_awaited()
+        event_emitter.emit_completed.assert_not_called()
+        state_manager.mark_synced.assert_not_called()
 
     async def test_media_downloader_returns_none_when_policy_skips(self):
         policy = PrivateArchiveMediaPolicy()
