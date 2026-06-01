@@ -2,8 +2,10 @@
 
 ## Status
 
-Plan only. This document does not create fixtures, tests, runtime behavior,
-dataset contracts, CLI changes, SQLite changes, or output format changes.
+Planning/reference document. Stage 5I.1 created the minimal checked-in fixture
+set, and Stage 5J.1 added focused fixture-backed tests. This document does not
+create runtime behavior, dataset contracts, CLI changes, SQLite changes, or
+output format changes.
 
 Scope is user/group `export` and `db-export`. `export-pm` and private archive
 fixtures are out of scope.
@@ -27,18 +29,23 @@ Recommended corpus cases:
 - part-file rotation;
 - no-new-work / skip state.
 
-## Recommended Locations
+## Fixture Locations
 
-Future fixture implementation stage should evaluate:
+Implemented fixture directories:
 
 ```text
 tests/fixtures/non_channel_export/
 tests/fixtures/db_export/
+```
+
+Docs example directories remain deferred:
+
+```text
 docs/examples/non_channel_export/
 docs/examples/db_export/
 ```
 
-Recommended checked-in test fixture shape:
+Current checked-in test fixture shape:
 
 ```text
 tests/fixtures/non_channel_export/corpus.jsonl
@@ -48,7 +55,6 @@ tests/fixtures/non_channel_export/expected_export_ai.jsonl
 tests/fixtures/db_export/expected_db_context_readable.txt
 tests/fixtures/db_export/expected_db_legacy.txt
 tests/fixtures/db_export/expected_db_ai.jsonl
-tests/fixtures/db_export/expected_export_state.json
 tests/fixtures/db_export/expected_writer_state.json
 ```
 
@@ -76,8 +82,8 @@ State/layout coverage:
 
 - `DB_EXPORTS/` filename pattern;
 - `_partN` rotated file pattern;
-- `.export_state/<user_id>.json`;
-- `.writer_state/`;
+- `.writer_state/` current part/current count shape;
+- `.export_state/<user_id>.json` remains deferred as legacy manifest fallback;
 - no-new-work / skip behavior.
 
 ## Privacy Safeguards
@@ -105,16 +111,18 @@ Forbidden:
 - realistic private conversation content;
 - private archive / `export-pm` examples.
 
-## Future Tests
+## Tests
 
-Future implementation stage should add focused contract tests for:
+Focused tests currently cover fixture parsing, TXT golden outputs, compact JSONL
+keys/output, `.writer_state` shape, privacy markers, and `export-pm` exclusion.
 
-- parser/profile parity already covered by existing CLI tests;
-- generated TXT markers against expected fixture outputs;
-- compact JSONL key set and omission behavior;
+Future expansions may add coverage for:
+
 - deterministic output filenames;
 - part-file rotation paths;
-- `.export_state` and `.writer_state` presence/skip behavior;
+- `.writer_state` presence/skip behavior;
+- `.export_state` legacy fallback behavior only if a future stage explicitly
+  scopes it;
 - no-new-work behavior using temporary DB/output directories.
 
 Golden-file tests are appropriate for small synthetic expected outputs.
@@ -123,7 +131,8 @@ SQLite should use temporary test databases only.
 
 ## Deferred
 
-- final non-channel contract document;
+- additional fixture families beyond the minimal checked-in set;
+- docs example directories;
 - runtime fixture generator;
 - real Telegram smoke fixtures;
 - full raw JSON profile contract;

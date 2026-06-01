@@ -470,7 +470,9 @@ def migrate_existing_links(write_transaction) -> None:
     with write_transaction() as conn:
         columns = {
             row["name"]
-            for row in conn.execute("PRAGMA table_info(message_target_links)").fetchall()
+            for row in conn.execute(
+                "PRAGMA table_info(message_target_links)"
+            ).fetchall()
         }
         if "link_type" in columns and "created_at" in columns:
             conn.execute(

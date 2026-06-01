@@ -50,7 +50,9 @@ def run_migrations(
             "Running Database Migration: Version 4 (Persistent Sync Settings)..."
         )
         try:
-            conn.execute("ALTER TABLE sync_targets ADD COLUMN deep_mode INTEGER DEFAULT 0")
+            conn.execute(
+                "ALTER TABLE sync_targets ADD COLUMN deep_mode INTEGER DEFAULT 0"
+            )
             conn.execute(
                 "ALTER TABLE sync_targets ADD COLUMN recursive_depth INTEGER DEFAULT 0"
             )
@@ -113,7 +115,9 @@ def run_migrations(
         logger.info("Database migration to Version 6 successful.")
 
     if current_version < 7:
-        logger.info("Running Database Migration: Version 7 (Chat-safe context links)...")
+        logger.info(
+            "Running Database Migration: Version 7 (Chat-safe context links)..."
+        )
         migrate_message_context_links_to_chat_safe(conn)
         conn.execute("PRAGMA user_version = 7")
         logger.info("Database migration to Version 7 successful.")
@@ -170,4 +174,6 @@ def run_migrations(
         conn.execute("PRAGMA user_version = 14")
         logger.info("Database migration to Version 14 successful.")
     else:
-        logger.debug(f"Database migration skipped (already at version {current_version}).")
+        logger.debug(
+            f"Database migration skipped (already at version {current_version})."
+        )

@@ -54,7 +54,9 @@ class SQLiteSchemaMixin:
         create_tables(conn)
 
     def _create_indexes(self, conn: sqlite3.Connection):
-        create_indexes(conn, create_user_identity_indexes=self._create_user_identity_indexes)
+        create_indexes(
+            conn, create_user_identity_indexes=self._create_user_identity_indexes
+        )
 
     def _ensure_sync_target_columns(self, conn: sqlite3.Connection):
         ensure_sync_target_columns(conn)

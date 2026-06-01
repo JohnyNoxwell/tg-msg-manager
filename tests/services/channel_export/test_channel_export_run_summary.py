@@ -77,12 +77,15 @@ class TestChannelRunSummary(unittest.TestCase):
             summary_dir.mkdir()
             writer = ChannelRunChangelogWriter()
 
-            with patch(
-                "tg_msg_manager.services.channel_export.run_changelog.uuid.uuid4",
-                return_value=FixedUuid(),
-            ), patch(
-                "tg_msg_manager.services.channel_export.run_changelog.datetime",
-                FrozenDateTime,
+            with (
+                patch(
+                    "tg_msg_manager.services.channel_export.run_changelog.uuid.uuid4",
+                    return_value=FixedUuid(),
+                ),
+                patch(
+                    "tg_msg_manager.services.channel_export.run_changelog.datetime",
+                    FrozenDateTime,
+                ),
             ):
                 writer.append_entry(
                     output_dir=posts_dir,
@@ -106,9 +109,7 @@ class TestChannelRunSummary(unittest.TestCase):
                     summary=builder.build(),
                 )
 
-            posts_text = (posts_dir / "run_changelog.jsonl").read_text(
-                encoding="utf-8"
-            )
+            posts_text = (posts_dir / "run_changelog.jsonl").read_text(encoding="utf-8")
             summary_text = (summary_dir / "run_changelog.jsonl").read_text(
                 encoding="utf-8"
             )

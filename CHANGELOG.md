@@ -6,16 +6,22 @@ All notable changes to this project will be documented in this file in both Engl
 ### Added (EN)
 - **Stage 5F user docs and examples**: Added canonical first-run navigation, synthetic channel dataset examples, dataset doctor examples, post-processing boundary refinements, and a docs-only static dataset summary report design.
 - **Stage 5G readiness audits**: Confirmed post-5F documentation/example consistency, synthetic example regression expectations, non-channel contract precheck findings, and limited external-use readiness.
+- **Stage 5H-5J non-channel contract groundwork**: Added private archive contract deferral, synthetic user/group and `db-export` fixtures, a draft Non-Channel Export Contract V1, focused offline contract tests, and fixture-to-contract verification.
+- **Stage 5K release checklist scope**: Added a no-publish release checklist boundary document and packaging metadata readiness audit evidence.
 
 ### Changed (EN)
-- **Release boundary**: Non-channel contracts remain future work; `export-pm` remains deferred into separate private archive contract work. No release, tag, package publish, or version bump has occurred.
+- **Release boundary**: Non-channel contract coverage is now fixture-backed and focused, while generated-output filename/rotation/no-new-work coverage, full raw JSON, SQLite schema contract status, live smoke checks, and `export-pm` / private archive contract work remain deferred. No release, tag, package publish, or version bump has occurred.
+- **Release checklist separation**: Checklist inspections, release-candidate decision evidence, and any future actual release/version stage are documented as separate steps.
 
 ### Добавлено (RU)
 - **Stage 5F user docs и examples**: Добавлены canonical first-run navigation, synthetic channel dataset examples, dataset doctor examples, уточнения post-processing boundary и docs-only дизайн static dataset summary report.
 - **Stage 5G readiness audits**: Подтверждены consistency docs/examples после 5F, regression expectations для synthetic examples, findings precheck для non-channel contracts и готовность к limited external use.
+- **Stage 5H-5J groundwork для non-channel contracts**: Добавлены deferred decision для private archive contract, synthetic fixtures для user/group и `db-export`, draft Non-Channel Export Contract V1, focused offline contract tests и fixture-to-contract verification.
+- **Stage 5K release checklist scope**: Добавлены no-publish boundary документ для release checklist и evidence packaging metadata readiness audit.
 
 ### Изменения (RU)
-- **Release boundary**: Non-channel contracts остаются future work; `export-pm` остается отложенным в отдельную работу по private archive contract. Release, tag, package publish и version bump не выполнялись.
+- **Release boundary**: Non-channel contract coverage теперь fixture-backed и focused, но generated-output coverage для filenames/rotation/no-new-work, full raw JSON, SQLite schema contract status, live smoke checks и `export-pm` / private archive contract work остаются deferred. Release, tag, package publish и version bump не выполнялись.
+- **Разделение release checklist**: Checklist inspections, release-candidate decision evidence и любой будущий actual release/version stage задокументированы как отдельные шаги.
 
 ## [4.2.33] - 2026-05-09
 

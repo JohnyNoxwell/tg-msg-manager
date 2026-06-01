@@ -165,8 +165,14 @@ Test-plan support:
 
 - `docs/development/NON_CHANNEL_CONTRACT_TEST_PLAN.md`
 
-The plan is not an implemented suite. Future tests must remain offline,
-deterministic, synthetic-only, and credential-free.
+Implemented focused fixture-backed tests:
+
+- `tests/services/rendering/test_non_channel_contract_fixtures.py`
+- `tests/services/db_export/test_non_channel_contract_jsonl.py`
+- `tests/cli/test_non_channel_contract_cli.py`
+
+The implemented tests are focused fixture-backed checks. Future tests must
+remain offline, deterministic, synthetic-only, and credential-free.
 
 ## Privacy Constraints
 
@@ -177,9 +183,10 @@ screenshots, ignored export artifacts, or realistic private conversations.
 
 ## Known Limitations
 
-- Contract tests are planned, not implemented.
-- Some filename and state expectations are current supported candidates until
-  tests are added.
+- Focused fixture-backed contract tests exist; broader generated-output coverage
+  remains planned.
+- Filename and part-file expectations remain current supported candidates until
+  generated-output tests are added.
 - `.export_state/` is not a normal current output requirement.
 - Full raw JSON profile is deferred.
 - Private archive / `export-pm` is deferred to separate archive-contract work.

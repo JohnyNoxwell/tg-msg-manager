@@ -141,9 +141,7 @@ class TestPrivateArchiveComponents(unittest.IsolatedAsyncioTestCase):
         )
 
         self.assertEqual(count, 1)
-        storage.save_message.assert_awaited_once_with(
-            message, target_id=1, flush=False
-        )
+        storage.save_message.assert_awaited_once_with(message, target_id=1, flush=False)
         archive_writer.append_message.assert_awaited_once()
 
     async def test_private_archive_flushes_before_marking_synced(self):

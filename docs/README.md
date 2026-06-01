@@ -25,11 +25,11 @@ inspection, doctor output, privacy rules, and the command reference.
 
 ## 3. Architecture docs
 
-Use [`architecture/README.md`](architecture/README.md) for current architecture guidance, protected boundaries, storage/model decisions, and split maps. Channel dataset validation / inspection is documented in [`architecture/DATASET_VALIDATION.md`](architecture/DATASET_VALIDATION.md), and external post-processing boundaries are documented in [`architecture/POST_PROCESSING_BOUNDARY.md`](architecture/POST_PROCESSING_BOUNDARY.md).
+Use [`architecture/README.md`](architecture/README.md) for current architecture guidance, protected boundaries, storage/model decisions, and split maps. Channel dataset validation / inspection is documented in [`architecture/DATASET_VALIDATION.md`](architecture/DATASET_VALIDATION.md), non-channel user/group and `db-export` artifacts are documented in [`architecture/NON_CHANNEL_EXPORT_CONTRACT_V1.md`](architecture/NON_CHANNEL_EXPORT_CONTRACT_V1.md), and external post-processing boundaries are documented in [`architecture/POST_PROCESSING_BOUNDARY.md`](architecture/POST_PROCESSING_BOUNDARY.md).
 
 ## 4. Development docs
 
-Use [`development/README.md`](development/README.md) for CLI contracts, testing guidance, PR checks, privacy handling, package identity, and development guardrails. Sensitive local artifact handling is documented in [`development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md`](development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md), and package identity/version policy is documented in [`development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md`](development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md).
+Use [`development/README.md`](development/README.md) for CLI contracts, testing guidance, PR checks, privacy handling, package identity, release checklist boundaries, and development guardrails. Sensitive local artifact handling is documented in [`development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md`](development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md), non-channel focused test coverage is recorded in [`development/NON_CHANNEL_CONTRACT_TEST_PLAN.md`](development/NON_CHANNEL_CONTRACT_TEST_PLAN.md), package identity/version policy is documented in [`development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md`](development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md), and the no-publish release checklist boundary is documented in [`development/RELEASE_CHECKLIST_SCOPE.md`](development/RELEASE_CHECKLIST_SCOPE.md).
 
 ## 5. Stages
 

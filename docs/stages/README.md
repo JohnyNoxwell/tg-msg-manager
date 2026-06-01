@@ -6,8 +6,14 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- None.
+- none
 
+Stage 5L.1 release candidate decision recheck is recorded in [`reports/STAGE_5L_1_RELEASE_CANDIDATE_DECISION_RECHECK_REPORT.md`](reports/STAGE_5L_1_RELEASE_CANDIDATE_DECISION_RECHECK_REPORT.md).
+Stage 5K.4 release candidate decision report is recorded in [`reports/STAGE_5K_4_RELEASE_CANDIDATE_DECISION_REPORT.md`](reports/STAGE_5K_4_RELEASE_CANDIDATE_DECISION_REPORT.md).
+Stage 5K.3 local verification matrix is recorded in [`reports/STAGE_5K_3_LOCAL_VERIFICATION_MATRIX_REPORT.md`](reports/STAGE_5K_3_LOCAL_VERIFICATION_MATRIX_REPORT.md).
+Stage 5K.2 documentation / privacy / changelog release audit is recorded in [`reports/STAGE_5K_2_DOCUMENTATION_PRIVACY_CHANGELOG_RELEASE_AUDIT_REPORT.md`](reports/STAGE_5K_2_DOCUMENTATION_PRIVACY_CHANGELOG_RELEASE_AUDIT_REPORT.md).
+Stage 5K.1 packaging metadata readiness audit is recorded in [`reports/STAGE_5K_1_PACKAGING_METADATA_READINESS_AUDIT_REPORT.md`](reports/STAGE_5K_1_PACKAGING_METADATA_READINESS_AUDIT_REPORT.md).
+Stage 5K.0 release checklist scope / no-publish boundary is recorded in [`reports/STAGE_5K_0_RELEASE_CHECKLIST_SCOPE_NO_PUBLISH_BOUNDARY_REPORT.md`](reports/STAGE_5K_0_RELEASE_CHECKLIST_SCOPE_NO_PUBLISH_BOUNDARY_REPORT.md).
 Stage 4C.0 Unit A is recorded in [`reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md`](reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md).
 Stage 4C.0B is recorded in [`reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md`](reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md).
 Stage 4C.0C is recorded in [`reports/STAGE_4C_0C_TEST_LAYOUT_GROUPING_REPORT.md`](reports/STAGE_4C_0C_TEST_LAYOUT_GROUPING_REPORT.md).
@@ -56,6 +62,10 @@ Stage 5I.0 non-channel synthetic fixtures stage files is recorded in [`reports/S
 Stage 5I.1 user/db export synthetic fixture implementation is recorded in [`reports/STAGE_5I_1_USER_DB_EXPORT_SYNTHETIC_FIXTURE_IMPLEMENTATION_REPORT.md`](reports/STAGE_5I_1_USER_DB_EXPORT_SYNTHETIC_FIXTURE_IMPLEMENTATION_REPORT.md).
 Stage 5I.2 non-channel contract test plan is recorded in [`reports/STAGE_5I_2_NON_CHANNEL_CONTRACT_TEST_PLAN_REPORT.md`](reports/STAGE_5I_2_NON_CHANNEL_CONTRACT_TEST_PLAN_REPORT.md).
 Stage 5I.3 non-channel export contract v1 draft is recorded in [`reports/STAGE_5I_3_NON_CHANNEL_EXPORT_CONTRACT_V1_DRAFT_REPORT.md`](reports/STAGE_5I_3_NON_CHANNEL_EXPORT_CONTRACT_V1_DRAFT_REPORT.md).
+Stage 5J.0 post-5I consistency audit is recorded in [`reports/STAGE_5J_0_POST_5I_CONSISTENCY_AUDIT_REPORT.md`](reports/STAGE_5J_0_POST_5I_CONSISTENCY_AUDIT_REPORT.md).
+Stage 5J.1 non-channel contract tests implementation is recorded in [`reports/STAGE_5J_1_NON_CHANNEL_CONTRACT_TESTS_IMPLEMENTATION_REPORT.md`](reports/STAGE_5J_1_NON_CHANNEL_CONTRACT_TESTS_IMPLEMENTATION_REPORT.md).
+Stage 5J.2 fixture-to-contract verification is recorded in [`reports/STAGE_5J_2_FIXTURE_TO_CONTRACT_VERIFICATION_REPORT.md`](reports/STAGE_5J_2_FIXTURE_TO_CONTRACT_VERIFICATION_REPORT.md).
+Stage 5J.3 release readiness recheck / changelog finalization is recorded in [`reports/STAGE_5J_3_RELEASE_READINESS_RECHECK_CHANGELOG_FINALIZATION_REPORT.md`](reports/STAGE_5J_3_RELEASE_READINESS_RECHECK_CHANGELOG_FINALIZATION_REPORT.md).
 
 The [`active/`](active/) directory must contain only unfinished or next active work. Do not leave completed stage task files, general launch prompts, prompt packs, or historical records there.
 
@@ -131,6 +141,56 @@ Current completed prompt groups:
 - Stage 5I.1 user/db export synthetic fixture implementation task prompt.
 - Stage 5I.2 non-channel contract test plan task prompt.
 - Stage 5I.3 non-channel export contract v1 draft task prompt.
+- Stage 5J.0 post-5I consistency audit task prompt.
+- Stage 5J.1 non-channel contract tests implementation task prompt.
+- Stage 5J.2 fixture-to-contract verification task prompt.
+- Stage 5J.3 release readiness recheck / changelog finalization task prompt.
+- Stage 5K.0 release checklist scope / no-publish boundary task prompt.
+- Stage 5K.1 packaging metadata readiness audit task prompt.
+- Stage 5K.2 documentation / privacy / changelog release audit task prompt.
+- Stage 5K.3 local verification matrix task prompt.
+- Stage 5K.4 release candidate decision report task prompt.
+- Stage 5L.1 release candidate decision recheck task prompt.
+
+Stage 5L.1 release candidate decision recheck task files:
+
+- [`completed/stage_5l_1_release_candidate_decision_recheck.md`](completed/stage_5l_1_release_candidate_decision_recheck.md)
+
+Stage 5K.4 release candidate decision report task files:
+
+- [`completed/stage_5k_4_release_candidate_decision_report.md`](completed/stage_5k_4_release_candidate_decision_report.md)
+
+Stage 5K.3 local verification matrix task files:
+
+- [`completed/stage_5k_3_local_verification_matrix.md`](completed/stage_5k_3_local_verification_matrix.md)
+
+Stage 5K.2 documentation / privacy / changelog release audit task files:
+
+- [`completed/stage_5k_2_documentation_privacy_changelog_release_audit.md`](completed/stage_5k_2_documentation_privacy_changelog_release_audit.md)
+
+Stage 5K.1 packaging metadata readiness audit task files:
+
+- [`completed/stage_5k_1_packaging_metadata_readiness_audit.md`](completed/stage_5k_1_packaging_metadata_readiness_audit.md)
+
+Stage 5K.0 release checklist scope / no-publish boundary task files:
+
+- [`completed/stage_5k_0_release_checklist_scope_no_publish_boundary.md`](completed/stage_5k_0_release_checklist_scope_no_publish_boundary.md)
+
+Stage 5J.3 release readiness recheck / changelog finalization task files:
+
+- [`completed/stage_5j_3_release_readiness_recheck_changelog_finalization.md`](completed/stage_5j_3_release_readiness_recheck_changelog_finalization.md)
+
+Stage 5J.2 fixture-to-contract verification task files:
+
+- [`completed/stage_5j_2_fixture_to_contract_verification.md`](completed/stage_5j_2_fixture_to_contract_verification.md)
+
+Stage 5J.1 non-channel contract tests implementation task files:
+
+- [`completed/stage_5j_1_non_channel_contract_tests_implementation.md`](completed/stage_5j_1_non_channel_contract_tests_implementation.md)
+
+Stage 5J.0 post-5I consistency audit task files:
+
+- [`completed/stage_5j_0_post_5i_consistency_audit.md`](completed/stage_5j_0_post_5i_consistency_audit.md)
 
 Stage 5I.3 non-channel export contract v1 draft task files:
 

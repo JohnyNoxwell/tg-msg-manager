@@ -79,9 +79,7 @@ def _validate_discussion_mode_files(
     if not isinstance(discussion, dict):
         return []
     mode = discussion.get("mode") or "none"
-    present = {
-        name for name in DISCUSSION_ANY_FILES if (dataset_path / name).exists()
-    }
+    present = {name for name in DISCUSSION_ANY_FILES if (dataset_path / name).exists()}
     issues: list[ValidationIssue] = []
     if mode == "none":
         for name in sorted(present):

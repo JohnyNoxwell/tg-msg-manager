@@ -2,8 +2,9 @@
 
 ## Status
 
-Plan only. This document does not implement tests and does not claim that a
-contract test suite exists.
+Plan plus implemented focused tests. This document records intended coverage and
+the current fixture-backed tests; it does not expand runtime behavior or claim
+full contract coverage.
 
 Scope is user/group `export` and `db-export` outputs under `DB_EXPORTS/`.
 `export-pm` and private archive outputs are out of scope.
@@ -22,7 +23,7 @@ two synthetic chats, compact JSONL, TXT `context-readable`, TXT `legacy`, and a
 metadata-only media case. They do not require Telegram credentials, network
 access, real exports, sessions, logs, DB files, screenshots, or media.
 
-## Future Test Locations
+## Test Locations
 
 Recommended future test files:
 
@@ -31,6 +32,14 @@ tests/services/rendering/test_non_channel_context_readable_contract.py
 tests/services/rendering/test_non_channel_legacy_txt_contract.py
 tests/services/db_export/test_non_channel_ai_jsonl_contract.py
 tests/services/db_export/test_non_channel_db_export_state_contract.py
+tests/cli/test_non_channel_contract_cli.py
+```
+
+Implemented focused fixture-backed tests:
+
+```text
+tests/services/rendering/test_non_channel_contract_fixtures.py
+tests/services/db_export/test_non_channel_contract_jsonl.py
 tests/cli/test_non_channel_contract_cli.py
 ```
 
@@ -72,27 +81,28 @@ Safety assertions:
 
 ## Execution Expectations
 
-Future tests must be deterministic and offline. They must not connect to
-Telegram, read ignored private artifacts, or require configured credentials.
+Current and future tests must be deterministic and offline. They must not
+connect to Telegram, read ignored private artifacts, or require configured
+credentials.
 
 Temporary SQLite databases may be used only when testing DB export behavior.
 Generated-output comparisons are appropriate for filenames, part files, writer
 state, and DB-backed skip/no-new-work behavior. Golden-file comparisons are
 appropriate for the small TXT and compact JSONL fixture outputs.
 
-Once implemented, the future suite should be included in:
+The current focused tests are discovered by the routine unittest suite:
 
 ```bash
 python3 -m unittest discover -s tests -q
 make test
 ```
 
-Do not add these tests to `make test` by documentation claim alone; they must be
-real test files first.
+Do not claim additional future tests are covered by `make test` until they are
+real test files.
 
 ## Deferred
 
-- final `NON_CHANNEL_EXPORT_CONTRACT_V1.md` readiness claims;
+- broader release-readiness claims beyond the draft contract and focused tests;
 - private archive / `export-pm` contract tests;
 - full raw JSON profile;
 - exact rotation thresholds;

@@ -1131,7 +1131,9 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
                 .read_text(encoding="utf-8")
                 .splitlines()
             ]
-            state = json.loads(incremental_result.state_path.read_text(encoding="utf-8"))
+            state = json.loads(
+                incremental_result.state_path.read_text(encoding="utf-8")
+            )
 
             self.assertEqual(full_result.run_mode, "full")
             self.assertEqual(force_result.run_mode, "force_full")

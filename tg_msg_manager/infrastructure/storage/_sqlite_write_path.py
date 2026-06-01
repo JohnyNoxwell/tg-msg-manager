@@ -22,7 +22,9 @@ class SQLiteWritePathMixin:
     DEPRECATED compatibility aggregator for the split SQLite write-side modules.
     """
 
-    async def _enqueue_write_item(self, item: tuple[MessageData, Optional[int]]) -> None:
+    async def _enqueue_write_item(
+        self, item: tuple[MessageData, Optional[int]]
+    ) -> None:
         queue_was_full = self._write_queue.full()
         started_at = time.perf_counter() if queue_was_full else None
         await self._write_queue.put(item)

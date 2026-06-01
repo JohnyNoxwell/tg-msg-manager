@@ -431,7 +431,9 @@ class TestDBExporter(unittest.TestCase):
             "last_timestamp": 1700000000,
             "target_author_name": "Fast User",
         }
-        streaming_storage.iter_user_export_rows.side_effect = lambda user_id: iter([row])
+        streaming_storage.iter_user_export_rows.side_effect = lambda user_id: iter(
+            [row]
+        )
         streaming_storage.get_user.return_value = user
         streaming_path = asyncio.run(
             DBExportService(streaming_storage).export_user_messages(

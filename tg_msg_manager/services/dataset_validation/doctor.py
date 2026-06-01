@@ -43,7 +43,9 @@ class DatasetDoctorReport:
 
     @property
     def error_count(self) -> int:
-        return sum(1 for finding in self.findings if finding.severity is DoctorSeverity.ERROR)
+        return sum(
+            1 for finding in self.findings if finding.severity is DoctorSeverity.ERROR
+        )
 
     @property
     def warning_count(self) -> int:
@@ -148,4 +150,6 @@ def _suggest_action(code: str) -> str:
         return "Review export scope and Telegram deletions; use a wider or forced export if parents are required."
     if code == "unknown_extra_file":
         return "Inspect the extra file manually; the doctor will not remove files."
-    return "Run validate-dataset for details and rebuild or restore artifacts if needed."
+    return (
+        "Run validate-dataset for details and rebuild or restore artifacts if needed."
+    )
