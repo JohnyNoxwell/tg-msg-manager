@@ -24,6 +24,7 @@ Architecture docs are stable references for repository boundaries, storage/model
 - [`DATASET_CONTRACT_COVERAGE_MATRIX.md`](DATASET_CONTRACT_COVERAGE_MATRIX.md) - factual coverage matrix for Dataset Contract V1 docs, tests, fixtures, and gaps.
 - [`DATASET_VALIDATION.md`](DATASET_VALIDATION.md) - read-only dataset validation / inspection boundary and command contract.
 - [`POST_PROCESSING_BOUNDARY.md`](POST_PROCESSING_BOUNDARY.md) - external post-processing boundary after export, validation, inspection, and doctor reports.
+- [`STATIC_DATASET_SUMMARY_REPORT_DESIGN.md`](STATIC_DATASET_SUMMARY_REPORT_DESIGN.md) - docs-only design for a future external static dataset summary report.
 - [`STATE_AND_INCREMENTAL_MODEL.md`](STATE_AND_INCREMENTAL_MODEL.md) - direct channel export state and incremental consistency model.
 - [`TXT_RENDERING.md`](TXT_RENDERING.md) - TXT profile projection boundary for user/group export.
 

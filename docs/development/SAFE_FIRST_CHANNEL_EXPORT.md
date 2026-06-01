@@ -6,6 +6,9 @@ Use this guide for a small first `export-channel` run that avoids media download
 
 The examples use only synthetic placeholders. Replace `@example` and `exports/channels/example_dataset` with your own channel reference and the dataset directory created by the command.
 
+A minimal synthetic Dataset Contract V1 example is available at
+[`../examples/channel_dataset_minimal/`](../examples/channel_dataset_minimal/).
+
 ## First Run
 
 Run a small metadata-only export first:
@@ -26,6 +29,9 @@ If validation reports warnings or errors, use the read-only doctor output:
 ```bash
 python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example_dataset --doctor
 ```
+
+Synthetic healthy, warning, and error doctor examples are documented in
+[`../user/DATASET_DOCTOR_EXAMPLES.md`](../user/DATASET_DOCTOR_EXAMPLES.md).
 
 ## Safe Defaults
 

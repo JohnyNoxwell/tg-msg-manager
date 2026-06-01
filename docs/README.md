@@ -16,6 +16,13 @@ This repository is a Telegram history data pipeline with strict architecture bou
 
 Do not use roadmap or archive files as permission to implement features. Implementation requires an explicit active task.
 
+## 2.1 For users
+
+Start with the first-run navigation guide:
+[`user/QUICKSTART.md`](user/QUICKSTART.md). It points to installation,
+configuration, first exports, safe channel dataset export, validation,
+inspection, doctor output, privacy rules, and the command reference.
+
 ## 3. Architecture docs
 
 Use [`architecture/README.md`](architecture/README.md) for current architecture guidance, protected boundaries, storage/model decisions, and split maps. Channel dataset validation / inspection is documented in [`architecture/DATASET_VALIDATION.md`](architecture/DATASET_VALIDATION.md), and external post-processing boundaries are documented in [`architecture/POST_PROCESSING_BOUNDARY.md`](architecture/POST_PROCESSING_BOUNDARY.md).

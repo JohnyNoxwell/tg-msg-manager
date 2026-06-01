@@ -1,5 +1,6 @@
 # Commands
 
+First-run navigation: [`docs/user/QUICKSTART.md`](docs/user/QUICKSTART.md)
 Documentation map: [`docs/README.md`](docs/README.md)
 Coding-agent contract: [`AGENTS.md`](AGENTS.md)
 
@@ -178,6 +179,7 @@ Notes:
 - Inspection summarizes detected files, message counts, media status counts, discussion presence/counts, manifest summary, state cursor, and validation note counts.
 - Doctor mode reuses validation findings and adds deterministic remediation guidance without repairing or rewriting files.
 - Inspection does not interpret message/comment text or perform analytics.
+- Synthetic doctor examples are documented in [`docs/user/DATASET_DOCTOR_EXAMPLES.md`](docs/user/DATASET_DOCTOR_EXAMPLES.md).
 
 ## Interactive Menu
 

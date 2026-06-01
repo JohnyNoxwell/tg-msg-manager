@@ -39,6 +39,11 @@ Stage 5E.0 SQLite schema split stage 2 migration helpers precheck is recorded in
 Stage 5E.1 SQLite schema split stage 2 migration helper extraction is recorded in [`reports/STAGE_5E_1_SQLITE_SCHEMA_SPLIT_STAGE_2_MIGRATION_HELPER_EXTRACTION_REPORT.md`](reports/STAGE_5E_1_SQLITE_SCHEMA_SPLIT_STAGE_2_MIGRATION_HELPER_EXTRACTION_REPORT.md).
 Stage 5E.2 SQLite schema split regression expansion is recorded in [`reports/STAGE_5E_2_SQLITE_SCHEMA_SPLIT_REGRESSION_EXPANSION_REPORT.md`](reports/STAGE_5E_2_SQLITE_SCHEMA_SPLIT_REGRESSION_EXPANSION_REPORT.md).
 Stage 5F.0 current architecture / context refresh is recorded in [`reports/STAGE_5F_0_CURRENT_ARCHITECTURE_CONTEXT_REFRESH_REPORT.md`](reports/STAGE_5F_0_CURRENT_ARCHITECTURE_CONTEXT_REFRESH_REPORT.md).
+Stage 5F.1 user documentation navigation audit / quickstart consolidation is recorded in [`reports/STAGE_5F_1_USER_DOCUMENTATION_NAVIGATION_AUDIT_QUICKSTART_CONSOLIDATION_REPORT.md`](reports/STAGE_5F_1_USER_DOCUMENTATION_NAVIGATION_AUDIT_QUICKSTART_CONSOLIDATION_REPORT.md).
+Stage 5F.2 synthetic channel dataset example is recorded in [`reports/STAGE_5F_2_SYNTHETIC_CHANNEL_DATASET_EXAMPLE_REPORT.md`](reports/STAGE_5F_2_SYNTHETIC_CHANNEL_DATASET_EXAMPLE_REPORT.md).
+Stage 5F.3 dataset doctor output examples is recorded in [`reports/STAGE_5F_3_DATASET_DOCTOR_OUTPUT_EXAMPLES_REPORT.md`](reports/STAGE_5F_3_DATASET_DOCTOR_OUTPUT_EXAMPLES_REPORT.md).
+Stage 5F.4 post-processing example catalogue refinement is recorded in [`reports/STAGE_5F_4_POST_PROCESSING_EXAMPLE_CATALOGUE_REFINEMENT_REPORT.md`](reports/STAGE_5F_4_POST_PROCESSING_EXAMPLE_CATALOGUE_REFINEMENT_REPORT.md).
+Stage 5F.5 static dataset summary report design is recorded in [`reports/STAGE_5F_5_STATIC_DATASET_SUMMARY_REPORT_DESIGN_REPORT.md`](reports/STAGE_5F_5_STATIC_DATASET_SUMMARY_REPORT_DESIGN_REPORT.md).
 
 The [`active/`](active/) directory must contain only unfinished or next active work. Do not leave completed stage task files, general launch prompts, prompt packs, or historical records there.
 
@@ -97,6 +102,31 @@ Current completed prompt groups:
 - Stage 5E.1 SQLite schema split stage 2 migration helper extraction task prompt.
 - Stage 5E.2 SQLite schema split regression expansion task prompt.
 - Stage 5F.0 current architecture / context refresh task prompt.
+- Stage 5F.1 user documentation navigation audit / quickstart consolidation task prompt.
+- Stage 5F.2 synthetic channel dataset example task prompt.
+- Stage 5F.3 dataset doctor output examples task prompt.
+- Stage 5F.4 post-processing example catalogue refinement task prompt.
+- Stage 5F.5 static dataset summary report design task prompt.
+
+Stage 5F.5 static dataset summary report design task files:
+
+- [`completed/stage_5f_5_static_dataset_summary_report_design.md`](completed/stage_5f_5_static_dataset_summary_report_design.md)
+
+Stage 5F.4 post-processing example catalogue refinement task files:
+
+- [`completed/stage_5f_4_post_processing_example_catalogue_refinement.md`](completed/stage_5f_4_post_processing_example_catalogue_refinement.md)
+
+Stage 5F.3 dataset doctor output examples task files:
+
+- [`completed/stage_5f_3_dataset_doctor_output_examples.md`](completed/stage_5f_3_dataset_doctor_output_examples.md)
+
+Stage 5F.2 synthetic channel dataset example task files:
+
+- [`completed/stage_5f_2_synthetic_channel_dataset_example.md`](completed/stage_5f_2_synthetic_channel_dataset_example.md)
+
+Stage 5F.1 user documentation navigation audit / quickstart consolidation task files:
+
+- [`completed/stage_5f_1_user_documentation_navigation_audit_quickstart_consolidation.md`](completed/stage_5f_1_user_documentation_navigation_audit_quickstart_consolidation.md)
 
 Stage 5F.0 current architecture / context refresh task files:
 

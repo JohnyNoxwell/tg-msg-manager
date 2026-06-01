@@ -29,6 +29,8 @@ python3 -m tg_msg_manager.cli report
 
 ### Документация
 
+- Быстрый путь первого запуска: [`docs/user/QUICKSTART.md`](docs/user/QUICKSTART.md)
+- Примеры dataset doctor output: [`docs/user/DATASET_DOCTOR_EXAMPLES.md`](docs/user/DATASET_DOCTOR_EXAMPLES.md)
 - Полная карта документации: [`docs/README.md`](docs/README.md)
 - Справочник команд: [`COMMANDS.md`](COMMANDS.md)
 - Privacy / sensitive artifacts: [`docs/development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md`](docs/development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md)
@@ -302,6 +304,8 @@ Core system capabilities:
 
 ### 📚 Documentation
 
+- First-run navigation: [`docs/user/QUICKSTART.md`](docs/user/QUICKSTART.md)
+- Dataset doctor output examples: [`docs/user/DATASET_DOCTOR_EXAMPLES.md`](docs/user/DATASET_DOCTOR_EXAMPLES.md)
 - Full documentation map: [`docs/README.md`](docs/README.md)
 - Command reference: [`COMMANDS.md`](COMMANDS.md)
 - Privacy / sensitive artifacts: [`docs/development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md`](docs/development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md)

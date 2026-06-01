@@ -65,16 +65,20 @@ Generated post-processing artifacts are not part of `direct_channel_export` Data
 
 ## Allowed Future Categories
 
-The following categories are allowed as future post-processing work only. They are not exporter-core permissions.
+The following categories are allowed as future external post-processing examples only. They are not exporter-core permissions, not current CLI commands, and not implementation scope by themselves.
 
-- dataset loaders;
-- deterministic transforms;
-- report schemas;
-- LLM prompt templates outside exporter;
-- stylometry/fingerprint modules outside exporter;
-- fraud/fundraising detectors outside exporter.
+- Markdown summary: a readable derived summary of dataset metadata, validation status, artifact list, and high-level counts.
+- JSON summary: a machine-readable derived summary with source dataset path, manifest schema version, generated time, deterministic flag, and count/status fields.
+- Static HTML report: a standalone derived report artifact that reads exported dataset facts and validation/doctor results, without mutating the dataset; see [`STATIC_DATASET_SUMMARY_REPORT_DESIGN.md`](STATIC_DATASET_SUMMARY_REPORT_DESIGN.md).
+- LLM prompt pack outside exporter core: optional downstream prompt files prepared from already exported and user-approved dataset summaries.
+- Timeline summary: a deterministic chronological summary of exported message timestamps and counts, without interpreting intent, sentiment, or identity.
+- Media status summary: a derived count/status view over `media_manifest.jsonl`, without OCR, STT, media recognition, transcoding, or media analysis.
+- Discussion coverage summary: a derived count/status view over discussion metadata/comments/threads, without social graph analysis or user profiling.
+- Redaction checklist: a local checklist for reviewing sensitive fields before sharing derived artifacts.
 
-Any category that interprets people, identities, intent, influence, fraud, fundraising, narratives, sentiment, bot status, or behavioral patterns must remain outside exporter core and outside validation/doctor layers.
+These examples may read exported datasets and validation, inspection, or doctor outputs. They must write separate derived artifacts and must not mutate source datasets by default.
+
+Any work that interprets people, identities, intent, influence, fraud, fundraising, narratives, sentiment, bot status, or behavioral patterns remains outside exporter core and outside validation/doctor layers. It also requires a separate explicit stage before any implementation.
 
 ## Forbidden In Exporter Core
 

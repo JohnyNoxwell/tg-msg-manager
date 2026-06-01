@@ -1,0 +1,8 @@
+Synthetic Channel Example (@synthetic_channel)
+
+[2026-01-01T10:00:00+00:00] #1001
+Synthetic channel post one.
+
+[2026-01-01T10:05:00+00:00] #1002
+Synthetic channel post with metadata-only media.
+Media: synthetic-1002-0 metadata_only image/jpeg synthetic-photo.jpg
