@@ -6,7 +6,10 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- None.
+- [`active/stage_5i_0_non_channel_synthetic_fixtures_stage_files.md`](active/stage_5i_0_non_channel_synthetic_fixtures_stage_files.md)
+- [`active/stage_5i_1_user_db_export_synthetic_fixture_implementation.md`](active/stage_5i_1_user_db_export_synthetic_fixture_implementation.md)
+- [`active/stage_5i_2_non_channel_contract_test_plan.md`](active/stage_5i_2_non_channel_contract_test_plan.md)
+- [`active/stage_5i_3_non_channel_export_contract_v1_draft.md`](active/stage_5i_3_non_channel_export_contract_v1_draft.md)
 
 Stage 4C.0 Unit A is recorded in [`reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md`](reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md).
 Stage 4C.0B is recorded in [`reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md`](reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md).
