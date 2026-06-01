@@ -44,6 +44,14 @@ Stage 5F.2 synthetic channel dataset example is recorded in [`reports/STAGE_5F_2
 Stage 5F.3 dataset doctor output examples is recorded in [`reports/STAGE_5F_3_DATASET_DOCTOR_OUTPUT_EXAMPLES_REPORT.md`](reports/STAGE_5F_3_DATASET_DOCTOR_OUTPUT_EXAMPLES_REPORT.md).
 Stage 5F.4 post-processing example catalogue refinement is recorded in [`reports/STAGE_5F_4_POST_PROCESSING_EXAMPLE_CATALOGUE_REFINEMENT_REPORT.md`](reports/STAGE_5F_4_POST_PROCESSING_EXAMPLE_CATALOGUE_REFINEMENT_REPORT.md).
 Stage 5F.5 static dataset summary report design is recorded in [`reports/STAGE_5F_5_STATIC_DATASET_SUMMARY_REPORT_DESIGN_REPORT.md`](reports/STAGE_5F_5_STATIC_DATASET_SUMMARY_REPORT_DESIGN_REPORT.md).
+Stage 5G.0 post-5F documentation / examples consistency audit is recorded in [`reports/STAGE_5G_0_POST_5F_DOCUMENTATION_EXAMPLES_CONSISTENCY_AUDIT_REPORT.md`](reports/STAGE_5G_0_POST_5F_DOCUMENTATION_EXAMPLES_CONSISTENCY_AUDIT_REPORT.md).
+Stage 5G.1 synthetic examples regression check is recorded in [`reports/STAGE_5G_1_SYNTHETIC_EXAMPLES_REGRESSION_CHECK_REPORT.md`](reports/STAGE_5G_1_SYNTHETIC_EXAMPLES_REGRESSION_CHECK_REPORT.md).
+Stage 5G.2 non-channel dataset contract precheck is recorded in [`reports/STAGE_5G_2_NON_CHANNEL_DATASET_CONTRACT_PRECHECK_REPORT.md`](reports/STAGE_5G_2_NON_CHANNEL_DATASET_CONTRACT_PRECHECK_REPORT.md).
+Stage 5G.3 user-facing release readiness audit is recorded in [`reports/STAGE_5G_3_USER_FACING_RELEASE_READINESS_AUDIT_REPORT.md`](reports/STAGE_5G_3_USER_FACING_RELEASE_READINESS_AUDIT_REPORT.md).
+Stage 5H.0 changelog / release notes refresh precheck is recorded in [`reports/STAGE_5H_0_CHANGELOG_RELEASE_NOTES_REFRESH_PRECHECK_REPORT.md`](reports/STAGE_5H_0_CHANGELOG_RELEASE_NOTES_REFRESH_PRECHECK_REPORT.md).
+Stage 5H.1 non-channel export contract design precheck is recorded in [`reports/STAGE_5H_1_NON_CHANNEL_EXPORT_CONTRACT_DESIGN_PRECHECK_REPORT.md`](reports/STAGE_5H_1_NON_CHANNEL_EXPORT_CONTRACT_DESIGN_PRECHECK_REPORT.md).
+Stage 5H.2 user + DB export synthetic fixtures plan is recorded in [`reports/STAGE_5H_2_USER_DB_EXPORT_SYNTHETIC_FIXTURES_PLAN_REPORT.md`](reports/STAGE_5H_2_USER_DB_EXPORT_SYNTHETIC_FIXTURES_PLAN_REPORT.md).
+Stage 5H.3 private archive contract deferred decision is recorded in [`reports/STAGE_5H_3_PRIVATE_ARCHIVE_CONTRACT_DEFERRED_DECISION_REPORT.md`](reports/STAGE_5H_3_PRIVATE_ARCHIVE_CONTRACT_DEFERRED_DECISION_REPORT.md).
 
 The [`active/`](active/) directory must contain only unfinished or next active work. Do not leave completed stage task files, general launch prompts, prompt packs, or historical records there.
 
@@ -107,6 +115,46 @@ Current completed prompt groups:
 - Stage 5F.3 dataset doctor output examples task prompt.
 - Stage 5F.4 post-processing example catalogue refinement task prompt.
 - Stage 5F.5 static dataset summary report design task prompt.
+- Stage 5G.0 post-5F documentation / examples consistency audit task prompt.
+- Stage 5G.1 synthetic examples regression check task prompt.
+- Stage 5G.2 non-channel dataset contract precheck task prompt.
+- Stage 5G.3 user-facing release readiness audit task prompt.
+- Stage 5H.0 changelog / release notes refresh precheck task prompt.
+- Stage 5H.1 non-channel export contract design precheck task prompt.
+- Stage 5H.2 user + DB export synthetic fixtures plan task prompt.
+- Stage 5H.3 private archive contract deferred decision task prompt.
+
+Stage 5H.3 private archive contract deferred decision task files:
+
+- [`completed/stage_5h_3_private_archive_contract_deferred_decision.md`](completed/stage_5h_3_private_archive_contract_deferred_decision.md)
+
+Stage 5H.2 user + DB export synthetic fixtures plan task files:
+
+- [`completed/stage_5h_2_user_db_export_synthetic_fixtures_plan.md`](completed/stage_5h_2_user_db_export_synthetic_fixtures_plan.md)
+
+Stage 5H.1 non-channel export contract design precheck task files:
+
+- [`completed/stage_5h_1_non_channel_export_contract_design_precheck.md`](completed/stage_5h_1_non_channel_export_contract_design_precheck.md)
+
+Stage 5H.0 changelog / release notes refresh precheck task files:
+
+- [`completed/stage_5h_0_changelog_release_notes_refresh_precheck.md`](completed/stage_5h_0_changelog_release_notes_refresh_precheck.md)
+
+Stage 5G.3 user-facing release readiness audit task files:
+
+- [`completed/stage_5g_3_user_facing_release_readiness_audit.md`](completed/stage_5g_3_user_facing_release_readiness_audit.md)
+
+Stage 5G.2 non-channel dataset contract precheck task files:
+
+- [`completed/stage_5g_2_non_channel_dataset_contract_precheck.md`](completed/stage_5g_2_non_channel_dataset_contract_precheck.md)
+
+Stage 5G.1 synthetic examples regression check task files:
+
+- [`completed/stage_5g_1_synthetic_examples_regression_check.md`](completed/stage_5g_1_synthetic_examples_regression_check.md)
+
+Stage 5G.0 post-5F documentation / examples consistency audit task files:
+
+- [`completed/stage_5g_0_post_5f_documentation_examples_consistency_audit.md`](completed/stage_5g_0_post_5f_documentation_examples_consistency_audit.md)
 
 Stage 5F.5 static dataset summary report design task files:
 

@@ -1,6 +1,22 @@
 All notable changes to this project will be documented in this file in both English and Russian.
 Все значимые изменения проекта фиксируются в этом файле на английском и русском языках.
 
+## [Unreleased]
+
+### Added (EN)
+- **Stage 5F user docs and examples**: Added canonical first-run navigation, synthetic channel dataset examples, dataset doctor examples, post-processing boundary refinements, and a docs-only static dataset summary report design.
+- **Stage 5G readiness audits**: Confirmed post-5F documentation/example consistency, synthetic example regression expectations, non-channel contract precheck findings, and limited external-use readiness.
+
+### Changed (EN)
+- **Release boundary**: Non-channel contracts remain future work; `export-pm` remains deferred into separate private archive contract work. No release, tag, package publish, or version bump has occurred.
+
+### Добавлено (RU)
+- **Stage 5F user docs и examples**: Добавлены canonical first-run navigation, synthetic channel dataset examples, dataset doctor examples, уточнения post-processing boundary и docs-only дизайн static dataset summary report.
+- **Stage 5G readiness audits**: Подтверждены consistency docs/examples после 5F, regression expectations для synthetic examples, findings precheck для non-channel contracts и готовность к limited external use.
+
+### Изменения (RU)
+- **Release boundary**: Non-channel contracts остаются future work; `export-pm` остается отложенным в отдельную работу по private archive contract. Release, tag, package publish и version bump не выполнялись.
+
 ## [4.2.33] - 2026-05-09
 
 ### Added (EN)
