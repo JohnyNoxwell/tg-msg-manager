@@ -1,0 +1,54 @@
+# Telegram Export
+TXT profile: context-readable
+Target: Synthetic Target (5001)
+Chat: multiple chats
+
+------------------------------------------------------------
+CONTEXT BLOCK #0001 · 2026-01-01
+TARGET: Synthetic Target (5001)
+CHAT: multiple chats
+TIME RANGE: 12:00:00-12:02:00
+TARGET MESSAGES: 1
+------------------------------------------------------------
+
+[REPLIED MESSAGE]
+12:00:00 · Synthetic Peer One (5101)
+Synthetic fixture context before alpha.
+
+[CONTEXT BEFORE]
+12:00:00 · Synthetic Peer One (5101)
+Synthetic fixture context before alpha.
+
+[TARGET MESSAGE]
+12:01:00 · Synthetic Target (5001)
+↪ replies to Synthetic Peer One · 12:00:00 · "Synthetic fixture context before alpha."
+Synthetic fixture target alpha replies to context.
+
+[CONTEXT AFTER]
+12:02:00 · Synthetic Peer Two (5102)
+Synthetic fixture context after alpha.
+
+------------------------------------------------------------
+CONTEXT BLOCK #0002 · 2026-01-02
+TARGET: Synthetic Target (5001)
+CHAT: multiple chats
+TIME RANGE: 13:00:00-13:01:00
+TARGET MESSAGES: 2
+------------------------------------------------------------
+
+[REPLIED MESSAGE]
+↪ missing reply #2999
+
+[CONTEXT BEFORE]
+None
+
+[TARGET MESSAGES]
+13:00:00 · Synthetic Target (5001)
+↪ missing reply #2999
+Synthetic fixture beta missing reply target.
+
+13:01:00 · Synthetic Target (5001)
+Synthetic fixture beta metadata-only media target.
+
+[CONTEXT AFTER]
+None

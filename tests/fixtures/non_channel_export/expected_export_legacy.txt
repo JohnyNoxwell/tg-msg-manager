@@ -1,0 +1,23 @@
+
+
+==================== 01 January 2026 ====================
+
+[12:00:00] <Synthetic Peer One (5101)>:
+        Synthetic fixture context before alpha.
+
+[12:01:00] <Synthetic Target (5001)>:
+        re: "Synthetic fixture context before alpha."
+        Synthetic fixture target alpha replies to context.
+
+[12:02:00] <Synthetic Peer Two (5102)>:
+        Synthetic fixture context after alpha.
+
+
+
+==================== 02 January 2026 ====================
+
+[13:00:00] <Synthetic Target (5001)>:
+        [reply_to: 2999 - original message not found in local DB]
+        Synthetic fixture beta missing reply target.
+
+        Synthetic fixture beta metadata-only media target.

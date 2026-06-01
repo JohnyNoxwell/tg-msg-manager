@@ -26,6 +26,7 @@ Architecture docs are stable references for repository boundaries, storage/model
 - [`POST_PROCESSING_BOUNDARY.md`](POST_PROCESSING_BOUNDARY.md) - external post-processing boundary after export, validation, inspection, and doctor reports.
 - [`STATIC_DATASET_SUMMARY_REPORT_DESIGN.md`](STATIC_DATASET_SUMMARY_REPORT_DESIGN.md) - docs-only design for a future external static dataset summary report.
 - [`NON_CHANNEL_EXPORT_CONTRACT_DESIGN.md`](NON_CHANNEL_EXPORT_CONTRACT_DESIGN.md) - design/precheck for future user/group `export` and `db-export` contract work; not a final contract.
+- [`NON_CHANNEL_EXPORT_CONTRACT_V1.md`](NON_CHANNEL_EXPORT_CONTRACT_V1.md) - draft contract for current user/group `export` and `db-export` artifacts under `DB_EXPORTS/`.
 - [`STATE_AND_INCREMENTAL_MODEL.md`](STATE_AND_INCREMENTAL_MODEL.md) - direct channel export state and incremental consistency model.
 - [`TXT_RENDERING.md`](TXT_RENDERING.md) - TXT profile projection boundary for user/group export.
 

@@ -6,10 +6,7 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- [`active/stage_5i_0_non_channel_synthetic_fixtures_stage_files.md`](active/stage_5i_0_non_channel_synthetic_fixtures_stage_files.md)
-- [`active/stage_5i_1_user_db_export_synthetic_fixture_implementation.md`](active/stage_5i_1_user_db_export_synthetic_fixture_implementation.md)
-- [`active/stage_5i_2_non_channel_contract_test_plan.md`](active/stage_5i_2_non_channel_contract_test_plan.md)
-- [`active/stage_5i_3_non_channel_export_contract_v1_draft.md`](active/stage_5i_3_non_channel_export_contract_v1_draft.md)
+- None.
 
 Stage 4C.0 Unit A is recorded in [`reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md`](reports/STAGE_4C_0_STRUCTURAL_DECOMPOSITION_REPORT.md).
 Stage 4C.0B is recorded in [`reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md`](reports/STAGE_4C_0B_CHANNEL_EXPORT_WORKFLOW_SPLIT_REPORT.md).
@@ -55,6 +52,10 @@ Stage 5H.0 changelog / release notes refresh precheck is recorded in [`reports/S
 Stage 5H.1 non-channel export contract design precheck is recorded in [`reports/STAGE_5H_1_NON_CHANNEL_EXPORT_CONTRACT_DESIGN_PRECHECK_REPORT.md`](reports/STAGE_5H_1_NON_CHANNEL_EXPORT_CONTRACT_DESIGN_PRECHECK_REPORT.md).
 Stage 5H.2 user + DB export synthetic fixtures plan is recorded in [`reports/STAGE_5H_2_USER_DB_EXPORT_SYNTHETIC_FIXTURES_PLAN_REPORT.md`](reports/STAGE_5H_2_USER_DB_EXPORT_SYNTHETIC_FIXTURES_PLAN_REPORT.md).
 Stage 5H.3 private archive contract deferred decision is recorded in [`reports/STAGE_5H_3_PRIVATE_ARCHIVE_CONTRACT_DEFERRED_DECISION_REPORT.md`](reports/STAGE_5H_3_PRIVATE_ARCHIVE_CONTRACT_DEFERRED_DECISION_REPORT.md).
+Stage 5I.0 non-channel synthetic fixtures stage files is recorded in [`reports/STAGE_5I_0_NON_CHANNEL_SYNTHETIC_FIXTURES_STAGE_FILES_REPORT.md`](reports/STAGE_5I_0_NON_CHANNEL_SYNTHETIC_FIXTURES_STAGE_FILES_REPORT.md).
+Stage 5I.1 user/db export synthetic fixture implementation is recorded in [`reports/STAGE_5I_1_USER_DB_EXPORT_SYNTHETIC_FIXTURE_IMPLEMENTATION_REPORT.md`](reports/STAGE_5I_1_USER_DB_EXPORT_SYNTHETIC_FIXTURE_IMPLEMENTATION_REPORT.md).
+Stage 5I.2 non-channel contract test plan is recorded in [`reports/STAGE_5I_2_NON_CHANNEL_CONTRACT_TEST_PLAN_REPORT.md`](reports/STAGE_5I_2_NON_CHANNEL_CONTRACT_TEST_PLAN_REPORT.md).
+Stage 5I.3 non-channel export contract v1 draft is recorded in [`reports/STAGE_5I_3_NON_CHANNEL_EXPORT_CONTRACT_V1_DRAFT_REPORT.md`](reports/STAGE_5I_3_NON_CHANNEL_EXPORT_CONTRACT_V1_DRAFT_REPORT.md).
 
 The [`active/`](active/) directory must contain only unfinished or next active work. Do not leave completed stage task files, general launch prompts, prompt packs, or historical records there.
 
@@ -126,6 +127,26 @@ Current completed prompt groups:
 - Stage 5H.1 non-channel export contract design precheck task prompt.
 - Stage 5H.2 user + DB export synthetic fixtures plan task prompt.
 - Stage 5H.3 private archive contract deferred decision task prompt.
+- Stage 5I.0 non-channel synthetic fixtures stage files task prompt.
+- Stage 5I.1 user/db export synthetic fixture implementation task prompt.
+- Stage 5I.2 non-channel contract test plan task prompt.
+- Stage 5I.3 non-channel export contract v1 draft task prompt.
+
+Stage 5I.3 non-channel export contract v1 draft task files:
+
+- [`completed/stage_5i_3_non_channel_export_contract_v1_draft.md`](completed/stage_5i_3_non_channel_export_contract_v1_draft.md)
+
+Stage 5I.2 non-channel contract test plan task files:
+
+- [`completed/stage_5i_2_non_channel_contract_test_plan.md`](completed/stage_5i_2_non_channel_contract_test_plan.md)
+
+Stage 5I.1 user/db export synthetic fixture implementation task files:
+
+- [`completed/stage_5i_1_user_db_export_synthetic_fixture_implementation.md`](completed/stage_5i_1_user_db_export_synthetic_fixture_implementation.md)
+
+Stage 5I.0 non-channel synthetic fixtures stage files task files:
+
+- [`completed/stage_5i_0_non_channel_synthetic_fixtures_stage_files.md`](completed/stage_5i_0_non_channel_synthetic_fixtures_stage_files.md)
 
 Stage 5H.3 private archive contract deferred decision task files:
 
