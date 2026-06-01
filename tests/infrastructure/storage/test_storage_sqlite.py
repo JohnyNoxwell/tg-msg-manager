@@ -6,6 +6,7 @@ import time
 import unittest
 from contextlib import suppress
 from datetime import datetime
+from unittest.mock import Mock, patch
 
 # Add project root to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -18,6 +19,8 @@ from tg_msg_manager.infrastructure.storage.interface import (
     ExportStorage,
     PrivateArchiveStorage,
 )
+from tg_msg_manager.infrastructure.storage import _sqlite_schema as sqlite_schema_module
+from tg_msg_manager.infrastructure.storage._sqlite_schema import SQLiteSchemaMixin
 from tg_msg_manager.infrastructure.storage.link_types import (
     CONTEXT_ALGO_REPLY_CONTEXT_V1,
     CONTEXT_LINK_REPLY_PARENT,
@@ -38,6 +41,145 @@ from tg_msg_manager.infrastructure.storage.records import (
     UserExportSummary,
 )
 from tg_msg_manager.infrastructure.storage.sqlite import SQLiteStorage
+from tg_msg_manager.infrastructure.storage.schema.migrations import run_migrations
+
+
+class TestSQLiteSchemaSplitHelpers(unittest.TestCase):
+    def test_run_migrations_uses_extracted_callbacks_in_order_from_version_9(self):
+        conn = sqlite3.connect(":memory:")
+        conn.execute("PRAGMA user_version = 9")
+        calls = []
+
+        def recorder(name):
+            def callback(*args, **kwargs):
+                calls.append(name)
+                if name == "sync_targets_has_composite_primary_key":
+                    return True
+                return None
+
+            return callback
+
+        run_migrations(
+            conn,
+            migrate_existing_links=recorder("migrate_existing_links"),
+            sync_targets_has_composite_primary_key=recorder(
+                "sync_targets_has_composite_primary_key"
+            ),
+            migrate_sync_targets_to_composite_pk=recorder(
+                "migrate_sync_targets_to_composite_pk"
+            ),
+            ensure_user_identity_schema=recorder("ensure_user_identity_schema"),
+            create_user_identity_indexes=recorder("create_user_identity_indexes"),
+            backfill_user_identity_state=recorder("backfill_user_identity_state"),
+            migrate_message_context_links_to_chat_safe=recorder(
+                "migrate_message_context_links_to_chat_safe"
+            ),
+            migrate_message_target_links_metadata=recorder(
+                "migrate_message_target_links_metadata"
+            ),
+            backfill_export_targets=recorder("backfill_export_targets"),
+            create_export_runs_table=recorder("create_export_runs_table"),
+            create_export_runs_indexes=recorder("create_export_runs_indexes"),
+            create_missing_reply_refs_table=recorder("create_missing_reply_refs_table"),
+            create_missing_reply_ref_indexes=recorder(
+                "create_missing_reply_ref_indexes"
+            ),
+            backfill_missing_reply_refs=recorder("backfill_missing_reply_refs"),
+            normalize_context_link_types=recorder("normalize_context_link_types"),
+            create_context_link_indexes=recorder("create_context_link_indexes"),
+            reclassify_target_link_types=recorder("reclassify_target_link_types"),
+            ensure_export_target_columns=recorder("ensure_export_target_columns"),
+        )
+
+        version = conn.execute("PRAGMA user_version").fetchone()[0]
+
+        self.assertEqual(
+            calls,
+            [
+                "create_export_runs_table",
+                "create_export_runs_indexes",
+                "create_missing_reply_refs_table",
+                "create_missing_reply_ref_indexes",
+                "backfill_missing_reply_refs",
+                "normalize_context_link_types",
+                "create_context_link_indexes",
+                "reclassify_target_link_types",
+                "ensure_export_target_columns",
+            ],
+        )
+        self.assertEqual(version, 14)
+
+    def test_schema_mixin_keeps_stage2_methods_as_delegating_wrappers(self):
+        mixin = SQLiteSchemaMixin()
+        conn = Mock(name="conn")
+        write_transaction = Mock(name="write_transaction")
+        mixin._conn = conn
+        mixin._write_transaction = write_transaction
+        mixin._ensure_user_identity_schema = Mock()
+        mixin._create_user_identity_indexes = Mock()
+        mixin._backfill_user_identity_state = Mock()
+
+        with (
+            patch.object(sqlite_schema_module, "run_migrations") as run_migrations_mock,
+            patch.object(
+                sqlite_schema_module, "ensure_sync_target_columns"
+            ) as ensure_sync_mock,
+            patch.object(
+                sqlite_schema_module, "ensure_export_target_columns"
+            ) as ensure_export_mock,
+            patch.object(
+                sqlite_schema_module, "ensure_retry_queue_columns"
+            ) as ensure_retry_mock,
+            patch.object(
+                sqlite_schema_module, "migrate_message_context_links_to_chat_safe"
+            ) as context_migration_mock,
+            patch.object(
+                sqlite_schema_module, "migrate_message_target_links_metadata"
+            ) as target_migration_mock,
+            patch.object(
+                sqlite_schema_module, "normalize_context_link_types"
+            ) as normalize_context_mock,
+            patch.object(
+                sqlite_schema_module, "reclassify_target_link_types"
+            ) as reclassify_target_mock,
+            patch.object(
+                sqlite_schema_module, "backfill_export_targets"
+            ) as backfill_export_mock,
+            patch.object(
+                sqlite_schema_module, "backfill_missing_reply_refs"
+            ) as backfill_missing_mock,
+            patch.object(
+                sqlite_schema_module, "migrate_sync_targets_to_composite_pk"
+            ) as composite_pk_mock,
+            patch.object(
+                sqlite_schema_module, "migrate_existing_links"
+            ) as migrate_existing_mock,
+        ):
+            mixin._ensure_sync_target_columns(conn)
+            mixin._ensure_export_target_columns(conn)
+            mixin._ensure_retry_queue_columns(conn)
+            mixin._run_migrations(conn)
+            mixin._migrate_message_context_links_to_chat_safe(conn)
+            mixin._migrate_message_target_links_metadata(conn)
+            mixin._normalize_context_link_types(conn)
+            mixin._reclassify_target_link_types(conn)
+            mixin._backfill_export_targets(conn)
+            mixin._backfill_missing_reply_refs(conn)
+            mixin._migrate_sync_targets_to_composite_pk()
+            mixin.migrate_existing_links()
+
+        ensure_sync_mock.assert_called_once_with(conn)
+        ensure_export_mock.assert_called_once_with(conn)
+        ensure_retry_mock.assert_called_once_with(conn)
+        context_migration_mock.assert_called_once_with(conn)
+        target_migration_mock.assert_called_once_with(conn)
+        normalize_context_mock.assert_called_once_with(conn)
+        reclassify_target_mock.assert_called_once_with(conn)
+        backfill_export_mock.assert_called_once_with(conn)
+        backfill_missing_mock.assert_called_once_with(conn)
+        composite_pk_mock.assert_called_once_with(conn)
+        migrate_existing_mock.assert_called_once_with(write_transaction)
+        run_migrations_mock.assert_called_once()
 
 
 class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):

@@ -1,76 +1,171 @@
 # SQLite Schema Split Map
 
-Stage: 5B.5
-Scope: documentation-only decomposition plan for `tg_msg_manager/infrastructure/storage/_sqlite_schema.py`.
+Stage: 5B.5 plan; Stage 5D.0 Stage 1 split applied; Stage 5E.1 Stage 2 migration helper extraction applied.
+Scope: decomposition map for `tg_msg_manager/infrastructure/storage/_sqlite_schema.py` and the schema helper package.
 
-This map records current responsibilities before any future split. It does not authorize schema behavior changes, migrations, index changes, table changes, or `PRAGMA user_version` changes.
+This map records current responsibilities after the Stage 5E.1 mechanical extraction. It does not authorize schema behavior changes, migrations, index changes, table changes, or `PRAGMA user_version` changes.
 
 ## Current File
 
 - `tg_msg_manager/infrastructure/storage/_sqlite_schema.py`
+- `tg_msg_manager/infrastructure/storage/schema/tables.py`
+- `tg_msg_manager/infrastructure/storage/schema/indexes.py`
+- `tg_msg_manager/infrastructure/storage/schema/inspection.py`
+- `tg_msg_manager/infrastructure/storage/schema/migrations.py`
+- `tg_msg_manager/infrastructure/storage/schema/compat.py`
+- `tg_msg_manager/infrastructure/storage/schema/backfills.py`
 - Current mixin: `SQLiteSchemaMixin`
 - Current caller: `tg_msg_manager/infrastructure/storage/sqlite.py::SQLiteStorage`
 - Current tests with schema and migration coverage: `tests/infrastructure/storage/test_storage_sqlite.py`
 
 ## Current Responsibility Map
 
-- `SQLiteSchemaMixin` (`20-1175`): schema initialization, compatibility migrations, migration backfills, schema inspection helpers, and legacy link population.
-- `_init_db` (`21-35`): initialization sequence; creates base tables, applies compatibility column ensures, creates indexes, runs migrations, commits.
-- `_create_tables` (`36-182`): base table creation for messages, users, chats, context links, target links, sync state, retry queue, sync targets, export targets, export runs, and missing reply refs.
-- `_create_indexes` (`183-215`): top-level index creation and delegation to context link, target link, missing reply ref, and user identity indexes.
-- `_ensure_sync_target_columns` (`216-229`): compatibility column additions for legacy `sync_targets` databases.
-- `_ensure_export_target_columns` (`230-246`): compatibility column additions for legacy `export_targets` databases.
-- `_ensure_retry_queue_columns` (`247-262`): compatibility column additions for legacy `retry_queue` databases.
-- `_run_migrations` (`263-422`): ordered versioned migration coordinator from `user_version` 2 through 14.
-- `_create_context_link_indexes` (`423-444`): context link index creation gated by chat-safe schema inspection.
-- `_create_target_link_indexes` (`445-466`): target link index creation gated by chat-safe schema inspection.
-- `_create_missing_reply_ref_indexes` (`467-480`): missing reply reference index creation.
-- `_context_links_has_chat_scope` (`481-489`): schema inspection for chat-safe context link columns.
-- `_target_links_has_chat_scope` (`490-498`): schema inspection for chat-safe target link columns.
-- `_target_links_has_metadata` (`499-509`): schema inspection for target link metadata columns.
-- `_migrate_message_context_links_to_chat_safe` (`510-657`): compatibility migration helper for legacy context link rows and backup table creation.
-- `_normalize_context_link_types` (`658-695`): migration data normalization for context link type and algorithm values.
-- `_migrate_message_target_links_metadata` (`696-828`): compatibility migration helper for target link metadata and backup table creation.
-- `_reclassify_target_link_types` (`829-865`): migration data reclassification for target link semantics.
-- `_resolve_legacy_context_link_chat_id` (`866-901`): legacy context link chat resolution helper.
-- `_resolve_legacy_target_link_chat_id` (`902-932`): legacy target link chat resolution helper.
-- `_table_exists` (`933-943`): schema inspection helper.
-- `_backfill_export_targets` (`944-978`): export target state backfill from sync targets and users.
-- `_create_export_runs_table` (`979-996`): export runs table creation used by migrations and base schema setup.
-- `_create_export_runs_indexes` (`997-1010`): export runs index creation used by migrations and base schema setup.
-- `_create_missing_reply_refs_table` (`1011-1024`): missing reply refs table creation used by migrations and base schema setup.
-- `_backfill_missing_reply_refs` (`1025-1051`): missing reply refs backfill from orphan reply relationships.
-- `_migrate_sync_targets_to_composite_pk` (`1052-1098`): compatibility migration helper for composite primary key conversion.
-- `_sync_targets_has_composite_primary_key` (`1099-1110`): schema inspection helper for `sync_targets` primary key shape.
-- `migrate_existing_links` (`1111-1175`): compatibility migration helper that populates `message_target_links` for existing messages.
+- `SQLiteSchemaMixin` (`37-180`): schema initialization and thin compatibility delegation surface.
+- `_init_db` (`38-52`): initialization sequence; creates base tables, applies compatibility column ensures, creates indexes, runs migrations, commits.
+- `_create_tables` (`53-54`): delegates base table creation to `schema/tables.py`.
+- `_create_indexes` (`56-57`): delegates top-level index creation to `schema/indexes.py` while preserving user identity index callback order.
+- `_ensure_sync_target_columns` (`59-60`): delegates legacy `sync_targets` compatibility columns to `schema/compat.py`.
+- `_ensure_export_target_columns` (`62-63`): delegates legacy `export_targets` artifact metadata columns to `schema/compat.py`.
+- `_ensure_retry_queue_columns` (`65-66`): delegates legacy `retry_queue` lifecycle columns to `schema/compat.py`.
+- `_run_migrations` (`68-97`): delegates ordered migration coordination to `schema/migrations.py`.
+- `_create_context_link_indexes` (`99-100`): delegates to `schema/indexes.py`.
+- `_create_target_link_indexes` (`102-103`): delegates to `schema/indexes.py`.
+- `_create_missing_reply_ref_indexes` (`105-106`): delegates to `schema/indexes.py`.
+- `_context_links_has_chat_scope` (`108-109`): delegates to `schema/inspection.py`.
+- `_target_links_has_chat_scope` (`111-112`): delegates to `schema/inspection.py`.
+- `_target_links_has_metadata` (`114-115`): delegates to `schema/inspection.py`.
+- `_migrate_message_context_links_to_chat_safe` (`117-118`): delegates legacy context link rewrite to `schema/compat.py`.
+- `_normalize_context_link_types` (`120-121`): delegates context link normalization to `schema/backfills.py`.
+- `_migrate_message_target_links_metadata` (`123-124`): delegates legacy target link rewrite to `schema/compat.py`.
+- `_reclassify_target_link_types` (`126-127`): delegates target link reclassification to `schema/backfills.py`.
+- `_resolve_legacy_context_link_chat_id` (`129-140`): delegates legacy context link chat resolution to `schema/compat.py`.
+- `_resolve_legacy_target_link_chat_id` (`142-148`): delegates legacy target link chat resolution to `schema/compat.py`.
+- `_table_exists` (`150-151`): delegates to `schema/inspection.py`.
+- `_backfill_export_targets` (`153-154`): delegates export target state backfill to `schema/backfills.py`.
+- `_create_export_runs_table` (`156-157`): delegates to `schema/tables.py`.
+- `_create_export_runs_indexes` (`159-160`): delegates to `schema/indexes.py`.
+- `_create_missing_reply_refs_table` (`162-163`): delegates to `schema/tables.py`.
+- `_backfill_missing_reply_refs` (`165-166`): delegates missing reply refs backfill to `schema/backfills.py`.
+- `_migrate_sync_targets_to_composite_pk` (`168-170`): delegates composite primary key conversion to `schema/compat.py`.
+- `_sync_targets_has_composite_primary_key` (`172-174`): delegates to `schema/inspection.py`.
+- `migrate_existing_links` (`176-180`): delegates legacy target link population to `schema/compat.py`.
+- `schema/tables.py`: extracted Stage 1 table creation for base tables, `export_runs`, and `missing_reply_refs`.
+- `schema/indexes.py`: extracted Stage 1 index creation for top-level, context link, target link, missing reply ref, and export run indexes.
+- `schema/inspection.py`: extracted Stage 1 schema inspection helpers.
+- `schema/migrations.py`: extracted Stage 2 migration coordinator for `PRAGMA user_version` 2 through 14.
+- `schema/compat.py`: extracted Stage 2 compatibility column ensures, legacy table rewrite helpers, legacy chat-id resolution helpers, composite primary key migration, and legacy target-link population.
+- `schema/backfills.py`: extracted Stage 2 data backfills and normalization/reclassification helpers.
+
+## Stage 5E.0 Precheck Inventory
+
+Baseline verification before this docs update:
+
+- `python3 -m pytest tests/infrastructure/storage/test_storage_sqlite.py -q`: passed, 42 passed.
+- `python3 -m pytest tests/architecture/test_architecture_wrappers.py -q`: passed, 8 passed, 4 subtests passed.
+
+Remaining non-Stage-1 logic in `SQLiteSchemaMixin` is limited to initialization orchestration, compatibility column ensures, versioned migration coordination, migration/backfill helpers, and thin wrappers around already extracted schema helpers.
+
+Current migration, compatibility, and backfill methods still owned by `SQLiteSchemaMixin`:
+
+- `_ensure_sync_target_columns(conn)`: legacy `sync_targets` compatibility columns.
+- `_ensure_export_target_columns(conn)`: legacy `export_targets` artifact metadata columns.
+- `_ensure_retry_queue_columns(conn)`: legacy `retry_queue` lifecycle columns.
+- `_run_migrations(conn)`: migration coordinator for `PRAGMA user_version` 2 through 14.
+- `_migrate_message_context_links_to_chat_safe(conn)`: legacy context link table rewrite and backup handling.
+- `_normalize_context_link_types(conn)`: context link type and algorithm normalization.
+- `_migrate_message_target_links_metadata(conn)`: legacy target link metadata rewrite and backup handling.
+- `_reclassify_target_link_types(conn)`: target link semantic reclassification.
+- `_resolve_legacy_context_link_chat_id(conn, *, message_id, context_message_id)`: currently unused legacy resolution helper.
+- `_resolve_legacy_target_link_chat_id(conn, *, message_id)`: currently unused legacy resolution helper.
+- `_backfill_export_targets(conn)`: export target state backfill.
+- `_backfill_missing_reply_refs(conn)`: missing reply refs backfill.
+- `_migrate_sync_targets_to_composite_pk()`: legacy `sync_targets` primary key rewrite with existing commit behavior.
+- `migrate_existing_links()`: legacy target link population through `_write_transaction()`.
+
+## Stage 5E.1 Extraction Plan
+
+Stage 5E.1 moved only the following methods, preserving SQL semantics, backup table names, exception messages, logging strings, `PRAGMA user_version` assignments, and commit behavior:
+
+- `_run_migrations` -> `schema/migrations.py::run_migrations`.
+- `_ensure_sync_target_columns` -> `schema/compat.py::ensure_sync_target_columns`.
+- `_ensure_export_target_columns` -> `schema/compat.py::ensure_export_target_columns`.
+- `_ensure_retry_queue_columns` -> `schema/compat.py::ensure_retry_queue_columns`.
+- `_migrate_message_context_links_to_chat_safe` -> `schema/compat.py::migrate_message_context_links_to_chat_safe`.
+- `_migrate_message_target_links_metadata` -> `schema/compat.py::migrate_message_target_links_metadata`.
+- `_resolve_legacy_context_link_chat_id` -> `schema/compat.py::resolve_legacy_context_link_chat_id`.
+- `_resolve_legacy_target_link_chat_id` -> `schema/compat.py::resolve_legacy_target_link_chat_id`.
+- `_migrate_sync_targets_to_composite_pk` -> `schema/compat.py::migrate_sync_targets_to_composite_pk`.
+- `migrate_existing_links` -> `schema/compat.py::migrate_existing_links`.
+- `_backfill_export_targets` -> `schema/backfills.py::backfill_export_targets`.
+- `_backfill_missing_reply_refs` -> `schema/backfills.py::backfill_missing_reply_refs`.
+- `_normalize_context_link_types` -> `schema/backfills.py::normalize_context_link_types`.
+- `_reclassify_target_link_types` -> `schema/backfills.py::reclassify_target_link_types`.
+
+Stage 5E.1 created or changed only these runtime modules for extraction:
+
+- `tg_msg_manager/infrastructure/storage/schema/migrations.py`
+- `tg_msg_manager/infrastructure/storage/schema/compat.py`
+- `tg_msg_manager/infrastructure/storage/schema/backfills.py`
+- `tg_msg_manager/infrastructure/storage/schema/__init__.py`
+- `tg_msg_manager/infrastructure/storage/_sqlite_schema.py`
+
+Stage 5E.1 kept `SQLiteSchemaMixin` as the compatibility surface. The mixin methods listed above remain thin delegating wrappers.
+
+Allowed extracted helper signatures:
+
+- `run_migrations(conn: sqlite3.Connection, *, migrate_existing_links, sync_targets_has_composite_primary_key, migrate_sync_targets_to_composite_pk, ensure_user_identity_schema, create_user_identity_indexes, backfill_user_identity_state, migrate_message_context_links_to_chat_safe, migrate_message_target_links_metadata, backfill_export_targets, create_export_runs_table, create_export_runs_indexes, create_missing_reply_refs_table, create_missing_reply_ref_indexes, backfill_missing_reply_refs, normalize_context_link_types, create_context_link_indexes, reclassify_target_link_types, ensure_export_target_columns) -> None`
+- `ensure_sync_target_columns(conn: sqlite3.Connection) -> None`
+- `ensure_export_target_columns(conn: sqlite3.Connection) -> None`
+- `ensure_retry_queue_columns(conn: sqlite3.Connection) -> None`
+- `migrate_message_context_links_to_chat_safe(conn: sqlite3.Connection) -> None`
+- `migrate_message_target_links_metadata(conn: sqlite3.Connection) -> None`
+- `resolve_legacy_context_link_chat_id(conn: sqlite3.Connection, *, message_id: int, context_message_id: int) -> int`
+- `resolve_legacy_target_link_chat_id(conn: sqlite3.Connection, *, message_id: int) -> int`
+- `migrate_sync_targets_to_composite_pk(conn: sqlite3.Connection) -> None`
+- `migrate_existing_links(write_transaction) -> None`
+- `backfill_export_targets(conn: sqlite3.Connection) -> None`
+- `backfill_missing_reply_refs(conn: sqlite3.Connection) -> None`
+- `normalize_context_link_types(conn: sqlite3.Connection) -> None`
+- `reclassify_target_link_types(conn: sqlite3.Connection) -> None`
+
+Delegation rules for Stage 5E.1:
+
+- `_init_db` ordering must remain unchanged.
+- `_run_migrations` wrapper must delegate once to `schema/migrations.py::run_migrations` with callbacks; it must not inline new migration logic.
+- Extracted `run_migrations` must use the initial `current_version` exactly as today and must not recompute it between migration branches.
+- `migrate_sync_targets_to_composite_pk` must preserve the internal `conn.commit()` and cleanup-on-error behavior.
+- `migrate_existing_links` must receive the existing write transaction provider and preserve the transaction boundary.
+- Extracted compatibility/backfill helpers may import sibling `schema` inspection/index helpers and storage link type constants only; they must not import services, CLI, or dataset modules.
+- `schema/__init__.py` may re-export new helper names only for storage schema delegation.
+- No Stage 5E.1 change may alter table SQL, index SQL, migration SQL, backup table names, exception strings, log strings, `PRAGMA user_version`, storage interfaces, CLI behavior, dataset format, or private SQLite database contents.
 
 ## Future Module Boundaries
 
 Keep `SQLiteSchemaMixin` as the compatibility import surface during a split-only stage. It should contain only delegation and initialization ordering after the split.
 
-- `tg_msg_manager/infrastructure/storage/schema/tables.py`
+- `tg_msg_manager/infrastructure/storage/schema/tables.py` (Stage 5D.0 complete)
   - Category: table creation.
-  - Owns future extraction of `_create_tables`, `_create_export_runs_table`, and `_create_missing_reply_refs_table`.
+  - Owns extracted `create_tables`, `create_export_runs_table`, and `create_missing_reply_refs_table`.
 
-- `tg_msg_manager/infrastructure/storage/schema/indexes.py`
+- `tg_msg_manager/infrastructure/storage/schema/indexes.py` (Stage 5D.0 complete)
   - Category: index creation.
-  - Owns future extraction of `_create_indexes`, `_create_context_link_indexes`, `_create_target_link_indexes`, `_create_missing_reply_ref_indexes`, and `_create_export_runs_indexes`.
+  - Owns extracted `create_indexes`, `create_context_link_indexes`, `create_target_link_indexes`, `create_missing_reply_ref_indexes`, and `create_export_runs_indexes`.
 
-- `tg_msg_manager/infrastructure/storage/schema/migrations.py`
+- `tg_msg_manager/infrastructure/storage/schema/migrations.py` (Stage 5E.1 complete)
   - Category: versioned migrations.
-  - Owns future extraction of `_run_migrations` and preserves the exact migration sequence.
+  - Owns extracted `run_migrations` and preserves the exact migration sequence.
 
-- `tg_msg_manager/infrastructure/storage/schema/compat.py`
+- `tg_msg_manager/infrastructure/storage/schema/compat.py` (Stage 5E.1 complete)
   - Category: compatibility migration helpers.
-  - Owns future extraction of `_ensure_sync_target_columns`, `_ensure_export_target_columns`, `_ensure_retry_queue_columns`, `_migrate_message_context_links_to_chat_safe`, `_migrate_message_target_links_metadata`, `_migrate_sync_targets_to_composite_pk`, `_resolve_legacy_context_link_chat_id`, `_resolve_legacy_target_link_chat_id`, and `migrate_existing_links`.
+  - Owns extracted `ensure_sync_target_columns`, `ensure_export_target_columns`, `ensure_retry_queue_columns`, `migrate_message_context_links_to_chat_safe`, `migrate_message_target_links_metadata`, `migrate_sync_targets_to_composite_pk`, `resolve_legacy_context_link_chat_id`, `resolve_legacy_target_link_chat_id`, and `migrate_existing_links`.
 
-- `tg_msg_manager/infrastructure/storage/schema/backfills.py`
+- `tg_msg_manager/infrastructure/storage/schema/backfills.py` (Stage 5E.1 complete)
   - Category: backfills.
-  - Owns future extraction of `_backfill_export_targets`, `_backfill_missing_reply_refs`, `_normalize_context_link_types`, and `_reclassify_target_link_types`.
+  - Owns extracted `backfill_export_targets`, `backfill_missing_reply_refs`, `normalize_context_link_types`, and `reclassify_target_link_types`.
 
-- `tg_msg_manager/infrastructure/storage/schema/inspection.py`
+- `tg_msg_manager/infrastructure/storage/schema/inspection.py` (Stage 5D.0 complete)
   - Category: schema inspection helpers.
-  - Owns future extraction of `_context_links_has_chat_scope`, `_target_links_has_chat_scope`, `_target_links_has_metadata`, `_table_exists`, and `_sync_targets_has_composite_primary_key`.
+  - Owns extracted `context_links_has_chat_scope`, `target_links_has_chat_scope`, `target_links_has_metadata`, `table_exists`, and `sync_targets_has_composite_primary_key`.
 
 ## Split-Only Constraints
 

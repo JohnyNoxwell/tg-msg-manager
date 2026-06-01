@@ -318,6 +318,59 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
                 (result.manifest_path.parent / "discussion_comments.jsonl").exists()
             )
 
+    async def test_include_jsonl_false_does_not_create_disabled_payload(self):
+        entity = FakeChannelEntity()
+        client = FakeChannelClient(entity, [make_message(1, text="First")])
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_no_jsonl_"
+        ) as tmpdir:
+            result = await ChannelExportService(
+                client=client,
+                base_dir=Path(tmpdir),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                    include_jsonl=False,
+                )
+            )
+
+            manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+
+            self.assertNotIn(
+                "messages.jsonl",
+                manifest["export"]["included_files"],
+            )
+            self.assertFalse(result.messages_jsonl_path.exists())
+            self.assertTrue(result.messages_txt_path.exists())
+
+    async def test_include_txt_false_does_not_create_disabled_payload(self):
+        entity = FakeChannelEntity()
+        client = FakeChannelClient(entity, [make_message(1, text="First")])
+
+        with tempfile.TemporaryDirectory(prefix="tg_channel_service_no_txt_") as tmpdir:
+            result = await ChannelExportService(
+                client=client,
+                base_dir=Path(tmpdir),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=Path(tmpdir),
+                    include_txt=False,
+                )
+            )
+
+            manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+
+            self.assertNotIn("messages.txt", manifest["export"]["included_files"])
+            self.assertTrue(result.messages_jsonl_path.exists())
+            self.assertFalse(result.messages_txt_path.exists())
+
     async def test_discussion_full_writes_dataset_files_state_and_manifest_summary(
         self,
     ):
@@ -996,6 +1049,114 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(exported_ids, [2])
             self.assertEqual(result.message_count, 1)
 
+    async def test_run_mode_matrix_records_changelog_and_state_contracts(self):
+        entity = FakeChannelEntity()
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_run_matrix_"
+        ) as tmpdir:
+            output_dir = Path(tmpdir)
+
+            full_result = await ChannelExportService(
+                client=FakeChannelClient(
+                    entity,
+                    [make_message(1, text="First"), make_message(2, text="Second")],
+                ),
+                base_dir=output_dir,
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=output_dir,
+                )
+            )
+            force_result = await ChannelExportService(
+                client=FakeChannelClient(entity, [make_message(5, text="Forced")]),
+                base_dir=output_dir,
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=output_dir,
+                    force=True,
+                )
+            )
+            incremental_result = await ChannelExportService(
+                client=FakeChannelClient(
+                    entity,
+                    [
+                        make_message(5, text="Forced"),
+                        make_message(6, text="New"),
+                        make_message(7, text="Newest"),
+                    ],
+                ),
+                base_dir=output_dir,
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=output_dir,
+                )
+            )
+            state_before_no_new = incremental_result.state_path.read_text(
+                encoding="utf-8"
+            )
+            no_new_result = await ChannelExportService(
+                client=FakeChannelClient(
+                    entity,
+                    [
+                        make_message(5, text="Forced"),
+                        make_message(6, text="New"),
+                        make_message(7, text="Newest"),
+                    ],
+                ),
+                base_dir=output_dir,
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="metadata",
+                    output_dir=output_dir,
+                )
+            )
+
+            changelog = [
+                json.loads(line)
+                for line in (
+                    incremental_result.manifest_path.parent / "run_changelog.jsonl"
+                )
+                .read_text(encoding="utf-8")
+                .splitlines()
+            ]
+            state = json.loads(incremental_result.state_path.read_text(encoding="utf-8"))
+
+            self.assertEqual(full_result.run_mode, "full")
+            self.assertEqual(force_result.run_mode, "force_full")
+            self.assertEqual(incremental_result.run_mode, "incremental")
+            self.assertEqual(no_new_result.run_mode, "incremental")
+            self.assertEqual(no_new_result.posts_exported_this_run, 0)
+            self.assertEqual(
+                [row["run_mode"] for row in changelog],
+                ["full", "force_full", "incremental", "incremental"],
+            )
+            self.assertEqual(
+                [row["new_message_ids"] for row in changelog],
+                [[1, 2], [5], [6, 7], []],
+            )
+            self.assertEqual(
+                [(row["previous_cursor"], row["new_cursor"]) for row in changelog],
+                [(None, 2), (None, 5), (5, 7), (7, 7)],
+            )
+            self.assertEqual(state["last_exported_message_id"], 7)
+            self.assertEqual(state["message_count_total"], 3)
+            self.assertEqual(
+                incremental_result.state_path.read_text(encoding="utf-8"),
+                state_before_no_new,
+            )
+
     async def test_state_is_not_updated_when_manifest_write_fails(self):
         entity = FakeChannelEntity()
         first_client = FakeChannelClient(entity, [make_message(1, text="First")])
@@ -1568,6 +1729,49 @@ class TestChannelExportService(unittest.IsolatedAsyncioTestCase):
             )
 
             self.assertEqual(client.download_media_calls, 0)
+
+    async def test_media_none_does_not_download_media_or_include_media_directory(self):
+        entity = FakeChannelEntity()
+        client = FakeChannelClient(
+            entity,
+            [
+                make_message(
+                    1,
+                    text="Photo",
+                    media_type="Photo",
+                    media_ref={"mime_type": "image/jpeg", "file_name": "a.jpg"},
+                )
+            ],
+        )
+
+        with tempfile.TemporaryDirectory(
+            prefix="tg_channel_service_media_none_"
+        ) as tmpdir:
+            result = await ChannelExportService(
+                client=client,
+                base_dir=Path(tmpdir),
+            ).export_channel(
+                ChannelExportOptions(
+                    channel="@daily",
+                    limit=None,
+                    media_mode="none",
+                    output_dir=Path(tmpdir),
+                )
+            )
+
+            manifest = json.loads(result.manifest_path.read_text(encoding="utf-8"))
+            messages = [
+                json.loads(line)
+                for line in result.messages_jsonl_path.read_text(
+                    encoding="utf-8"
+                ).splitlines()
+            ]
+
+            self.assertEqual(client.download_media_calls, 0)
+            self.assertEqual(result.media_count, 0)
+            self.assertEqual(messages[0]["media"], [])
+            self.assertIn("media_manifest.jsonl", manifest["export"]["included_files"])
+            self.assertNotIn("media/", manifest["export"]["included_files"])
 
 
 if __name__ == "__main__":

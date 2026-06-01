@@ -95,7 +95,7 @@ raw_payload
 - Produced by: `export-channel`.
 - Write model: overwrite for full/force; copy-append-replace for incremental.
 - No-new-posts: not appended.
-- Notes: TXT is a projection for reading. JSONL/state/manifest remain the structured contract.
+- Notes: TXT is a direct channel projection for reading, not a canonical schema and not a user/group `--txt-profile` output. JSONL/state/manifest remain the structured contract. Tests smoke-check stable markers only.
 
 ### `media_manifest.jsonl`
 
@@ -259,7 +259,7 @@ raw_payload
 - Expected only with `--discussion full`.
 - Produced by: `export-channel --discussion full`.
 - Write model: overwrite for full/force; copy-append-replace for incremental.
-- Notes: TXT projection for discussion comments.
+- Notes: TXT projection for discussion comments. It is a direct channel discussion artifact, not a canonical schema and not a user/group `--txt-profile` output. Tests smoke-check stable markers only.
 
 ### `discussion_threads.jsonl`
 

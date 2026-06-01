@@ -1,4 +1,4 @@
-# 🧹 TG_MSG_MNGR: Advanced Telegram Suite
+# TG_MSG_MNGR: Local Telegram Export/Data CLI
 
 [🇷🇺 Русская версия](#русский) | [🇬🇧 English Version](#english)
 
@@ -7,7 +7,7 @@
 <a id="русский"></a>
 ## 🇷🇺 Русский
 
-**TG_MSG_MNGR** — это мощная экосистема для управления вашим цифровым следом в Telegram. Утилита представляет собой полноценное консольное приложение с интерактивным меню, фокусом на UX, скорость и надежность.
+**TG_MSG_MNGR** — это локальная CLI-утилита и data pipeline для Telegram exports, SQLite-backed sync, очистки собственных сообщений, channel datasets и read-only validation.
 
 ### Quick Reference
 
@@ -31,6 +31,8 @@ python3 -m tg_msg_manager.cli report
 
 - Полная карта документации: [`docs/README.md`](docs/README.md)
 - Справочник команд: [`COMMANDS.md`](COMMANDS.md)
+- Privacy / sensitive artifacts: [`docs/development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md`](docs/development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md)
+- Package identity / version policy: [`docs/development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md`](docs/development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md)
 - Правила для coding agents: [`AGENTS.md`](AGENTS.md)
 
 ### 🚀 Быстрый старт
@@ -242,7 +244,7 @@ Legacy aliases still supported:
 <a id="english"></a>
 ## 🇬🇧 English
 
-**TG_MSG_MNGR** is a high-performance ecosystem for managing your digital footprint on Telegram. The utility features a robust, "app-like" terminal interface focusing on UX, speed, and deterministic data integrity.
+**TG_MSG_MNGR** is a local CLI utility and data pipeline for Telegram exports, SQLite-backed sync, self-message cleanup, channel datasets, and read-only validation.
 
 ### Quick Reference
 
@@ -302,6 +304,8 @@ Core system capabilities:
 
 - Full documentation map: [`docs/README.md`](docs/README.md)
 - Command reference: [`COMMANDS.md`](COMMANDS.md)
+- Privacy / sensitive artifacts: [`docs/development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md`](docs/development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md)
+- Package identity / version policy: [`docs/development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md`](docs/development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md)
 - Coding-agent contract: [`AGENTS.md`](AGENTS.md)
 
 ---

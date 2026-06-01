@@ -7,6 +7,7 @@ Architecture docs are stable references for repository boundaries, storage/model
 ## Current architecture docs
 
 - [`ARCHITECTURE_RULES.md`](ARCHITECTURE_RULES.md) - current layer, facade, storage, and schema guardrails.
+- [`CURRENT_PROJECT_CONTEXT.md`](CURRENT_PROJECT_CONTEXT.md) - compact portable project context after Stage 5C, 5D, and 5E.
 - [`PROJECT_ARCHITECTURE_OVERVIEW.md`](PROJECT_ARCHITECTURE_OVERVIEW.md) - architecture snapshot; treat as a snapshot until refreshed.
 - [`CONTEXT_ENGINE_SPLIT_MAP.md`](CONTEXT_ENGINE_SPLIT_MAP.md) - context component split.
 - [`CONTEXT_RELATION_TABLES_DECISION.md`](CONTEXT_RELATION_TABLES_DECISION.md) - context relation table status.
@@ -20,6 +21,7 @@ Architecture docs are stable references for repository boundaries, storage/model
 - [`DATASET_WRITE_SAFETY.md`](DATASET_WRITE_SAFETY.md) - direct channel export filesystem write/commit safety contract.
 - [`DATASET_FORMAT.md`](DATASET_FORMAT.md) - direct channel export dataset, manifest, and state schema contract.
 - [`DATASET_CONTRACT_V1.md`](DATASET_CONTRACT_V1.md) - formal v1 filesystem dataset contract for current direct channel export datasets.
+- [`DATASET_CONTRACT_COVERAGE_MATRIX.md`](DATASET_CONTRACT_COVERAGE_MATRIX.md) - factual coverage matrix for Dataset Contract V1 docs, tests, fixtures, and gaps.
 - [`DATASET_VALIDATION.md`](DATASET_VALIDATION.md) - read-only dataset validation / inspection boundary and command contract.
 - [`POST_PROCESSING_BOUNDARY.md`](POST_PROCESSING_BOUNDARY.md) - external post-processing boundary after export, validation, inspection, and doctor reports.
 - [`STATE_AND_INCREMENTAL_MODEL.md`](STATE_AND_INCREMENTAL_MODEL.md) - direct channel export state and incremental consistency model.

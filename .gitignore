@@ -19,6 +19,8 @@ test_*.db*
 # Локальный конфиг и логи
 config.json
 config.local.json
+.env
+.env.local
 delete_log.txt
 *.log
 LOGS/

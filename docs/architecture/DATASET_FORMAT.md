@@ -315,7 +315,7 @@ The current `schema_version` is `1.0`.
 
 ## 11. TXT Projections
 
-`messages.txt` and `discussion_comments.txt` are human-readable projections.
+`messages.txt` and `discussion_comments.txt` are direct channel export human-readable projections. They are not canonical schemas and do not use the user/group `--txt-profile` profiles.
 
 Contract tests only smoke-check stable identifying content such as message ids, timestamps, author/channel context, media sections, and comment text. They are not full golden snapshots.
 

@@ -22,7 +22,7 @@ Use [`architecture/README.md`](architecture/README.md) for current architecture 
 
 ## 4. Development docs
 
-Use [`development/README.md`](development/README.md) for CLI contracts, testing guidance, PR checks, and development guardrails.
+Use [`development/README.md`](development/README.md) for CLI contracts, testing guidance, PR checks, privacy handling, package identity, and development guardrails. Sensitive local artifact handling is documented in [`development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md`](development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md), and package identity/version policy is documented in [`development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md`](development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md).
 
 ## 5. Stages
 

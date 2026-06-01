@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "tg-msg-manager"
 version = "0.1.0"
-description = "CLI-утилита для удаления своих сообщений из чатов Telegram (на базе Telethon)."
+description = "Локальная Telegram export/data CLI-утилита на базе Telethon."
 authors = [{ name = "R.P." }]
 readme = "README.md"
 requires-python = ">=3.9"
@@ -30,3 +30,6 @@ include = ["tg_msg_manager*"]
 
 [tool.ruff]
 target-version = "py39"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

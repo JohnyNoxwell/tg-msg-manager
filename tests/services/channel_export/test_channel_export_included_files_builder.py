@@ -1,5 +1,6 @@
 import unittest
 from pathlib import Path
+from types import SimpleNamespace
 
 from tg_msg_manager.services.channel_export.included_files_builder import (
     build_included_files,
@@ -38,6 +39,12 @@ class TestChannelExportIncludedFilesBuilder(unittest.TestCase):
 
         self.assertEqual(included[-1], "media/")
 
+    def test_media_none_keeps_media_manifest_without_media_directory(self):
+        included = build_included_files(make_options(media_mode="none"))
+
+        self.assertIn("media_manifest.jsonl", included)
+        self.assertNotIn("media/", included)
+
     def test_include_jsonl_false_excludes_messages_jsonl(self):
         included = build_included_files(make_options(include_jsonl=False))
 
@@ -68,6 +75,59 @@ class TestChannelExportIncludedFilesBuilder(unittest.TestCase):
                 "discussion_export_state.json",
             ),
         )
+
+    def test_discussion_mode_included_files_matrix(self):
+        cases = (
+            (
+                "none",
+                None,
+                (),
+                (
+                    "discussion_metadata.jsonl",
+                    "discussion_comments.jsonl",
+                    "discussion_comments.txt",
+                    "discussion_threads.jsonl",
+                    "discussion_export_state.json",
+                ),
+            ),
+            (
+                "metadata",
+                SimpleNamespace(
+                    mode="metadata",
+                    metadata_jsonl_path=Path("/exports/discussion_metadata.jsonl"),
+                ),
+                ("discussion_metadata.jsonl",),
+                (
+                    "discussion_comments.jsonl",
+                    "discussion_comments.txt",
+                    "discussion_threads.jsonl",
+                    "discussion_export_state.json",
+                ),
+            ),
+            (
+                "full",
+                SimpleNamespace(mode="full"),
+                (
+                    "discussion_comments.jsonl",
+                    "discussion_comments.txt",
+                    "discussion_threads.jsonl",
+                    "discussion_export_state.json",
+                ),
+                ("discussion_metadata.jsonl",),
+            ),
+        )
+
+        for mode, result, expected, excluded in cases:
+            with self.subTest(mode=mode):
+                included = build_included_files(
+                    make_options(discussion_mode=mode),
+                    discussion_result=result,
+                )
+
+                for path in expected:
+                    self.assertIn(path, included)
+                for path in excluded:
+                    self.assertNotIn(path, included)
 
 
 if __name__ == "__main__":

@@ -23,6 +23,22 @@ Stage 5B.2 channel export post buffer boundaries is recorded in [`reports/STAGE_
 Stage 5B.3 DB export memory boundaries is recorded in [`reports/STAGE_5B_3_DB_EXPORT_MEMORY_BOUNDARIES_REPORT.md`](reports/STAGE_5B_3_DB_EXPORT_MEMORY_BOUNDARIES_REPORT.md).
 Stage 5B.4 SQLite write queue backpressure is recorded in [`reports/STAGE_5B_4_SQLITE_WRITE_QUEUE_BACKPRESSURE_REPORT.md`](reports/STAGE_5B_4_SQLITE_WRITE_QUEUE_BACKPRESSURE_REPORT.md).
 Stage 5B.5 SQLite schema decomposition plan is recorded in [`reports/STAGE_5B_5_SQLITE_SCHEMA_DECOMPOSITION_PLAN_REPORT.md`](reports/STAGE_5B_5_SQLITE_SCHEMA_DECOMPOSITION_PLAN_REPORT.md).
+Stage 5C.0 dataset contract coverage matrix is recorded in [`reports/STAGE_5C_0_DATASET_CONTRACT_COVERAGE_MATRIX_REPORT.md`](reports/STAGE_5C_0_DATASET_CONTRACT_COVERAGE_MATRIX_REPORT.md).
+Stage 5C.1 pytest collection hygiene is recorded in [`reports/STAGE_5C_1_PYTEST_COLLECTION_HYGIENE_REPORT.md`](reports/STAGE_5C_1_PYTEST_COLLECTION_HYGIENE_REPORT.md).
+Stage 5C.2 skill routing fallback verification is recorded in [`reports/STAGE_5C_2_SKILL_ROUTING_FALLBACK_VERIFICATION_REPORT.md`](reports/STAGE_5C_2_SKILL_ROUTING_FALLBACK_VERIFICATION_REPORT.md).
+Stage 5C.3 CLI / README / COMMANDS parity audit is recorded in [`reports/STAGE_5C_3_CLI_README_COMMANDS_PARITY_AUDIT_REPORT.md`](reports/STAGE_5C_3_CLI_README_COMMANDS_PARITY_AUDIT_REPORT.md).
+Stage 5C.4 privacy and sensitive artifacts guide is recorded in [`reports/STAGE_5C_4_PRIVACY_SENSITIVE_ARTIFACTS_GUIDE_REPORT.md`](reports/STAGE_5C_4_PRIVACY_SENSITIVE_ARTIFACTS_GUIDE_REPORT.md).
+Stage 5C.5 package identity / version policy cleanup is recorded in [`reports/STAGE_5C_5_PACKAGE_IDENTITY_VERSION_POLICY_CLEANUP_REPORT.md`](reports/STAGE_5C_5_PACKAGE_IDENTITY_VERSION_POLICY_CLEANUP_REPORT.md).
+Stage 5D.0 SQLite schema split stage 1 is recorded in [`reports/STAGE_5D_0_SQLITE_SCHEMA_SPLIT_STAGE_1_REPORT.md`](reports/STAGE_5D_0_SQLITE_SCHEMA_SPLIT_STAGE_1_REPORT.md).
+Stage 5D.1 dataset contract gap closure plan is recorded in [`reports/STAGE_5D_1_DATASET_CONTRACT_GAP_CLOSURE_PLAN_REPORT.md`](reports/STAGE_5D_1_DATASET_CONTRACT_GAP_CLOSURE_PLAN_REPORT.md).
+Stage 5D.2 run changelog key set contract tests is recorded in [`reports/STAGE_5D_2_RUN_CHANGELOG_KEY_SET_CONTRACT_TESTS_REPORT.md`](reports/STAGE_5D_2_RUN_CHANGELOG_KEY_SET_CONTRACT_TESTS_REPORT.md).
+Stage 5D.3 TXT projection contract clarification is recorded in [`reports/STAGE_5D_3_TXT_PROJECTION_CONTRACT_CLARIFICATION_REPORT.md`](reports/STAGE_5D_3_TXT_PROJECTION_CONTRACT_CLARIFICATION_REPORT.md).
+Stage 5D.4 channel export mode matrix tests are recorded in [`reports/STAGE_5D_4_CHANNEL_EXPORT_MODE_MATRIX_TESTS_REPORT.md`](reports/STAGE_5D_4_CHANNEL_EXPORT_MODE_MATRIX_TESTS_REPORT.md).
+Stage 5D.5 user quickstart safe first export guide is recorded in [`reports/STAGE_5D_5_USER_QUICKSTART_SAFE_FIRST_EXPORT_GUIDE_REPORT.md`](reports/STAGE_5D_5_USER_QUICKSTART_SAFE_FIRST_EXPORT_GUIDE_REPORT.md).
+Stage 5E.0 SQLite schema split stage 2 migration helpers precheck is recorded in [`reports/STAGE_5E_0_SQLITE_SCHEMA_SPLIT_STAGE_2_MIGRATION_HELPERS_PRECHECK_REPORT.md`](reports/STAGE_5E_0_SQLITE_SCHEMA_SPLIT_STAGE_2_MIGRATION_HELPERS_PRECHECK_REPORT.md).
+Stage 5E.1 SQLite schema split stage 2 migration helper extraction is recorded in [`reports/STAGE_5E_1_SQLITE_SCHEMA_SPLIT_STAGE_2_MIGRATION_HELPER_EXTRACTION_REPORT.md`](reports/STAGE_5E_1_SQLITE_SCHEMA_SPLIT_STAGE_2_MIGRATION_HELPER_EXTRACTION_REPORT.md).
+Stage 5E.2 SQLite schema split regression expansion is recorded in [`reports/STAGE_5E_2_SQLITE_SCHEMA_SPLIT_REGRESSION_EXPANSION_REPORT.md`](reports/STAGE_5E_2_SQLITE_SCHEMA_SPLIT_REGRESSION_EXPANSION_REPORT.md).
+Stage 5F.0 current architecture / context refresh is recorded in [`reports/STAGE_5F_0_CURRENT_ARCHITECTURE_CONTEXT_REFRESH_REPORT.md`](reports/STAGE_5F_0_CURRENT_ARCHITECTURE_CONTEXT_REFRESH_REPORT.md).
 
 The [`active/`](active/) directory must contain only unfinished or next active work. Do not leave completed stage task files, general launch prompts, prompt packs, or historical records there.
 
@@ -65,6 +81,86 @@ Current completed prompt groups:
 - Stage 5B.3 DB export memory boundaries task prompt.
 - Stage 5B.4 SQLite write queue backpressure task prompt.
 - Stage 5B.5 SQLite schema decomposition plan task prompt.
+- Stage 5C.0 dataset contract coverage matrix task prompt.
+- Stage 5C.1 pytest collection hygiene task prompt.
+- Stage 5C.2 skill routing fallback verification task prompt.
+- Stage 5C.3 CLI / README / COMMANDS parity audit task prompt.
+- Stage 5C.4 privacy and sensitive artifacts guide task prompt.
+- Stage 5C.5 package identity / version policy cleanup task prompt.
+- Stage 5D.0 SQLite schema split stage 1 task prompt.
+- Stage 5D.1 dataset contract gap closure plan task prompt.
+- Stage 5D.2 run changelog key set contract tests task prompt.
+- Stage 5D.3 TXT projection contract clarification task prompt.
+- Stage 5D.4 channel export mode matrix tests task prompt.
+- Stage 5D.5 user quickstart safe first export guide task prompt.
+- Stage 5E.0 SQLite schema split stage 2 migration helpers precheck task prompt.
+- Stage 5E.1 SQLite schema split stage 2 migration helper extraction task prompt.
+- Stage 5E.2 SQLite schema split regression expansion task prompt.
+- Stage 5F.0 current architecture / context refresh task prompt.
+
+Stage 5F.0 current architecture / context refresh task files:
+
+- [`completed/stage_5f_0_current_architecture_context_refresh.md`](completed/stage_5f_0_current_architecture_context_refresh.md)
+
+Stage 5E.2 SQLite schema split regression expansion task files:
+
+- [`completed/stage_5e_2_sqlite_schema_split_regression_expansion.md`](completed/stage_5e_2_sqlite_schema_split_regression_expansion.md)
+
+Stage 5E.1 SQLite schema split stage 2 migration helper extraction task files:
+
+- [`completed/stage_5e_1_sqlite_schema_split_stage_2_migration_helper_extraction.md`](completed/stage_5e_1_sqlite_schema_split_stage_2_migration_helper_extraction.md)
+
+Stage 5E.0 SQLite schema split stage 2 migration helpers precheck task files:
+
+- [`completed/stage_5e_0_sqlite_schema_split_stage_2_migration_helpers_precheck.md`](completed/stage_5e_0_sqlite_schema_split_stage_2_migration_helpers_precheck.md)
+
+Stage 5D.5 user quickstart safe first export guide task files:
+
+- [`completed/stage_5d_5_user_quickstart_safe_first_export_guide.md`](completed/stage_5d_5_user_quickstart_safe_first_export_guide.md)
+
+Stage 5D.4 channel export mode matrix tests task files:
+
+- [`completed/stage_5d_4_channel_export_mode_matrix_tests.md`](completed/stage_5d_4_channel_export_mode_matrix_tests.md)
+
+Stage 5D.3 TXT projection contract clarification task files:
+
+- [`completed/stage_5d_3_txt_projection_contract_clarification.md`](completed/stage_5d_3_txt_projection_contract_clarification.md)
+
+Stage 5D.2 run changelog key set contract tests task files:
+
+- [`completed/stage_5d_2_run_changelog_key_set_contract_tests.md`](completed/stage_5d_2_run_changelog_key_set_contract_tests.md)
+
+Stage 5D.1 dataset contract gap closure plan task files:
+
+- [`completed/stage_5d_1_dataset_contract_gap_closure_plan.md`](completed/stage_5d_1_dataset_contract_gap_closure_plan.md)
+
+Stage 5D.0 SQLite schema split stage 1 task files:
+
+- [`completed/stage_5d_0_sqlite_schema_split_stage_1.md`](completed/stage_5d_0_sqlite_schema_split_stage_1.md)
+
+Stage 5C.5 package identity / version policy cleanup task files:
+
+- [`completed/stage_5c_5_package_identity_version_policy_cleanup.md`](completed/stage_5c_5_package_identity_version_policy_cleanup.md)
+
+Stage 5C.4 privacy and sensitive artifacts guide task files:
+
+- [`completed/stage_5c_4_privacy_sensitive_artifacts_guide.md`](completed/stage_5c_4_privacy_sensitive_artifacts_guide.md)
+
+Stage 5C.3 CLI / README / COMMANDS parity audit task files:
+
+- [`completed/stage_5c_3_cli_readme_commands_parity_audit.md`](completed/stage_5c_3_cli_readme_commands_parity_audit.md)
+
+Stage 5C.2 skill routing fallback verification task files:
+
+- [`completed/stage_5c_2_skill_routing_fallback_verification_report.md`](completed/stage_5c_2_skill_routing_fallback_verification_report.md)
+
+Stage 5C.0 dataset contract coverage matrix task files:
+
+- [`completed/stage_5c_0_dataset_contract_coverage_matrix.md`](completed/stage_5c_0_dataset_contract_coverage_matrix.md)
+
+Stage 5C.1 pytest collection hygiene task files:
+
+- [`completed/stage_5c_1_pytest_collection_hygiene.md`](completed/stage_5c_1_pytest_collection_hygiene.md)
 
 Stage 5B.5 SQLite schema decomposition plan task files:
 
@@ -253,6 +349,22 @@ Current Stage 3D.0, Stage 3D.1, Stage 3E.0, Stage 3E.1, Stage 3E.2, Stage 3E.3, 
 - [`reports/STAGE_5B_3_DB_EXPORT_MEMORY_BOUNDARIES_REPORT.md`](reports/STAGE_5B_3_DB_EXPORT_MEMORY_BOUNDARIES_REPORT.md)
 - [`reports/STAGE_5B_4_SQLITE_WRITE_QUEUE_BACKPRESSURE_REPORT.md`](reports/STAGE_5B_4_SQLITE_WRITE_QUEUE_BACKPRESSURE_REPORT.md)
 - [`reports/STAGE_5B_5_SQLITE_SCHEMA_DECOMPOSITION_PLAN_REPORT.md`](reports/STAGE_5B_5_SQLITE_SCHEMA_DECOMPOSITION_PLAN_REPORT.md)
+- [`reports/STAGE_5C_0_DATASET_CONTRACT_COVERAGE_MATRIX_REPORT.md`](reports/STAGE_5C_0_DATASET_CONTRACT_COVERAGE_MATRIX_REPORT.md)
+- [`reports/STAGE_5C_1_PYTEST_COLLECTION_HYGIENE_REPORT.md`](reports/STAGE_5C_1_PYTEST_COLLECTION_HYGIENE_REPORT.md)
+- [`reports/STAGE_5C_2_SKILL_ROUTING_FALLBACK_VERIFICATION_REPORT.md`](reports/STAGE_5C_2_SKILL_ROUTING_FALLBACK_VERIFICATION_REPORT.md)
+- [`reports/STAGE_5C_3_CLI_README_COMMANDS_PARITY_AUDIT_REPORT.md`](reports/STAGE_5C_3_CLI_README_COMMANDS_PARITY_AUDIT_REPORT.md)
+- [`reports/STAGE_5C_4_PRIVACY_SENSITIVE_ARTIFACTS_GUIDE_REPORT.md`](reports/STAGE_5C_4_PRIVACY_SENSITIVE_ARTIFACTS_GUIDE_REPORT.md)
+- [`reports/STAGE_5C_5_PACKAGE_IDENTITY_VERSION_POLICY_CLEANUP_REPORT.md`](reports/STAGE_5C_5_PACKAGE_IDENTITY_VERSION_POLICY_CLEANUP_REPORT.md)
+- [`reports/STAGE_5D_0_SQLITE_SCHEMA_SPLIT_STAGE_1_REPORT.md`](reports/STAGE_5D_0_SQLITE_SCHEMA_SPLIT_STAGE_1_REPORT.md)
+- [`reports/STAGE_5D_1_DATASET_CONTRACT_GAP_CLOSURE_PLAN_REPORT.md`](reports/STAGE_5D_1_DATASET_CONTRACT_GAP_CLOSURE_PLAN_REPORT.md)
+- [`reports/STAGE_5D_2_RUN_CHANGELOG_KEY_SET_CONTRACT_TESTS_REPORT.md`](reports/STAGE_5D_2_RUN_CHANGELOG_KEY_SET_CONTRACT_TESTS_REPORT.md)
+- [`reports/STAGE_5D_3_TXT_PROJECTION_CONTRACT_CLARIFICATION_REPORT.md`](reports/STAGE_5D_3_TXT_PROJECTION_CONTRACT_CLARIFICATION_REPORT.md)
+- [`reports/STAGE_5D_4_CHANNEL_EXPORT_MODE_MATRIX_TESTS_REPORT.md`](reports/STAGE_5D_4_CHANNEL_EXPORT_MODE_MATRIX_TESTS_REPORT.md)
+- [`reports/STAGE_5D_5_USER_QUICKSTART_SAFE_FIRST_EXPORT_GUIDE_REPORT.md`](reports/STAGE_5D_5_USER_QUICKSTART_SAFE_FIRST_EXPORT_GUIDE_REPORT.md)
+- [`reports/STAGE_5E_0_SQLITE_SCHEMA_SPLIT_STAGE_2_MIGRATION_HELPERS_PRECHECK_REPORT.md`](reports/STAGE_5E_0_SQLITE_SCHEMA_SPLIT_STAGE_2_MIGRATION_HELPERS_PRECHECK_REPORT.md)
+- [`reports/STAGE_5E_1_SQLITE_SCHEMA_SPLIT_STAGE_2_MIGRATION_HELPER_EXTRACTION_REPORT.md`](reports/STAGE_5E_1_SQLITE_SCHEMA_SPLIT_STAGE_2_MIGRATION_HELPER_EXTRACTION_REPORT.md)
+- [`reports/STAGE_5E_2_SQLITE_SCHEMA_SPLIT_REGRESSION_EXPANSION_REPORT.md`](reports/STAGE_5E_2_SQLITE_SCHEMA_SPLIT_REGRESSION_EXPANSION_REPORT.md)
+- [`reports/STAGE_5F_0_CURRENT_ARCHITECTURE_CONTEXT_REFRESH_REPORT.md`](reports/STAGE_5F_0_CURRENT_ARCHITECTURE_CONTEXT_REFRESH_REPORT.md)
 
 ## Stage lifecycle
 

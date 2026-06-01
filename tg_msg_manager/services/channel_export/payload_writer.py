@@ -61,12 +61,19 @@ class ChannelPayloadWriteSession:
         self.plan.output_dir.mkdir(parents=True, exist_ok=True)
         Path(self.plan.media_dir).mkdir(parents=True, exist_ok=True)
         file_mode = "a" if self.write_mode == WRITE_MODE_APPEND else "w"
-        self._jsonl_file = AtomicTextFile(self.plan.messages_jsonl_path, mode=file_mode)
-        self._txt_file = AtomicTextFile(self.plan.messages_txt_path, mode=file_mode)
+        if self.include_jsonl:
+            self._jsonl_file = AtomicTextFile(
+                self.plan.messages_jsonl_path,
+                mode=file_mode,
+            )
+        if self.include_txt:
+            self._txt_file = AtomicTextFile(self.plan.messages_txt_path, mode=file_mode)
         self._media_file = AtomicTextFile(self.plan.media_manifest_path, mode=file_mode)
         try:
-            self._jsonl_handle = self._jsonl_file.open()
-            self._txt_handle = self._txt_file.open()
+            if self._jsonl_file is not None:
+                self._jsonl_handle = self._jsonl_file.open()
+            if self._txt_file is not None:
+                self._txt_handle = self._txt_file.open()
             self._media_handle = self._media_file.open()
         except Exception:
             self.rollback()
@@ -102,9 +109,9 @@ class ChannelPayloadWriteSession:
 
     def write_record(self, record: ChannelPostRecord) -> None:
         if (
-            self._jsonl_handle is None
-            or self._txt_handle is None
-            or self._media_handle is None
+            self._media_handle is None
+            or (self.include_jsonl and self._jsonl_handle is None)
+            or (self.include_txt and self._txt_handle is None)
         ):
             raise RuntimeError("ChannelPayloadWriteSession must be opened before use")
 

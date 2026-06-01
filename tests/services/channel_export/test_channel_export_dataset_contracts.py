@@ -1,8 +1,10 @@
 import json
+import tempfile
 import unittest
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 from tg_msg_manager.services.channel_export.discussions.jsonl_renderer import (
     ChannelDiscussionJsonlRenderer,
@@ -33,6 +35,9 @@ from tg_msg_manager.services.channel_export.models import (
     ChannelIdentity,
     ChannelMediaRecord,
     ChannelPostRecord,
+)
+from tg_msg_manager.services.channel_export.run_changelog import (
+    ChannelRunChangelogWriter,
 )
 from tg_msg_manager.services.channel_export.state_manager import (
     ChannelExportStateManager,
@@ -152,6 +157,52 @@ DISCUSSION_STATE_KEYS = {
     "updated_at",
 }
 
+RUN_CHANGELOG_KEYS = {
+    "run_id",
+    "export_target_type",
+    "export_target_id",
+    "export_target_name",
+    "run_mode",
+    "started_at",
+    "finished_at",
+    "previous_cursor",
+    "new_cursor",
+    "new_message_count",
+    "new_message_ids",
+    "first_new_message_id",
+    "last_new_message_id",
+    "first_new_message_date",
+    "last_new_message_date",
+    "artifact_paths",
+    "warnings",
+}
+
+RUN_CHANGELOG_ARTIFACT_PATH_KEYS = {
+    "manifest",
+    "messages_jsonl",
+    "messages_txt",
+    "media_manifest",
+    "state",
+    "run_changelog",
+}
+
+RUN_CHANGELOG_ARTIFACT_PATHS = {
+    "manifest": "manifest.json",
+    "messages_jsonl": "messages.jsonl",
+    "messages_txt": "messages.txt",
+    "media_manifest": "media_manifest.jsonl",
+    "state": "channel_export_state.json",
+    "run_changelog": "run_changelog.jsonl",
+}
+
+RUN_CHANGELOG_FIXTURE_DATASETS = (
+    "valid_minimal_channel_dataset",
+    "valid_discussion_dataset",
+    "partial_discussion_dataset",
+)
+
+FIXTURES = Path(__file__).parents[2] / "fixtures" / "dataset_validation"
+
 
 @dataclass(frozen=True)
 class FakeDiscussionResult:
@@ -218,6 +269,16 @@ def make_post_record(**overrides) -> ChannelPostRecord:
 
 
 class TestChannelExportDatasetContracts(unittest.TestCase):
+    def assert_run_changelog_contract(self, payload: dict):
+        assert_exact_keys(self, payload, RUN_CHANGELOG_KEYS)
+        assert_exact_keys(
+            self,
+            payload["artifact_paths"],
+            RUN_CHANGELOG_ARTIFACT_PATH_KEYS,
+        )
+        self.assertNotIn("text", payload)
+        self.assertNotIn("message_text", payload)
+
     def test_messages_jsonl_contract_has_exact_keys_and_types(self):
         payload = json.loads(ChannelJsonlRenderer().render_line(make_post_record()))
 
@@ -519,6 +580,51 @@ class TestChannelExportDatasetContracts(unittest.TestCase):
         self.assertEqual(discussion_payload["last_run_status"], "completed")
         assert_iso_datetime(self, discussion_payload["last_run_at"])
         assert_iso_datetime(self, discussion_payload["updated_at"])
+
+    def test_run_changelog_writer_contract_has_exact_keys_and_artifact_paths(self):
+        timestamp = datetime(2026, 5, 8, 12, 0, tzinfo=timezone.utc)
+        post = SimpleNamespace(
+            message_id=123,
+            timestamp=timestamp,
+            text="message body must stay out of changelog",
+        )
+
+        with tempfile.TemporaryDirectory(prefix="tg_changelog_contract_") as tmpdir:
+            path = ChannelRunChangelogWriter().append_entry(
+                output_dir=Path(tmpdir),
+                channel=ChannelIdentity(
+                    channel_id=777,
+                    title="Daily",
+                    username="daily",
+                ),
+                run_mode="full",
+                previous_state=None,
+                new_state=SimpleNamespace(last_exported_message_id=123),
+                run_stats=SimpleNamespace(posts_exported=1),
+                posts=(post,),
+                artifact_paths=RUN_CHANGELOG_ARTIFACT_PATHS,
+            )
+            text = path.read_text(encoding="utf-8")
+            payload = json.loads(text)
+
+        self.assert_run_changelog_contract(payload)
+        self.assertEqual(payload["artifact_paths"], RUN_CHANGELOG_ARTIFACT_PATHS)
+        self.assertEqual(payload["new_message_ids"], [123])
+        self.assertEqual(payload["first_new_message_date"], timestamp.isoformat())
+        self.assertNotIn("message body must stay out of changelog", text)
+
+    def test_run_changelog_fixture_rows_match_contract_keys(self):
+        for dataset_name in RUN_CHANGELOG_FIXTURE_DATASETS:
+            path = FIXTURES / dataset_name / "run_changelog.jsonl"
+            rows = [
+                json.loads(line)
+                for line in path.read_text(encoding="utf-8").splitlines()
+            ]
+
+            self.assertGreater(len(rows), 0, dataset_name)
+            for payload in rows:
+                with self.subTest(dataset=dataset_name, run_id=payload["run_id"]):
+                    self.assert_run_changelog_contract(payload)
 
     def test_txt_projection_smoke_contracts(self):
         post_text = ChannelTxtRenderer().render_block(make_post_record())
