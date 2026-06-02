@@ -12,6 +12,7 @@ Development docs define how changes are made. They do not define product roadmap
 - [`PACKAGE_IDENTITY_AND_VERSION_POLICY.md`](PACKAGE_IDENTITY_AND_VERSION_POLICY.md) - package/module/script identity and version source policy.
 - [`RELEASE_CHECKLIST_SCOPE.md`](RELEASE_CHECKLIST_SCOPE.md) - no-publish release checklist boundary for release-readiness audits.
 - [`LOCAL_VERIFICATION_MATRIX.md`](LOCAL_VERIFICATION_MATRIX.md) - offline/local verification matrix for release-readiness audits.
+- [`OPERATIONAL_RISKS_AND_LIMITS.md`](OPERATIONAL_RISKS_AND_LIMITS.md) - local runtime caveats for sessions, FloodWait/rate limits, SQLite concurrency, scheduler runs, and live smoke checks.
 - [`../architecture/ARCHITECTURE_RULES.md`](../architecture/ARCHITECTURE_RULES.md) - architecture rules that development must preserve.
 
 ## Testing
@@ -19,6 +20,7 @@ Development docs define how changes are made. They do not define product roadmap
 - [`LIVE_SMOKE_CHECKLIST.md`](LIVE_SMOKE_CHECKLIST.md) - manual live Telegram smoke checklist.
 - [`NON_CHANNEL_SYNTHETIC_FIXTURES_PLAN.md`](NON_CHANNEL_SYNTHETIC_FIXTURES_PLAN.md) - synthetic fixture basis for user/group `export` and `db-export` contract checks.
 - [`NON_CHANNEL_CONTRACT_TEST_PLAN.md`](NON_CHANNEL_CONTRACT_TEST_PLAN.md) - focused fixture-backed non-channel contract test coverage and deferred gaps.
+- [`DEFERRED_CONTRACT_COVERAGE_PRIORITIZATION.md`](DEFERRED_CONTRACT_COVERAGE_PRIORITIZATION.md) - priority order for generated-output, no-new-work, raw JSON, SQLite schema, smoke-check, and private archive contract gaps.
 - Stage reports under [`../stages/reports/`](../stages/reports/) record verification results for completed stages.
 
 Routine verification commands are defined by the active task. Do not claim unrun checks passed.

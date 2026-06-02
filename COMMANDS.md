@@ -23,6 +23,9 @@ Arguments:
 - `--chat-id` optional. Restrict sync to one chat.
 - `--deep` / `--flat` controls context collection mode; default is deep mode.
 - `--context-window`, `--max-cluster`, `--depth`, and `--limit` keep their existing sync meanings.
+- For `export`, `--limit` is passed to each `sync_chat` call. With `--chat-id`
+  it caps that one dialog; without `--chat-id`, a multi-dialog user export
+  applies the cap separately per dialog, not as one global user total.
 - `--json` writes JSONL instead of TXT.
 - `--txt-profile` optional for TXT output. Values: `context-readable`, `legacy`. Default for `export` TXT is `context-readable`.
 
@@ -58,6 +61,24 @@ Notes:
 - `context-readable` renders the same readable context-block markers as regular TXT export when context is present.
 - `legacy` keeps the old flat log-style TXT shape for compatibility.
 - JSONL behavior is unchanged by `--txt-profile`.
+
+## `export-pm`
+
+Create a text-and-media private-dialog archive for one user.
+
+Example:
+
+```bash
+python3 -m tg_msg_manager.cli export-pm --user-id 123456789
+```
+
+Notes:
+
+- `export-pm` is a separate archive workflow, not part of the user/group
+  `export` plus `db-export` Non-Channel Export Contract V1.
+- The private archive public contract is deferred. Current output should be
+  treated as a practical local archive, not a stable replayable Telegram
+  dataset contract.
 
 ## `export-channel`
 
@@ -207,3 +228,31 @@ size, and media types. Empty answers preserve the direct CLI defaults.
 Interactive menu item `01` / `export` can generate TXT output and prompts for
 the same TXT profile behavior when TXT is selected. Empty TXT profile input uses
 `context-readable`; `legacy` remains available explicitly.
+
+## `schedule`
+
+Register the built-in background `update` scheduler.
+
+Example:
+
+```bash
+python3 -m tg_msg_manager.cli schedule
+```
+
+Notes:
+
+- The current scheduler implementation targets macOS `launchd` / `launchctl`
+  and writes a LaunchAgent plist for `python -m tg_msg_manager.cli update`.
+- Non-macOS behavior is not a supported scheduler path in the current command.
+
+## Entrypoints
+
+Supported local entrypoints delegate to the same CLI main function:
+
+```bash
+python3 run.py
+python3 -m tg_msg_manager.cli
+tg-msg-manager
+```
+
+`tg-msg-manager` is the installed console script from package metadata.

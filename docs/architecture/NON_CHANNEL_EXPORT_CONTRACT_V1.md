@@ -185,6 +185,8 @@ screenshots, ignored export artifacts, or realistic private conversations.
 
 - Focused fixture-backed contract tests exist; broader generated-output coverage
   remains planned.
+- Deferred generated-output and related coverage is prioritized in
+  `docs/development/DEFERRED_CONTRACT_COVERAGE_PRIORITIZATION.md`.
 - Filename and part-file expectations remain current supported candidates until
   generated-output tests are added.
 - `.export_state/` is not a normal current output requirement.

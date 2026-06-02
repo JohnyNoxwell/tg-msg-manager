@@ -12,6 +12,9 @@ command reference in [`../../COMMANDS.md`](../../COMMANDS.md).
 3. Keep private exports, sessions, databases, logs, screenshots, and media local
    by default. Agent and sharing rules are documented in
    [`../development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md`](../development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md).
+4. Review local operational caveats for sessions, FloodWait/rate limits, SQLite
+   concurrency, scheduler runs, and live smoke checks in
+   [`../development/OPERATIONAL_RISKS_AND_LIMITS.md`](../development/OPERATIONAL_RISKS_AND_LIMITS.md).
 
 ## First User Or Group Export
 

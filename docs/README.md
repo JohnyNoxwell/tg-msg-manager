@@ -25,7 +25,7 @@ inspection, doctor output, privacy rules, and the command reference.
 
 ## 3. Architecture docs
 
-Use [`architecture/README.md`](architecture/README.md) for current architecture guidance, protected boundaries, storage/model decisions, and split maps. Channel dataset validation / inspection is documented in [`architecture/DATASET_VALIDATION.md`](architecture/DATASET_VALIDATION.md), non-channel user/group and `db-export` artifacts are documented in [`architecture/NON_CHANNEL_EXPORT_CONTRACT_V1.md`](architecture/NON_CHANNEL_EXPORT_CONTRACT_V1.md), and external post-processing boundaries are documented in [`architecture/POST_PROCESSING_BOUNDARY.md`](architecture/POST_PROCESSING_BOUNDARY.md).
+Use [`architecture/README.md`](architecture/README.md) for current architecture guidance, protected boundaries, storage/model decisions, and split maps. Channel dataset validation / inspection is documented in [`architecture/DATASET_VALIDATION.md`](architecture/DATASET_VALIDATION.md), non-channel user/group and `db-export` artifacts are documented in [`architecture/NON_CHANNEL_EXPORT_CONTRACT_V1.md`](architecture/NON_CHANNEL_EXPORT_CONTRACT_V1.md), private archive / `export-pm` contract deferral is documented in [`architecture/PRIVATE_ARCHIVE_CONTRACT_DEFERRED_DECISION.md`](architecture/PRIVATE_ARCHIVE_CONTRACT_DEFERRED_DECISION.md), and external post-processing boundaries are documented in [`architecture/POST_PROCESSING_BOUNDARY.md`](architecture/POST_PROCESSING_BOUNDARY.md).
 
 ## 4. Development docs
 

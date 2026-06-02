@@ -8,6 +8,13 @@ Current active stage files:
 
 - none
 
+No Stage 5M external risk audit follow-up task files are currently active.
+
+Stage 5M.6 operational risk notes is recorded in [`reports/STAGE_5M_6_OPERATIONAL_RISK_NOTES_REPORT.md`](reports/STAGE_5M_6_OPERATIONAL_RISK_NOTES_REPORT.md).
+Stage 5M.5 deferred contract coverage prioritization is recorded in [`reports/STAGE_5M_5_DEFERRED_CONTRACT_COVERAGE_PRIORITIZATION_REPORT.md`](reports/STAGE_5M_5_DEFERRED_CONTRACT_COVERAGE_PRIORITIZATION_REPORT.md).
+Stage 5M.3 schedule / limit / entrypoint UX audit is recorded in [`reports/STAGE_5M_3_SCHEDULE_LIMIT_ENTRYPOINT_UX_AUDIT_REPORT.md`](reports/STAGE_5M_3_SCHEDULE_LIMIT_ENTRYPOINT_UX_AUDIT_REPORT.md).
+Stage 5M.2 public docs feature status alignment is recorded in [`reports/STAGE_5M_2_PUBLIC_DOCS_FEATURE_STATUS_ALIGNMENT_REPORT.md`](reports/STAGE_5M_2_PUBLIC_DOCS_FEATURE_STATUS_ALIGNMENT_REPORT.md).
+Stage 5M.0 external risk audit verification is recorded in [`reports/STAGE_5M_0_EXTERNAL_RISK_AUDIT_VERIFICATION_REPORT.md`](reports/STAGE_5M_0_EXTERNAL_RISK_AUDIT_VERIFICATION_REPORT.md).
 Stage 5L.1 release candidate decision recheck is recorded in [`reports/STAGE_5L_1_RELEASE_CANDIDATE_DECISION_RECHECK_REPORT.md`](reports/STAGE_5L_1_RELEASE_CANDIDATE_DECISION_RECHECK_REPORT.md).
 Stage 5K.4 release candidate decision report is recorded in [`reports/STAGE_5K_4_RELEASE_CANDIDATE_DECISION_REPORT.md`](reports/STAGE_5K_4_RELEASE_CANDIDATE_DECISION_REPORT.md).
 Stage 5K.3 local verification matrix is recorded in [`reports/STAGE_5K_3_LOCAL_VERIFICATION_MATRIX_REPORT.md`](reports/STAGE_5K_3_LOCAL_VERIFICATION_MATRIX_REPORT.md).
@@ -151,6 +158,31 @@ Current completed prompt groups:
 - Stage 5K.3 local verification matrix task prompt.
 - Stage 5K.4 release candidate decision report task prompt.
 - Stage 5L.1 release candidate decision recheck task prompt.
+- Stage 5M.0 external risk audit verification task prompt.
+- Stage 5M.2 public docs feature status alignment task prompt.
+- Stage 5M.3 schedule / limit / entrypoint UX audit task prompt.
+- Stage 5M.5 deferred contract coverage prioritization task prompt.
+- Stage 5M.6 operational risk notes task prompt.
+
+Stage 5M.6 operational risk notes task files:
+
+- [`completed/stage_5m_6_operational_risk_notes.md`](completed/stage_5m_6_operational_risk_notes.md)
+
+Stage 5M.5 deferred contract coverage prioritization task files:
+
+- [`completed/stage_5m_5_deferred_contract_coverage_prioritization.md`](completed/stage_5m_5_deferred_contract_coverage_prioritization.md)
+
+Stage 5M.3 schedule / limit / entrypoint UX audit task files:
+
+- [`completed/stage_5m_3_schedule_limit_entrypoint_ux_audit.md`](completed/stage_5m_3_schedule_limit_entrypoint_ux_audit.md)
+
+Stage 5M.2 public docs feature status alignment task files:
+
+- [`completed/stage_5m_2_public_docs_feature_status_alignment.md`](completed/stage_5m_2_public_docs_feature_status_alignment.md)
+
+Stage 5M.0 external risk audit verification task files:
+
+- [`completed/stage_5m_0_external_risk_audit_verification.md`](completed/stage_5m_0_external_risk_audit_verification.md)
 
 Stage 5L.1 release candidate decision recheck task files:
 

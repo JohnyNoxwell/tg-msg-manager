@@ -34,6 +34,7 @@ python3 -m tg_msg_manager.cli report
 - Полная карта документации: [`docs/README.md`](docs/README.md)
 - Справочник команд: [`COMMANDS.md`](COMMANDS.md)
 - Privacy / sensitive artifacts: [`docs/development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md`](docs/development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md)
+- Operational risks / local limits: [`docs/development/OPERATIONAL_RISKS_AND_LIMITS.md`](docs/development/OPERATIONAL_RISKS_AND_LIMITS.md)
 - Package identity / version policy: [`docs/development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md`](docs/development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md)
 - Правила для coding agents: [`AGENTS.md`](AGENTS.md)
 
@@ -63,7 +64,7 @@ python3 -m tg_msg_manager.cli report
 
 * 🧹 **Глобальная очистка (`clean`)** — Удаляет **только ваши** сообщения из всех выбранных чатов. Поддерживает фильтры и безопасный режим (Dry Run).
 * 📥 **Умный экспорт с контекстом (`export`)** — Собирает сообщения цели вместе с окружающим контекстом беседы, восстанавливая полную картину диалога.
-* 💬 **Архив лички (`export-pm`)** — Текстовый бэкап приватного чата с подготовленной структурой папок под медиа.
+* 💬 **Архив лички (`export-pm`)** — Текстовый бэкап приватного чата с подготовленной структурой папок под медиа; отдельный public contract для private archive пока deferred.
 * 🗄️ **SQLite База данных** — Все данные хранятся в структурированной базе `messages.db`. Это обеспечивает мгновенный поиск и отсутствие дубликатов.
 * 📤 **Экспорт из БД** — Выгрузка накопленных данных из SQLite в JSON/Text. JSONL по умолчанию теперь компактный и ориентирован на анализ нейросетью.
 * 📡 **Прямой экспорт канала (`export-channel`)** — Файловый dataset export постов Telegram-канала в `manifest.json`, `messages.jsonl`, `messages.txt`, `media_manifest.jsonl`, `run_changelog.jsonl` и, при явном `--discussion full`, discussion dataset files.
@@ -93,6 +94,7 @@ python3 -m tg_msg_manager.cli report
     После прерванного большого экспорта `update` может некоторое время выглядеть "задумавшимся" до появления построчного прогресса: в этот момент сервис делает shared head prefetch для чата и готовит общий HEAD-срез для нескольких целей.
 *   **Архив лички**:
     `python3 -m tg_msg_manager.cli export-pm --user-id 123456789`
+    `export-pm` остается отдельным archive workflow: он не входит в Non-Channel Export Contract V1 для `export` / `db-export`, а private archive contract пока deferred.
 *   **Экспорт из БД**:
     `python3 -m tg_msg_manager.cli db-export --user-id 123456789`
     `python3 -m tg_msg_manager.cli db-export --user-id 123456789 --txt-profile legacy`
@@ -201,7 +203,7 @@ Legacy aliases still supported:
 ### Known Limitations
 
 * `--limit` ограничивает обработку в рамках одного `sync_chat`; при экспорте пользователя по нескольким диалогам лимит применяется к каждому диалогу отдельно.
-* `export-pm` пишет текстовый лог и медиа-структуру, но не восстанавливает Telegram-специфичные сущности как полноценный replay архива.
+* `export-pm` пишет текстовый лог и медиа-структуру, но не восстанавливает Telegram-специфичные сущности как полноценный replay архива; private archive contract пока deferred и не входит в user/group `export` + `db-export` contract.
 * `export-channel` в Stage 3A/3A.1/3B/3C является filesystem-first dataset projection pipeline: channel posts и discussion comments не пишутся в SQLite, analytics не выполняется.
 * `validate-dataset` и `inspect-dataset` проверяют только структуру, deterministic counts/statuses и связи файлов; validation также предупреждает о message-id gaps, missing reply parents и media linkage drift, но не анализирует содержание сообщений и не проверяет SHA-256 media по умолчанию.
 * Безопасный режим по умолчанию для `export-channel` — `--media metadata`; `--media full` работает только при явном указании и использует size/type guardrails.
@@ -292,7 +294,7 @@ Core system capabilities:
 
 * 🧹 **Global Cleanup (`clean`)** — Removes **your own** messages from all selected chats. Supports whitelists and safe Dry Run mode.
 * 📥 **Deep Context Export (`export`)** — Automatically retrieves target messages along with the "surrounding" conversation window.
-* 💬 **PM Archive (`export-pm`)** — Text backup for private conversations with a prepared folder structure for media.
+* 💬 **PM Archive (`export-pm`)** — Text backup for private conversations with a prepared folder structure for media; a separate public private-archive contract is still deferred.
 * 🗄️ **SQLite Storage** — All messages are stored in a structured `messages.db` for instant querying and zero duplicates.
 * 📤 **Database Export** — Export collected SQLite records into JSON or Text. JSONL now defaults to a compact AI-friendly profile.
 * 📡 **Direct Channel Export (`export-channel`)** — Filesystem-first dataset export of Telegram channel posts into `manifest.json`, `messages.jsonl`, `messages.txt`, `media_manifest.jsonl`, `run_changelog.jsonl`, and optional discussion dataset files when `--discussion full` is explicit.
@@ -309,6 +311,7 @@ Core system capabilities:
 - Full documentation map: [`docs/README.md`](docs/README.md)
 - Command reference: [`COMMANDS.md`](COMMANDS.md)
 - Privacy / sensitive artifacts: [`docs/development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md`](docs/development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md)
+- Operational risks / local limits: [`docs/development/OPERATIONAL_RISKS_AND_LIMITS.md`](docs/development/OPERATIONAL_RISKS_AND_LIMITS.md)
 - Package identity / version policy: [`docs/development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md`](docs/development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md)
 - Coding-agent contract: [`AGENTS.md`](AGENTS.md)
 
@@ -334,6 +337,7 @@ Subcommands can be executed directly for automation:
     After a large interrupted export, `update` may appear idle before per-target progress starts; during that phase the service is building a shared head prefetch slice for the chat.
 *   **PM Archive**:
     `python3 -m tg_msg_manager.cli export-pm --user-id 123456789`
+    `export-pm` remains a separate archive workflow: it is not part of Non-Channel Export Contract V1 for `export` / `db-export`, and the private archive contract remains deferred.
 *   **DB Export**:
     `python3 -m tg_msg_manager.cli db-export --user-id 123456789`
     `python3 -m tg_msg_manager.cli db-export --user-id 123456789 --txt-profile legacy`
@@ -442,7 +446,7 @@ Supported legacy aliases:
 ### Known Limitations
 
 * `--limit` caps work inside a single `sync_chat`; when exporting a user across multiple dialogs, the cap applies per dialog.
-* `export-pm` produces a text-and-media archive, not a full Telegram-native replayable backup.
+* `export-pm` produces a text-and-media archive, not a full Telegram-native replayable backup; its private archive contract remains deferred and is not part of the user/group `export` + `db-export` contract.
 * `export-channel` in Stage 3A/3A.1/3B/3C is a filesystem-first dataset projection pipeline; channel posts and discussion comments are not written to SQLite, and analytics are not performed.
 * `validate-dataset` and `inspect-dataset` check only structure, deterministic counts/statuses, and file relationships; validation also warns about message-id gaps, missing reply parents, and media linkage drift, but does not analyze message content or verify media SHA-256 by default.
 * The safe default for `export-channel` remains `--media metadata`; `--media full` works only when requested explicitly and runs through size/type guardrails.

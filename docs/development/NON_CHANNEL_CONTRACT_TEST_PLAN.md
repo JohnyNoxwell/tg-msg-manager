@@ -108,3 +108,6 @@ real test files.
 - exact rotation thresholds;
 - SQLite schema contract status;
 - real Telegram smoke data.
+
+Deferred coverage priority order is recorded in
+[`DEFERRED_CONTRACT_COVERAGE_PRIORITIZATION.md`](DEFERRED_CONTRACT_COVERAGE_PRIORITIZATION.md).
