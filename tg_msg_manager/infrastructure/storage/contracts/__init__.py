@@ -18,6 +18,7 @@ from .private_archive_storage import PrivateArchiveStorage
 from .report_storage import ReportStorage
 from .retry_storage import RetryStorage
 from .sync_storage import SyncStorage
+from .target_names_storage import TargetNamesStorage
 
 __all__ = [
     "AnalyticsStorage",
@@ -35,6 +36,7 @@ __all__ = [
     "StorageLifecycle",
     "SyncStateStorage",
     "SyncStorage",
+    "TargetNamesStorage",
     "TargetLinkReadStorage",
     "TargetRegistryStorage",
     "UserReadStorage",

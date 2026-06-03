@@ -1,6 +1,7 @@
 import asyncio
 import logging
 import sys
+from types import SimpleNamespace
 from typing import Optional
 
 from telethon.errors import RPCError
@@ -17,6 +18,7 @@ from ..cli_commands import (
     _handle_retry_command,
     _handle_schedule_command,
     _handle_setup_command,
+    _handle_target_command,
     _handle_update_command,
     _handle_validate_dataset_command,
 )
@@ -234,6 +236,7 @@ def _command_needs_client(command: str) -> bool:
         "report",
         "validate-dataset",
         "inspect-dataset",
+        "target",
     )
 
 
@@ -260,6 +263,14 @@ async def run_cli(runtime: Optional[AppRuntime] = None):
             await filesystem_handler(None, args)
             return
 
+        if args.command == "target":
+            storage = SQLiteStorage(active_runtime.paths.db_path)
+            try:
+                await _handle_target_command(SimpleNamespace(storage=storage), args)
+            finally:
+                await storage.close()
+            return
+
         ctx = CLIContext(
             active_runtime, needs_client=_command_needs_client(args.command)
         )
@@ -280,6 +291,7 @@ async def run_cli(runtime: Optional[AppRuntime] = None):
                 "export-channel": _handle_export_channel_command,
                 "validate-dataset": _handle_validate_dataset_command,
                 "inspect-dataset": _handle_inspect_dataset_command,
+                "target": _handle_target_command,
             }
             handler = handlers.get(args.command)
             if handler is not None:

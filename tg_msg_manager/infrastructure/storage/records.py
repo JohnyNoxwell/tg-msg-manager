@@ -1,6 +1,6 @@
 import json
 from dataclasses import dataclass, fields
-from typing import Any, Iterator, Mapping, Optional
+from typing import Any, Iterator, Mapping, Optional, Tuple
 
 from ...core.models.retry import RetryTaskStatus
 
@@ -119,6 +119,89 @@ class UserIdentityRecord(StorageRecord):
                 ),
             )
         return cls(user_id=0)
+
+
+@dataclass(frozen=True)
+class TargetNameTargetRecord(StorageRecord):
+    target_id: int
+    target_type: str
+    current_username: Optional[str] = None
+    current_display_name: Optional[str] = None
+    current_title: Optional[str] = None
+    first_seen: Optional[int] = None
+    last_seen: Optional[int] = None
+
+    @classmethod
+    def coerce(cls, value: Any) -> "TargetNameTargetRecord":
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, Mapping):
+            return cls(
+                target_id=_coerce_int(value.get("target_id")),
+                target_type=str(value.get("target_type") or "unknown"),
+                current_username=value.get("current_username"),
+                current_display_name=value.get("current_display_name"),
+                current_title=value.get("current_title"),
+                first_seen=(
+                    _coerce_int(value.get("first_seen"))
+                    if value.get("first_seen") is not None
+                    else None
+                ),
+                last_seen=(
+                    _coerce_int(value.get("last_seen"))
+                    if value.get("last_seen") is not None
+                    else None
+                ),
+            )
+        return cls(target_id=0, target_type="unknown")
+
+
+@dataclass(frozen=True)
+class TargetNameSnapshotRecord(StorageRecord):
+    target_id: int
+    target_type: str
+    observed_at: int
+    username: Optional[str] = None
+    display_name: Optional[str] = None
+    title: Optional[str] = None
+
+    @classmethod
+    def coerce(cls, value: Any) -> "TargetNameSnapshotRecord":
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, Mapping):
+            return cls(
+                target_id=_coerce_int(value.get("target_id")),
+                target_type=str(value.get("target_type") or "unknown"),
+                observed_at=_coerce_int(value.get("observed_at")),
+                username=value.get("username"),
+                display_name=value.get("display_name"),
+                title=value.get("title"),
+            )
+        return cls(target_id=0, target_type="unknown", observed_at=0)
+
+
+@dataclass(frozen=True)
+class TargetNameResolutionRecord(StorageRecord):
+    status: str
+    target: str
+    matches: Tuple[TargetNameTargetRecord, ...] = ()
+
+    @classmethod
+    def coerce(cls, value: Any) -> "TargetNameResolutionRecord":
+        if isinstance(value, cls):
+            return value
+        if isinstance(value, Mapping):
+            matches = tuple(
+                TargetNameTargetRecord.coerce(item)
+                for item in value.get("matches", ())
+            )
+            return cls(
+                status=str(value.get("status") or "not_found"),
+                target=str(value.get("target") or ""),
+                matches=matches,
+            )
+        return cls(status="not_found", target="")
 
 
 @dataclass(frozen=True)

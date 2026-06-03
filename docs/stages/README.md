@@ -8,8 +8,10 @@ Current active stage files:
 
 - none
 
-No Stage 5M external risk audit follow-up task files are currently active.
+No target names history workflow task files are currently active.
 
+Stage 5N.1 target names history CLI is recorded in [`reports/STAGE_5N_1_TARGET_NAMES_HISTORY_CLI_REPORT.md`](reports/STAGE_5N_1_TARGET_NAMES_HISTORY_CLI_REPORT.md).
+Stage 5N.0 target names history read model is recorded in [`reports/STAGE_5N_0_TARGET_NAMES_HISTORY_READ_MODEL_REPORT.md`](reports/STAGE_5N_0_TARGET_NAMES_HISTORY_READ_MODEL_REPORT.md).
 Stage 5M.6 operational risk notes is recorded in [`reports/STAGE_5M_6_OPERATIONAL_RISK_NOTES_REPORT.md`](reports/STAGE_5M_6_OPERATIONAL_RISK_NOTES_REPORT.md).
 Stage 5M.5 deferred contract coverage prioritization is recorded in [`reports/STAGE_5M_5_DEFERRED_CONTRACT_COVERAGE_PRIORITIZATION_REPORT.md`](reports/STAGE_5M_5_DEFERRED_CONTRACT_COVERAGE_PRIORITIZATION_REPORT.md).
 Stage 5M.3 schedule / limit / entrypoint UX audit is recorded in [`reports/STAGE_5M_3_SCHEDULE_LIMIT_ENTRYPOINT_UX_AUDIT_REPORT.md`](reports/STAGE_5M_3_SCHEDULE_LIMIT_ENTRYPOINT_UX_AUDIT_REPORT.md).
@@ -163,6 +165,16 @@ Current completed prompt groups:
 - Stage 5M.3 schedule / limit / entrypoint UX audit task prompt.
 - Stage 5M.5 deferred contract coverage prioritization task prompt.
 - Stage 5M.6 operational risk notes task prompt.
+- Stage 5N.0 target names history read model task prompt.
+- Stage 5N.1 target names history CLI task prompt.
+
+Stage 5N.1 target names history CLI task files:
+
+- [`completed/stage_5n_1_target_names_history_cli.md`](completed/stage_5n_1_target_names_history_cli.md)
+
+Stage 5N.0 target names history read model task files:
+
+- [`completed/stage_5n_0_target_names_history_read_model.md`](completed/stage_5n_0_target_names_history_read_model.md)
 
 Stage 5M.6 operational risk notes task files:
 

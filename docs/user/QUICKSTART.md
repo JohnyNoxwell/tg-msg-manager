@@ -48,6 +48,14 @@ command reference in [`../../COMMANDS.md`](../../COMMANDS.md).
   It does not repair, migrate, fetch from Telegram, rewrite datasets, write
   SQLite data, or analyze message meaning.
 
+## Local Target Name History
+
+- Use `target names` to inspect locally stored metadata only:
+  [`../../COMMANDS.md#target-names`](../../COMMANDS.md#target-names).
+- The command does not refresh Telegram metadata and can be incomplete when a
+  target was not observed before.
+- It reports stored name facts only; it is not identity or profiling analysis.
+
 ## Documentation Map
 
 - Main documentation index: [`../README.md`](../README.md).

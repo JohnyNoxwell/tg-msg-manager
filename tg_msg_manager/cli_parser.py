@@ -115,6 +115,26 @@ def build_cli_parser() -> argparse.ArgumentParser:
         help="Run the read-only dataset doctor report",
     )
 
+    target_parser = subparsers.add_parser("target")
+    target_subparsers = target_parser.add_subparsers(
+        dest="target_command", required=True
+    )
+    target_names_parser = target_subparsers.add_parser(
+        "names",
+        help="Show locally stored username/display name/title history",
+    )
+    target_names_parser.add_argument("target")
+    target_names_parser.add_argument(
+        "--field",
+        choices=("all", "username", "display_name", "title"),
+        default="all",
+    )
+    target_names_parser.add_argument(
+        "--format",
+        choices=("text", "json"),
+        default="text",
+    )
+
     export_channel_parser = subparsers.add_parser("export-channel")
     export_channel_parser.add_argument("--channel", required=True)
     export_channel_parser.add_argument("--limit", type=int, default=None)

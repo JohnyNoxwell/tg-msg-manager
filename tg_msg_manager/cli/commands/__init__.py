@@ -13,6 +13,7 @@ from .maintenance import (
 from .report import _handle_report_command
 from .retry import _handle_retry_command
 from .setup import _handle_schedule_command, _handle_setup_command
+from .target_names import _handle_target_command
 
 
 __all__ = [
@@ -27,6 +28,7 @@ __all__ = [
     "_handle_retry_command",
     "_handle_schedule_command",
     "_handle_setup_command",
+    "_handle_target_command",
     "_handle_update_command",
     "_handle_validate_dataset_command",
 ]

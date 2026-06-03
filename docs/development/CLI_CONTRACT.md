@@ -26,6 +26,7 @@ Primary Python entrypoint:
 | `db-export` | `--user-id` | `--json=False`, `--txt-profile=context-readable` | Export already-synced local DB data |
 | `validate-dataset` | `--path` | `--json=False` | Validate an exported channel dataset from local files only |
 | `inspect-dataset` | `--path` | `--json=False`, `--doctor=False` | Summarize deterministic counts/statuses, or emit a read-only doctor report for an exported channel dataset |
+| `target names` | `<target>` | `--field=all`, `--format=text` | Show locally stored username/display-name/title history for a known target without Telegram access |
 | `export-channel` | `--channel` | `--limit=None`, `--media=metadata`, `--max-media-size=None`, `--media-types=None`, `--discussion=none`, `--max-comments-per-post=100`, `--output-dir=None`, `--force=False` | Export broadcast-channel posts into the filesystem dataset layout |
 
 ## Contract Tests

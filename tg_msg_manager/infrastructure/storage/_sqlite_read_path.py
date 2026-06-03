@@ -3,6 +3,7 @@ from .read import (
     SQLiteExportReadMixin,
     SQLiteMessageReadMixin,
     SQLiteReportingReadMixin,
+    SQLiteTargetNamesReadMixin,
     SQLiteTargetReadMixin,
 )
 
@@ -13,5 +14,6 @@ class SQLiteReadPathMixin(
     SQLiteContextReadMixin,
     SQLiteExportReadMixin,
     SQLiteReportingReadMixin,
+    SQLiteTargetNamesReadMixin,
 ):
     """Compatibility aggregator for split SQLite read-side mixins."""

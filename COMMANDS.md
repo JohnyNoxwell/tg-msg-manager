@@ -202,6 +202,35 @@ Notes:
 - Inspection does not interpret message/comment text or perform analytics.
 - Synthetic doctor examples are documented in [`docs/user/DATASET_DOCTOR_EXAMPLES.md`](docs/user/DATASET_DOCTOR_EXAMPLES.md).
 
+## `target names`
+
+Show locally stored username/display name/title history for a known target.
+
+Examples:
+
+```bash
+python3 -m tg_msg_manager.cli target names 123456789
+python3 -m tg_msg_manager.cli target names 123456789 --field username
+python3 -m tg_msg_manager.cli target names -1001234567890 --field title --format json
+```
+
+Arguments:
+
+- `<target>` required. Numeric user/chat/channel id or locally stored username.
+- `--field` optional. Values: `all`, `username`, `display_name`, `title`. Default: `all`.
+- `--format` optional. Values: `text`, `json`. Default: `text`.
+
+Notes:
+
+- The command reads local SQLite metadata only. It does not connect to Telegram,
+  refresh entity data, write SQLite data, or change export artifacts.
+- History can be incomplete if the target was not observed by earlier local
+  sync/export work.
+- Chat/channel title history is not stored in the current SQLite schema; known
+  chat/channel targets show current title with empty title history.
+- Output is stored metadata facts only, not identity, profiling, OSINT, or
+  behavioral analysis.
+
 ## Interactive Menu
 
 The interactive `tg` menu now uses two-digit item codes:
