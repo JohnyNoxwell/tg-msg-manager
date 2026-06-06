@@ -9,14 +9,13 @@ from .cluster_builder import ContextClusterBuilder
 from .deduplicator import ProcessedMessageDeduplicator
 from .fetchers import LiveContextResolver, StorageContextResolver
 from .models import (
-    CandidatePoolRequest,
     ContextCandidate,
     ContextClusterState,
     MessageKey,
-    ParentLookupRequest,
 )
 from .neighbor_window_resolver import NeighborWindowResolver
 from .reply_chain_resolver import ReplyChainResolver
+from .round_dependencies import ContextRoundDependencies
 from .rounds import DeepContextRoundRunner
 from .fallback import TimeFallbackResolver
 
@@ -67,7 +66,14 @@ class DeepModeEngine:
             cluster_assembler=self.cluster_assembler,
             processed_ids=self._processed_ids,
         )
-        self.round_runner = DeepContextRoundRunner(self)
+        self.round_dependencies = ContextRoundDependencies(
+            storage=storage,
+            cluster_assembler=self.cluster_assembler,
+            parent_reply_resolver=self.parent_reply_resolver,
+            candidate_pool_resolver=self.candidate_pool_resolver,
+            time_fallback_resolver=self.time_fallback_resolver,
+        )
+        self.round_runner = DeepContextRoundRunner(self.round_dependencies)
 
     def reset(self):
         self.deduplicator.reset()
@@ -99,7 +105,7 @@ class DeepModeEngine:
     def _initialize_clusters(
         self, target_messages: List[MessageData]
     ) -> List[ContextClusterState]:
-        return self.cluster_assembler.initialize_clusters(target_messages)
+        return self.round_dependencies.initialize_clusters(target_messages)
 
     async def _fetch_parent_messages(
         self,
@@ -107,12 +113,10 @@ class DeepModeEngine:
         chat_id: int,
         anchors_by_cluster: Dict[str, List[ContextCandidate]],
     ) -> Dict[int, ContextCandidate]:
-        return await self.parent_reply_resolver.fetch_parent_messages(
+        return await self.round_dependencies.fetch_parent_messages(
             entity=entity,
-            request=ParentLookupRequest(
-                chat_id=chat_id,
-                anchors_by_cluster=anchors_by_cluster,
-            ),
+            chat_id=chat_id,
+            anchors_by_cluster=anchors_by_cluster,
         )
 
     async def _fetch_candidate_pool(
@@ -124,14 +128,12 @@ class DeepModeEngine:
         scan_before: int,
         scan_after: int,
     ) -> List[ContextCandidate]:
-        return await self.candidate_pool_resolver.fetch_candidate_pool(
+        return await self.round_dependencies.fetch_candidate_pool(
             entity=entity,
-            request=CandidatePoolRequest(
-                chat_id=chat_id,
-                anchor_ids=anchor_ids,
-                scan_before=scan_before,
-                scan_after=scan_after,
-            ),
+            chat_id=chat_id,
+            anchor_ids=anchor_ids,
+            scan_before=scan_before,
+            scan_after=scan_after,
         )
 
     def _associate_candidates(
@@ -142,7 +144,7 @@ class DeepModeEngine:
         round_number: int,
         max_cluster: int,
     ) -> List[MessageData]:
-        return self.cluster_assembler.associate_candidates(
+        return self.round_dependencies.associate_candidates(
             clusters=clusters,
             candidates=candidate_messages,
             round_number=round_number,
@@ -174,16 +176,14 @@ class DeepModeEngine:
         )
 
     def _scan_before_ids(self, round_number: int, window_size: int) -> int:
-        if round_number == 1:
-            return max(8, window_size * 3)
-        return max(12, window_size * 4)
+        return self.round_dependencies.scan_before_ids(round_number, window_size)
 
     def _scan_after_ids(
         self, round_number: int, window_size: int, max_cluster: int
     ) -> int:
-        if round_number == 1:
-            return max(60, window_size * 15, max_cluster * 6)
-        return max(90, window_size * 20, max_cluster * 8)
+        return self.round_dependencies.scan_after_ids(
+            round_number, window_size, max_cluster
+        )
 
     def _with_cluster(self, msg: MessageData, cluster_id: str) -> MessageData:
         return self.cluster_assembler.with_cluster(msg, cluster_id)

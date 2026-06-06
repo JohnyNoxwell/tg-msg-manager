@@ -1,6 +1,8 @@
 from pathlib import Path
 from typing import Any
 
+from tg_msg_manager.core.models.dataset_contracts import RUN_CHANGELOG_ARTIFACT_PATHS
+
 from ..discussions import (
     DISCUSSION_MODE_METADATA,
     DISCUSSION_MODE_NONE,
@@ -9,7 +11,6 @@ from ..discussions import (
     ChannelDiscussionSource,
 )
 from ..models import ChannelExportOptions, ChannelExportResult, ChannelExportRunStats
-from ..run_changelog import RUN_CHANGELOG_JSONL
 
 
 class ChannelExportWorkflowContext:
@@ -87,14 +88,7 @@ class ChannelExportWorkflowContext:
             run_stats=run_stats,
             posts=posts,
             summary=summary,
-            artifact_paths={
-                "manifest": "manifest.json",
-                "messages_jsonl": "messages.jsonl",
-                "messages_txt": "messages.txt",
-                "media_manifest": "media_manifest.jsonl",
-                "state": "channel_export_state.json",
-                "run_changelog": RUN_CHANGELOG_JSONL,
-            },
+            artifact_paths=dict(RUN_CHANGELOG_ARTIFACT_PATHS),
         )
 
     async def prepare_record(

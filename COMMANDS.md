@@ -226,6 +226,8 @@ Notes:
   refresh entity data, write SQLite data, or change export artifacts.
 - History can be incomplete if the target was not observed by earlier local
   sync/export work.
+- Text output renders timestamps as local `YYYY-MM-DD HH:MM:SS`; JSON output
+  keeps raw epoch seconds.
 - Chat/channel title history is not stored in the current SQLite schema; known
   chat/channel targets show current title with empty title history.
 - Output is stored metadata facts only, not identity, profiling, OSINT, or

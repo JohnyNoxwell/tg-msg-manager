@@ -4,11 +4,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
+from tg_msg_manager.core.models.dataset_contracts import (
+    CHANNEL_STATE_JSON,
+    DISCUSSION_STATE_JSON,
+)
+
 from .manifest_validator import _load_json_object
 from .models import ValidationIssue, issue_error, issue_warning
-
-CHANNEL_STATE_JSON = "channel_export_state.json"
-DISCUSSION_STATE_JSON = "discussion_export_state.json"
 
 CHANNEL_COUNTER_KEYS = (
     "message_count_total",

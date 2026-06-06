@@ -3,12 +3,13 @@ from typing import Any, List, Optional
 
 from ...core.models.message import MessageData
 from ...core.telemetry import telemetry
+from .round_dependencies import ContextRoundDependencies
 from .scope_policy import ContextScopePolicy
 
 
 class DeepContextRoundRunner:
-    def __init__(self, engine):
-        self.engine = engine
+    def __init__(self, dependencies: ContextRoundDependencies):
+        self.dependencies = dependencies
 
     async def extract_batch_context(
         self,
@@ -30,17 +31,15 @@ class DeepContextRoundRunner:
             max_cluster=max_cluster,
             recursive_depth=recursive_depth,
         )
-        clusters = self.engine._initialize_clusters(target_messages)
+        clusters = self.dependencies.initialize_clusters(target_messages)
         if not clusters:
             return 0
 
         telemetry.track_counter("deep.extract_batch.calls", 1)
         telemetry.track_counter("deep.extract_batch.targets", len(target_messages))
         telemetry.track_counter("deep.extract_batch.clusters", len(clusters))
-        await self.engine.storage.save_messages(
-            [cluster.target.message for cluster in clusters],
-            target_id=target_id,
-            flush=False,
+        await self.dependencies.save_messages(
+            [cluster.target.message for cluster in clusters], target_id=target_id
         )
         saved_count = len(clusters)
         if on_progress:
@@ -96,7 +95,7 @@ class DeepContextRoundRunner:
         round_number: int,
         on_progress: Optional[Any],
     ) -> int:
-        anchors_by_cluster = self.engine.cluster_assembler.build_anchors_by_cluster(
+        anchors_by_cluster = self.dependencies.build_anchors_by_cluster(
             clusters, round_number, max_cluster
         )
         if not anchors_by_cluster:
@@ -145,10 +144,12 @@ class DeepContextRoundRunner:
         max_cluster: int,
         on_progress: Optional[Any],
     ) -> int:
-        parents = await self.engine._fetch_parent_messages(
-            entity, chat_id, anchors_by_cluster
+        parents = await self.dependencies.fetch_parent_messages(
+            entity=entity,
+            chat_id=chat_id,
+            anchors_by_cluster=anchors_by_cluster,
         )
-        parent_additions = self.engine.cluster_assembler.associate_parents(
+        parent_additions = self.dependencies.associate_parents(
             clusters=clusters,
             anchors_by_cluster=anchors_by_cluster,
             parents=parents,
@@ -171,22 +172,22 @@ class DeepContextRoundRunner:
         max_cluster: int,
         on_progress: Optional[Any],
     ) -> int:
-        candidate_messages = await self.engine._fetch_candidate_pool(
-            entity,
-            chat_id,
+        candidate_messages = await self.dependencies.fetch_candidate_pool(
+            entity=entity,
+            chat_id=chat_id,
             anchor_ids=[
                 anchor.message.message_id
                 for anchors in anchors_by_cluster.values()
                 for anchor in anchors
             ],
-            scan_before=self.engine._scan_before_ids(round_number, window_size),
-            scan_after=self.engine._scan_after_ids(
+            scan_before=self.dependencies.scan_before_ids(round_number, window_size),
+            scan_after=self.dependencies.scan_after_ids(
                 round_number, window_size, max_cluster
             ),
         )
-        candidate_additions = self.engine._associate_candidates(
-            clusters,
-            candidate_messages,
+        candidate_additions = self.dependencies.associate_candidates(
+            clusters=clusters,
+            candidates=candidate_messages,
             round_number=round_number,
             max_cluster=max_cluster,
         )
@@ -205,7 +206,7 @@ class DeepContextRoundRunner:
         max_cluster: int,
         on_progress: Optional[Any],
     ) -> int:
-        return await self.engine.time_fallback_resolver.apply_time_fallback(
+        return await self.dependencies.apply_time_fallback(
             entity=entity,
             chat_id=chat_id,
             clusters=clusters,
@@ -225,8 +226,8 @@ class DeepContextRoundRunner:
     ) -> int:
         if not messages:
             return 0
-        saved_count = await self.engine.storage.save_messages(
-            messages, target_id=target_id, flush=False
+        saved_count = await self.dependencies.save_messages(
+            messages, target_id=target_id
         )
         if on_progress:
             await on_progress()

@@ -1,5 +1,6 @@
 import sys
 import os
+import tempfile
 import unittest
 from unittest.mock import AsyncMock, MagicMock
 from datetime import datetime
@@ -102,6 +103,25 @@ class TestCleaner(unittest.IsolatedAsyncioTestCase):
 
         # Verify purged from DB
         self.assertEqual(self.storage.get_message_count(777), 0)
+
+    async def test_purge_user_data_preserves_summary_and_deletes_artifacts(self):
+        artifact_root = self.enterContext(tempfile.TemporaryDirectory())
+        artifact_path = os.path.join(artifact_root, "messages_42.jsonl")
+        with open(artifact_path, "w", encoding="utf-8") as artifact:
+            artifact.write("artifact")
+        storage = MagicMock()
+        storage.delete_user_data.return_value = (3, 1)
+        cleaner = CleanerService(
+            self.mock_client,
+            storage,
+            artifact_roots=[artifact_root],
+        )
+
+        result = await cleaner.purge_user_data(42)
+
+        self.assertEqual(result, (3, 1))
+        storage.delete_user_data.assert_called_once_with(42)
+        self.assertFalse(os.path.exists(artifact_path))
 
     async def test_global_self_cleanup_filters_whitelist_and_skips_service_messages(
         self,

@@ -1,4 +1,5 @@
 import json
+from datetime import datetime
 from typing import Optional
 
 from .models import TARGET_NAME_FIELDS, TargetNamesResult
@@ -18,11 +19,7 @@ def render_target_names_text(result: TargetNamesResult, *, field: str = "all") -
             lines.append("")
 
     lines.append(f"{_history_title(field)}:")
-    history = [
-        item
-        for item in result.history
-        if field == "all" or item.field == field
-    ]
+    history = [item for item in result.history if field == "all" or item.field == field]
     if not history:
         lines.append("  No changes recorded.")
         return "\n".join(lines)
@@ -31,14 +28,14 @@ def render_target_names_text(result: TargetNamesResult, *, field: str = "all") -
         if field == "all":
             lines.append(
                 "  "
-                f"{item.observed_at}  {item.field:<12}  "
+                f"{_format_timestamp(item.observed_at)}  {item.field:<12}  "
                 f"{_display_value(item.old_value, item.field):<16} -> "
                 f"{_display_value(item.new_value, item.field)}"
             )
         else:
             lines.append(
                 "  "
-                f"{item.observed_at}  "
+                f"{_format_timestamp(item.observed_at)}  "
                 f"{_display_value(item.old_value, item.field):<16} -> "
                 f"{_display_value(item.new_value, item.field)}"
             )
@@ -100,9 +97,9 @@ def _render_current_lines(result: TargetNamesResult) -> list[str]:
         if value is not None:
             lines.append(f"  {field}: {_display_value(value, field)}")
     if result.current.first_seen is not None:
-        lines.append(f"  first_seen: {result.current.first_seen}")
+        lines.append(f"  first_seen: {_format_timestamp(result.current.first_seen)}")
     if result.current.last_seen is not None:
-        lines.append(f"  last_seen: {result.current.last_seen}")
+        lines.append(f"  last_seen: {_format_timestamp(result.current.last_seen)}")
     return lines
 
 
@@ -110,8 +107,7 @@ def _current_payload(result: TargetNamesResult, fields: tuple[str, ...]) -> dict
     if result.current is None:
         return {}
     return {
-        field: _json_value(getattr(result.current, field), field)
-        for field in fields
+        field: _json_value(getattr(result.current, field), field) for field in fields
     }
 
 
@@ -150,3 +146,7 @@ def _format_username(value: Optional[str]) -> Optional[str]:
     if text.startswith("@"):
         return text
     return f"@{text}"
+
+
+def _format_timestamp(value: int) -> str:
+    return datetime.fromtimestamp(value).strftime("%Y-%m-%d %H:%M:%S")

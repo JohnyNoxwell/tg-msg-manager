@@ -1,5 +1,19 @@
 from pathlib import Path
 
+from tg_msg_manager.core.models.dataset_contracts import (
+    CHANNEL_STATE_JSON,
+    DISCUSSION_COMMENTS_JSONL,
+    DISCUSSION_COMMENTS_TXT,
+    DISCUSSION_METADATA_JSONL,
+    DISCUSSION_STATE_JSON,
+    DISCUSSION_THREADS_JSONL,
+    MANIFEST_JSON,
+    MEDIA_DIRECTORY,
+    MEDIA_MANIFEST_JSONL,
+    MESSAGES_JSONL,
+    MESSAGES_TXT,
+)
+
 from .models import ChannelExportPlan, ChannelIdentity
 
 MEDIA_SUBDIRECTORIES = (
@@ -54,7 +68,7 @@ def build_channel_directory_name(channel: ChannelIdentity) -> str:
 class ChannelExportPlanBuilder:
     def build(self, base_dir: Path, channel: ChannelIdentity) -> ChannelExportPlan:
         output_dir = Path(base_dir) / build_channel_directory_name(channel)
-        media_dir = output_dir / "media"
+        media_dir = output_dir / MEDIA_DIRECTORY
 
         output_dir.mkdir(parents=True, exist_ok=True)
         media_dir.mkdir(parents=True, exist_ok=True)
@@ -63,15 +77,15 @@ class ChannelExportPlanBuilder:
 
         return ChannelExportPlan(
             output_dir=output_dir,
-            manifest_path=output_dir / "manifest.json",
-            messages_jsonl_path=output_dir / "messages.jsonl",
-            messages_txt_path=output_dir / "messages.txt",
-            media_manifest_path=output_dir / "media_manifest.jsonl",
-            state_path=output_dir / "channel_export_state.json",
+            manifest_path=output_dir / MANIFEST_JSON,
+            messages_jsonl_path=output_dir / MESSAGES_JSONL,
+            messages_txt_path=output_dir / MESSAGES_TXT,
+            media_manifest_path=output_dir / MEDIA_MANIFEST_JSONL,
+            state_path=output_dir / CHANNEL_STATE_JSON,
             media_dir=media_dir,
-            discussion_comments_jsonl_path=output_dir / "discussion_comments.jsonl",
-            discussion_comments_txt_path=output_dir / "discussion_comments.txt",
-            discussion_threads_jsonl_path=output_dir / "discussion_threads.jsonl",
-            discussion_metadata_jsonl_path=output_dir / "discussion_metadata.jsonl",
-            discussion_state_path=output_dir / "discussion_export_state.json",
+            discussion_comments_jsonl_path=output_dir / DISCUSSION_COMMENTS_JSONL,
+            discussion_comments_txt_path=output_dir / DISCUSSION_COMMENTS_TXT,
+            discussion_threads_jsonl_path=output_dir / DISCUSSION_THREADS_JSONL,
+            discussion_metadata_jsonl_path=output_dir / DISCUSSION_METADATA_JSONL,
+            discussion_state_path=output_dir / DISCUSSION_STATE_JSON,
         )

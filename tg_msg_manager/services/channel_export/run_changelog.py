@@ -4,9 +4,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Optional
 
-from .atomic_writer import AtomicTextFile
+from tg_msg_manager.core.models.dataset_contracts import RUN_CHANGELOG_JSONL
 
-RUN_CHANGELOG_JSONL = "run_changelog.jsonl"
+from .atomic_writer import AtomicTextFile
 
 
 def run_changelog_path(output_dir: Path) -> Path:

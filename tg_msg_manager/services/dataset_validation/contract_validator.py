@@ -3,25 +3,20 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
+from tg_msg_manager.core.models.dataset_contracts import (
+    DATASET_SCHEMA_VERSION,
+    DIRECT_CHANNEL_EXPORT_DATASET_TYPE,
+    DISCUSSION_ANY_DATASET_FILES,
+    DISCUSSION_FULL_DATASET_FILES,
+    DISCUSSION_METADATA_JSONL,
+    MANIFEST_JSON,
+    RUN_CHANGELOG_JSONL,
+)
+
 from .models import ValidationIssue, issue_error, issue_warning
 
-RUN_CHANGELOG_JSONL = "run_changelog.jsonl"
-DISCUSSION_METADATA_JSONL = "discussion_metadata.jsonl"
-DISCUSSION_COMMENTS_JSONL = "discussion_comments.jsonl"
-DISCUSSION_COMMENTS_TXT = "discussion_comments.txt"
-DISCUSSION_THREADS_JSONL = "discussion_threads.jsonl"
-DISCUSSION_STATE_JSON = "discussion_export_state.json"
-
-DISCUSSION_FULL_FILES = (
-    DISCUSSION_COMMENTS_JSONL,
-    DISCUSSION_COMMENTS_TXT,
-    DISCUSSION_THREADS_JSONL,
-    DISCUSSION_STATE_JSON,
-)
-DISCUSSION_ANY_FILES = (
-    DISCUSSION_METADATA_JSONL,
-    *DISCUSSION_FULL_FILES,
-)
+DISCUSSION_FULL_FILES = DISCUSSION_FULL_DATASET_FILES
+DISCUSSION_ANY_FILES = DISCUSSION_ANY_DATASET_FILES
 
 
 def validate_contract_v1_files(
@@ -52,20 +47,20 @@ def _validate_required_artifacts(dataset_path: Path) -> list[ValidationIssue]:
 
 def _validate_manifest_identity(manifest: dict[str, Any]) -> list[ValidationIssue]:
     issues: list[ValidationIssue] = []
-    if manifest.get("dataset_type") not in (None, "direct_channel_export"):
+    if manifest.get("dataset_type") not in (None, DIRECT_CHANNEL_EXPORT_DATASET_TYPE):
         issues.append(
             issue_warning(
                 "dataset_type_mismatch",
                 "Manifest dataset_type is not direct_channel_export",
-                path="manifest.json",
+                path=MANIFEST_JSON,
             )
         )
-    if manifest.get("schema_version") not in (None, "1.0"):
+    if manifest.get("schema_version") not in (None, DATASET_SCHEMA_VERSION):
         issues.append(
             issue_warning(
                 "schema_version_mismatch",
                 "Manifest schema_version is not 1.0",
-                path="manifest.json",
+                path=MANIFEST_JSON,
             )
         )
     return issues

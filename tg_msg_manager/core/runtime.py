@@ -45,6 +45,7 @@ def build_app_runtime(
     project_root: Optional[str] = None,
     config_path: Optional[str] = None,
     python_executable: Optional[str] = None,
+    require_api_credentials: bool = True,
 ) -> AppRuntime:
     if project_root is None and config_path:
         resolved_config_path = os.path.abspath(config_path)
@@ -55,7 +56,10 @@ def build_app_runtime(
             config_path or os.path.join(resolved_project_root, "config.json")
         )
 
-    settings = load_settings(resolved_config_path)
+    settings = load_settings(
+        resolved_config_path,
+        require_api_credentials=require_api_credentials,
+    )
     paths = AppPaths(
         project_root=resolved_project_root,
         config_path=resolved_config_path,

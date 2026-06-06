@@ -6,6 +6,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from types import SimpleNamespace
 
+from tg_msg_manager.core.models.dataset_contracts import (
+    ARTIFACT_KEY_MANIFEST,
+    ARTIFACT_KEY_MEDIA_MANIFEST,
+    ARTIFACT_KEY_MESSAGES_JSONL,
+    ARTIFACT_KEY_MESSAGES_TXT,
+    ARTIFACT_KEY_RUN_CHANGELOG,
+    ARTIFACT_KEY_STATE,
+    RUN_CHANGELOG_ARTIFACT_PATHS as DATASET_RUN_CHANGELOG_ARTIFACT_PATHS,
+)
 from tg_msg_manager.services.channel_export.discussions.jsonl_renderer import (
     ChannelDiscussionJsonlRenderer,
 )
@@ -178,22 +187,15 @@ RUN_CHANGELOG_KEYS = {
 }
 
 RUN_CHANGELOG_ARTIFACT_PATH_KEYS = {
-    "manifest",
-    "messages_jsonl",
-    "messages_txt",
-    "media_manifest",
-    "state",
-    "run_changelog",
+    ARTIFACT_KEY_MANIFEST,
+    ARTIFACT_KEY_MESSAGES_JSONL,
+    ARTIFACT_KEY_MESSAGES_TXT,
+    ARTIFACT_KEY_MEDIA_MANIFEST,
+    ARTIFACT_KEY_STATE,
+    ARTIFACT_KEY_RUN_CHANGELOG,
 }
 
-RUN_CHANGELOG_ARTIFACT_PATHS = {
-    "manifest": "manifest.json",
-    "messages_jsonl": "messages.jsonl",
-    "messages_txt": "messages.txt",
-    "media_manifest": "media_manifest.jsonl",
-    "state": "channel_export_state.json",
-    "run_changelog": "run_changelog.jsonl",
-}
+RUN_CHANGELOG_ARTIFACT_PATHS = dict(DATASET_RUN_CHANGELOG_ARTIFACT_PATHS)
 
 RUN_CHANGELOG_FIXTURE_DATASETS = (
     "valid_minimal_channel_dataset",

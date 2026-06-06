@@ -1,5 +1,6 @@
 import json
 import unittest
+from datetime import datetime
 
 from tg_msg_manager.services.target_names.models import (
     TargetNameCurrent,
@@ -11,6 +12,10 @@ from tg_msg_manager.services.target_names.renderers import (
     render_target_names_json,
     render_target_names_text,
 )
+
+
+def _fmt(value: int) -> str:
+    return datetime.fromtimestamp(value).strftime("%Y-%m-%d %H:%M:%S")
 
 
 class TestTargetNamesRenderers(unittest.TestCase):
@@ -27,7 +32,9 @@ class TestTargetNamesRenderers(unittest.TestCase):
             ),
             history=(
                 TargetNameHistoryItem(1700000000, "username", None, "old_handle"),
-                TargetNameHistoryItem(1700000030, "username", "old_handle", "new_handle"),
+                TargetNameHistoryItem(
+                    1700000030, "username", "old_handle", "new_handle"
+                ),
             ),
         )
 
@@ -37,7 +44,10 @@ class TestTargetNamesRenderers(unittest.TestCase):
         self.assertIn("Type: user", rendered)
         self.assertIn("Current:", rendered)
         self.assertIn("username: @new_handle", rendered)
+        self.assertIn(f"first_seen: {_fmt(1700000000)}", rendered)
+        self.assertIn(f"last_seen: {_fmt(1700000030)}", rendered)
         self.assertIn("Name history:", rendered)
+        self.assertIn(_fmt(1700000000), rendered)
         self.assertIn("-                -> @old_handle", rendered)
         self.assertIn("@old_handle      -> @new_handle", rendered)
 

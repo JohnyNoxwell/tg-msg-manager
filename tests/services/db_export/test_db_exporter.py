@@ -675,7 +675,7 @@ class TestDBExporter(unittest.TestCase):
             "last_name": "User",
             "username": "stable",
         }
-        self.service._write_export_payloads = AsyncMock(
+        self.service.payload_writer.write_payloads = AsyncMock(
             side_effect=RuntimeError("disk full")
         )
 

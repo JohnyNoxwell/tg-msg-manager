@@ -8,8 +8,24 @@ Current active stage files:
 
 - none
 
+No Stage 5O refactoring workflow task files are currently active.
 No target names history workflow task files are currently active.
 
+Stage 5O.14 test suite component split is recorded in [`reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md`](reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md).
+Stage 5O.13 storage compatibility guardrails is recorded in [`reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md`](reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md).
+Stage 5O.12 context sync dependency extraction is recorded in [`reports/STAGE_5O_12_CONTEXT_SYNC_DEPENDENCY_EXTRACTION_REPORT.md`](reports/STAGE_5O_12_CONTEXT_SYNC_DEPENDENCY_EXTRACTION_REPORT.md).
+Stage 5O.11 context sync dependency precheck is recorded in [`reports/STAGE_5O_11_CONTEXT_SYNC_DEPENDENCY_PRECHECK_REPORT.md`](reports/STAGE_5O_11_CONTEXT_SYNC_DEPENDENCY_PRECHECK_REPORT.md).
+Stage 5O.10 cleaner artifact purger is recorded in [`reports/STAGE_5O_10_CLEANER_ARTIFACT_PURGER_REPORT.md`](reports/STAGE_5O_10_CLEANER_ARTIFACT_PURGER_REPORT.md).
+Stage 5O.9 file writer state boundary is recorded in [`reports/STAGE_5O_9_FILE_WRITER_STATE_BOUNDARY_REPORT.md`](reports/STAGE_5O_9_FILE_WRITER_STATE_BOUNDARY_REPORT.md).
+Stage 5O.8 discussion builder split is recorded in [`reports/STAGE_5O_8_DISCUSSION_BUILDER_SPLIT_REPORT.md`](reports/STAGE_5O_8_DISCUSSION_BUILDER_SPLIT_REPORT.md).
+Stage 5O.7 CLI option boundary is recorded in [`reports/STAGE_5O_7_CLI_OPTION_BOUNDARY_REPORT.md`](reports/STAGE_5O_7_CLI_OPTION_BOUNDARY_REPORT.md).
+Stage 5O.6 DB export run coordinator extraction is recorded in [`reports/STAGE_5O_6_DB_EXPORT_RUN_COORDINATOR_EXTRACTION_REPORT.md`](reports/STAGE_5O_6_DB_EXPORT_RUN_COORDINATOR_EXTRACTION_REPORT.md).
+Stage 5O.5 DB export run lifecycle characterization is recorded in [`reports/STAGE_5O_5_DB_EXPORT_RUN_LIFECYCLE_CHARACTERIZATION_REPORT.md`](reports/STAGE_5O_5_DB_EXPORT_RUN_LIFECYCLE_CHARACTERIZATION_REPORT.md).
+Stage 5O.4 dataset contract constants is recorded in [`reports/STAGE_5O_4_DATASET_CONTRACT_CONSTANTS_REPORT.md`](reports/STAGE_5O_4_DATASET_CONTRACT_CONSTANTS_REPORT.md).
+Stage 5O.3 CLI parser media size error is recorded in [`reports/STAGE_5O_3_CLI_PARSER_MEDIA_SIZE_ERROR_REPORT.md`](reports/STAGE_5O_3_CLI_PARSER_MEDIA_SIZE_ERROR_REPORT.md).
+Stage 5O.2 i18n parity guard is recorded in [`reports/STAGE_5O_2_I18N_PARITY_GUARD_REPORT.md`](reports/STAGE_5O_2_I18N_PARITY_GUARD_REPORT.md).
+Stage 5O.1 config loading source cleanup is recorded in [`reports/STAGE_5O_1_CONFIG_LOADING_SOURCE_CLEANUP_REPORT.md`](reports/STAGE_5O_1_CONFIG_LOADING_SOURCE_CLEANUP_REPORT.md).
+Stage 5O.0 refactoring guardrails is recorded in [`reports/STAGE_5O_0_REFACTORING_GUARDRAILS_REPORT.md`](reports/STAGE_5O_0_REFACTORING_GUARDRAILS_REPORT.md).
 Stage 5N.1 target names history CLI is recorded in [`reports/STAGE_5N_1_TARGET_NAMES_HISTORY_CLI_REPORT.md`](reports/STAGE_5N_1_TARGET_NAMES_HISTORY_CLI_REPORT.md).
 Stage 5N.0 target names history read model is recorded in [`reports/STAGE_5N_0_TARGET_NAMES_HISTORY_READ_MODEL_REPORT.md`](reports/STAGE_5N_0_TARGET_NAMES_HISTORY_READ_MODEL_REPORT.md).
 Stage 5M.6 operational risk notes is recorded in [`reports/STAGE_5M_6_OPERATIONAL_RISK_NOTES_REPORT.md`](reports/STAGE_5M_6_OPERATIONAL_RISK_NOTES_REPORT.md).
@@ -167,6 +183,76 @@ Current completed prompt groups:
 - Stage 5M.6 operational risk notes task prompt.
 - Stage 5N.0 target names history read model task prompt.
 - Stage 5N.1 target names history CLI task prompt.
+- Stage 5O.0 refactoring guardrails task prompt.
+- Stage 5O.1 config loading source cleanup task prompt.
+- Stage 5O.2 i18n parity guard task prompt.
+- Stage 5O.3 CLI parser media size error task prompt.
+- Stage 5O.4 dataset contract constants task prompt.
+- Stage 5O.5 DB export run lifecycle characterization task prompt.
+- Stage 5O.6 DB export run coordinator extraction task prompt.
+- Stage 5O.7 CLI option boundary task prompt.
+- Stage 5O.8 discussion builder split task prompt.
+- Stage 5O.11 context sync dependency precheck task prompt.
+- Stage 5O.12 context sync dependency extraction task prompt.
+- Stage 5O.13 storage compatibility guardrails task prompt.
+- Stage 5O.14 test suite component split task prompt.
+- Stage 5O.9 file writer state boundary task prompt.
+
+Stage 5O.14 test suite component split task files:
+
+- [`completed/stage_5o_14_test_suite_component_split.md`](completed/stage_5o_14_test_suite_component_split.md)
+
+Stage 5O.13 storage compatibility guardrails task files:
+
+- [`completed/stage_5o_13_storage_compatibility_guardrails.md`](completed/stage_5o_13_storage_compatibility_guardrails.md)
+
+Stage 5O.12 context sync dependency extraction task files:
+
+- [`completed/stage_5o_12_context_sync_dependency_extraction.md`](completed/stage_5o_12_context_sync_dependency_extraction.md)
+
+Stage 5O.11 context sync dependency precheck task files:
+
+- [`completed/stage_5o_11_context_sync_dependency_precheck.md`](completed/stage_5o_11_context_sync_dependency_precheck.md)
+
+Stage 5O.9 file writer state boundary task files:
+
+- [`completed/stage_5o_9_file_writer_state_boundary.md`](completed/stage_5o_9_file_writer_state_boundary.md)
+
+Stage 5O.8 discussion builder split task files:
+
+- [`completed/stage_5o_8_discussion_builder_split.md`](completed/stage_5o_8_discussion_builder_split.md)
+
+Stage 5O.7 CLI option boundary task files:
+
+- [`completed/stage_5o_7_cli_option_boundary.md`](completed/stage_5o_7_cli_option_boundary.md)
+
+Stage 5O.6 DB export run coordinator extraction task files:
+
+- [`completed/stage_5o_6_db_export_run_coordinator_extraction.md`](completed/stage_5o_6_db_export_run_coordinator_extraction.md)
+
+Stage 5O.5 DB export run lifecycle characterization task files:
+
+- [`completed/stage_5o_5_db_export_run_lifecycle_characterization.md`](completed/stage_5o_5_db_export_run_lifecycle_characterization.md)
+
+Stage 5O.4 dataset contract constants task files:
+
+- [`completed/stage_5o_4_dataset_contract_constants.md`](completed/stage_5o_4_dataset_contract_constants.md)
+
+Stage 5O.3 CLI parser media size error task files:
+
+- [`completed/stage_5o_3_cli_parser_media_size_error.md`](completed/stage_5o_3_cli_parser_media_size_error.md)
+
+Stage 5O.2 i18n parity guard task files:
+
+- [`completed/stage_5o_2_i18n_parity_guard.md`](completed/stage_5o_2_i18n_parity_guard.md)
+
+Stage 5O.1 config loading source cleanup task files:
+
+- [`completed/stage_5o_1_config_loading_source_cleanup.md`](completed/stage_5o_1_config_loading_source_cleanup.md)
+
+Stage 5O.0 refactoring guardrails task files:
+
+- [`completed/stage_5o_0_refactoring_guardrails.md`](completed/stage_5o_0_refactoring_guardrails.md)
 
 Stage 5N.1 target names history CLI task files:
 

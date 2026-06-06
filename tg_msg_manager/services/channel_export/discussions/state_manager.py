@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from tg_msg_manager.core.models.dataset_contracts import DATASET_SCHEMA_VERSION
+
 from ..atomic_writer import atomic_write_text
 from .errors import ChannelDiscussionStateError
 from .models import ChannelDiscussionExportState, ChannelDiscussionRunStats
@@ -31,7 +33,7 @@ def _isoformat_or_none(value: Optional[datetime]) -> Optional[str]:
 
 
 class ChannelDiscussionStateManager:
-    schema_version = "1.0"
+    schema_version = DATASET_SCHEMA_VERSION
 
     def load(self, path: Path) -> Optional[ChannelDiscussionExportState]:
         target_path = Path(path)

@@ -20,3 +20,12 @@
 | `ReportStorage` aggregate | reporting service | report | `contracts/report_storage.py::ReportStorage` | no | read-only audit contract |
 | `AnalyticsStorage` placeholder | future analytics only | analytics | `contracts/analytics_storage.py::AnalyticsStorage` | n/a | reserved read-only boundary |
 | `BaseStorage` umbrella ABC | SQLite implementation compatibility | legacy/shared | `infrastructure/storage/interface.py::BaseStorage` | no | retained as compatibility umbrella only |
+
+## Preserved Compatibility Surfaces
+
+- `infrastructure/storage/interface.py::BaseStorage` remains the legacy umbrella
+  ABC used by `SQLiteStorage`; service code must depend on a narrow contract.
+- `infrastructure/storage/interface.py` and `contracts/__init__.py` retain public
+  compatibility re-exports.
+- `_sqlite_write_path.py`, `_sqlite_sync_state.py`, and `records.py` retain their
+  existing compatibility behavior and must not depend on services or CLI modules.

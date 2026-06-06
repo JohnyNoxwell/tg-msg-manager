@@ -1,25 +1,22 @@
 import argparse
-from pathlib import Path
+from typing import Union
 
-from ...services.channel_export import ChannelExportError, ChannelExportOptions
+from ..channel_export_options import (
+    ChannelExportCommandOptions,
+    build_channel_export_service_options,
+    coerce_channel_export_command_options,
+)
+from ...services.channel_export import ChannelExportError
 
 
-async def _handle_export_channel_command(ctx, args: argparse.Namespace) -> None:
-    output_dir = (
-        Path(args.output_dir)
-        if args.output_dir
-        else Path(ctx.paths.channel_exports_dir)
-    )
-    options = ChannelExportOptions(
-        channel=args.channel,
-        limit=args.limit,
-        media_mode=args.media,
-        output_dir=output_dir,
-        max_media_size=args.max_media_size,
-        media_types=args.media_types,
-        discussion_mode=args.discussion,
-        max_comments_per_post=args.max_comments_per_post,
-        force=args.force,
+async def _handle_export_channel_command(
+    ctx,
+    args: Union[argparse.Namespace, ChannelExportCommandOptions],
+) -> None:
+    command_options = coerce_channel_export_command_options(args)
+    options = build_channel_export_service_options(
+        command_options,
+        default_output_dir=ctx.paths.channel_exports_dir,
     )
     try:
         result = await ctx.channel_exporter.export_channel(options)

@@ -3,6 +3,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional
 
+from tg_msg_manager.core.models.dataset_contracts import DATASET_SCHEMA_VERSION
+
 from .atomic_writer import atomic_write_text
 from .errors import ChannelExportStateError
 from .models import (
@@ -38,7 +40,7 @@ def _isoformat_or_none(value: Optional[datetime]) -> Optional[str]:
 
 
 class ChannelExportStateManager:
-    schema_version = "1.0"
+    schema_version = DATASET_SCHEMA_VERSION
 
     def state_exists(self, path: Path) -> bool:
         return Path(path).exists()

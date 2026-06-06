@@ -1,6 +1,6 @@
-import os
 import logging
 from typing import List, Set, Any, Optional, Tuple, Sequence
+from .artifact_purger import purge_user_artifacts
 from ..core.models.payloads.cleaner import (
     CleanerDialogMessagesFoundPayload,
     CleanerDialogScanStartedPayload,
@@ -302,41 +302,12 @@ class CleanerService:
         )
 
         # 2. Clear filesystem
-        dirs_to_scan = self.artifact_roots or [
+        artifact_roots = self.artifact_roots or [
             "PUBLIC_GROUPS",
             "PRIVAT_DIALOGS",
             "DB_EXPORTS",
         ]
-        deleted_count = 0
-        pattern = f"_{user_id}"
-
-        for dname in dirs_to_scan:
-            if not os.path.exists(dname):
-                continue
-            for root, dirs, files in os.walk(dname):
-                for fname in files:
-                    if pattern in fname:
-                        fpath = os.path.join(root, fname)
-                        try:
-                            os.remove(fpath)
-                            deleted_count += 1
-                            logger.debug(f"Deleted file: {fpath}")
-                        except Exception as e:
-                            logger.error(f"Error deleting file {fpath}: {e}")
-
-                # Check directories
-                for d in list(dirs):
-                    if pattern in d:
-                        dpath = os.path.join(root, d)
-                        import shutil
-
-                        try:
-                            shutil.rmtree(dpath)
-                            deleted_count += 1
-                            dirs.remove(d)
-                            logger.debug(f"Deleted directory: {dpath}")
-                        except Exception as e:
-                            logger.error(f"Error deleting directory {dpath}: {e}")
+        deleted_count = purge_user_artifacts(artifact_roots, user_id)
 
         logger.info(
             f"Purge complete. Deleted {deleted_count} files/objects for user {user_id}"

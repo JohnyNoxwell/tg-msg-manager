@@ -4,14 +4,16 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from tg_msg_manager.core.models.dataset_contracts import (
+    DISCUSSION_COMMENTS_JSONL,
+    DISCUSSION_COMMENTS_TXT,
+    DISCUSSION_METADATA_JSONL,
+    DISCUSSION_STATE_JSON,
+    DISCUSSION_THREADS_JSONL,
+)
+
 from .jsonl_validator import JsonlRecord, load_jsonl_records
 from .models import DiscussionSummary, ValidationIssue, issue_error, issue_warning
-
-DISCUSSION_COMMENTS_JSONL = "discussion_comments.jsonl"
-DISCUSSION_COMMENTS_TXT = "discussion_comments.txt"
-DISCUSSION_THREADS_JSONL = "discussion_threads.jsonl"
-DISCUSSION_METADATA_JSONL = "discussion_metadata.jsonl"
-DISCUSSION_STATE_JSON = "discussion_export_state.json"
 
 
 @dataclass(frozen=True)

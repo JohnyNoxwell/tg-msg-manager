@@ -15,13 +15,14 @@ Current compatibility surface:
 - `deduplicator.py` -> processed-id state holder
 - `scope_policy.py` -> explicit context limits/depth policy
 - `rounds.py` -> batch-round orchestration facade
+- `round_dependencies.py` -> explicit dependencies used by batch rounds
 
 ## Method Map
 
 | Method group | Responsibility | Target module |
 | --- | --- | --- |
 | `reset`, `_message_key` | run-local processed state | `deduplicator.py` / `engine.py` |
-| `extract_batch_context` | batch-round orchestration | `rounds.py` |
+| `extract_batch_context` | batch-round orchestration | `rounds.py` / `round_dependencies.py` |
 | `extract_context` | single-target facade | `engine.py` |
 | cluster assembly methods | `_initialize_clusters`, `_associate_candidates`, `_with_cluster` | `cluster_builder.py` / existing `clustering.py` |
 | reply-chain methods | `_fetch_parent_messages` | `reply_chain_resolver.py` / existing `resolvers.py` |
@@ -32,5 +33,6 @@ Current compatibility surface:
 ## Result
 
 - `tg_msg_manager/services/context_engine.py` is now a 6-line compatibility wrapper.
-- `tg_msg_manager/services/context/engine.py` is a 209-line facade that wires dedicated resolvers and delegates batch extraction to `rounds.py`.
+- `tg_msg_manager/services/context/engine.py` is a 208-line facade that wires dedicated resolvers and delegates batch extraction to `rounds.py`.
+- `DeepContextRoundRunner` receives `ContextRoundDependencies` instead of calling private `DeepModeEngine` methods.
 - Reply-chain, neighbor-window, cluster assembly, deduplication, and fallback rules now live behind explicit boundaries instead of one monolithic hot-path file.

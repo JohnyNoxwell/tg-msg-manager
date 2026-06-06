@@ -242,15 +242,17 @@ def _command_needs_client(command: str) -> bool:
 
 async def run_cli(runtime: Optional[AppRuntime] = None):
     """Main CLI entry point with subcommand support."""
-    active_runtime = runtime or build_app_runtime()
+    parser = build_cli_parser()
+    args = parser.parse_args()
+    if not args.command:
+        if not sys.stdin.isatty() or not sys.stdout.isatty():
+            parser.print_help()
+            return
+    active_runtime = runtime or build_app_runtime(
+        require_api_credentials=not args.command or _command_needs_client(args.command),
+    )
     with use_lang(active_runtime.settings.lang):
-        parser = build_cli_parser()
-        args = parser.parse_args()
-
         if not args.command:
-            if not sys.stdin.isatty() or not sys.stdout.isatty():
-                parser.print_help()
-                return
             await main_menu(runtime=active_runtime)
             return
 
@@ -324,7 +326,7 @@ async def main_menu(runtime: Optional[AppRuntime] = None):
 
 def main():
     try:
-        asyncio.run(run_cli(runtime=build_app_runtime()))
+        asyncio.run(run_cli())
     except KeyboardInterrupt:
         sys.exit(0)
 

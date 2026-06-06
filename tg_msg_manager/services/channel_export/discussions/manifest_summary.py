@@ -1,14 +1,13 @@
 from typing import Any
 
+from tg_msg_manager.core.models.dataset_contracts import (
+    DISCUSSION_FULL_DATASET_FILES,
+    DISCUSSION_METADATA_DATASET_FILES,
+)
+
 from .options import DISCUSSION_MODE_FULL, DISCUSSION_MODE_METADATA
 
-DISCUSSION_DATASET_FILES = (
-    "discussion_comments.jsonl",
-    "discussion_comments.txt",
-    "discussion_threads.jsonl",
-    "discussion_export_state.json",
-)
-DISCUSSION_METADATA_DATASET_FILES = ("discussion_metadata.jsonl",)
+DISCUSSION_DATASET_FILES = DISCUSSION_FULL_DATASET_FILES
 
 
 def discussion_included_files(discussion_result: Any = None) -> tuple[str, ...]:

@@ -5,10 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional
 
-from .models import MessageSummary, ValidationIssue, issue_error, issue_warning
+from tg_msg_manager.core.models.dataset_contracts import MESSAGES_JSONL, MESSAGES_TXT
 
-MESSAGES_JSONL = "messages.jsonl"
-MESSAGES_TXT = "messages.txt"
+from .models import MessageSummary, ValidationIssue, issue_error, issue_warning
 
 
 @dataclass(frozen=True)

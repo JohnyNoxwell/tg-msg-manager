@@ -17,6 +17,7 @@ from tg_msg_manager.cli_commands import (
 )
 from tg_msg_manager.cli_parser import build_cli_parser
 from tg_msg_manager.core.config import Settings
+from tg_msg_manager.core.models.dataset_contracts import KNOWN_DATASET_FILES
 from tg_msg_manager.core.runtime import AppPaths, AppRuntime
 from tg_msg_manager.services.dataset_validation import (
     DatasetInspectionOptions,
@@ -53,6 +54,15 @@ class TestDatasetValidationContracts(unittest.TestCase):
         self.assertEqual(report.status, "ok")
         self.assertEqual(report.summary["messages"]["count"], 1)
         self.assertEqual(report.summary["media"]["record_count"], 0)
+
+    def test_file_summary_uses_documented_dataset_contract_names(self):
+        report = validate_dataset(
+            DatasetValidationOptions(fixture_path("valid_discussion_dataset"))
+        )
+
+        self.assertEqual(set(report.summary["files"]), set(KNOWN_DATASET_FILES))
+        self.assertTrue(report.summary["files"]["manifest.json"]["exists"])
+        self.assertTrue(report.summary["files"]["discussion_comments.jsonl"]["exists"])
 
     def test_duplicate_messages_fixture_reports_error(self):
         report = validate_dataset(

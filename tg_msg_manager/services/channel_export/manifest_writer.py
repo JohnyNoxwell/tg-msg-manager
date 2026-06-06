@@ -3,6 +3,11 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Dict, Optional, Tuple
 
+from tg_msg_manager.core.models.dataset_contracts import (
+    DATASET_SCHEMA_VERSION,
+    DIRECT_CHANNEL_EXPORT_DATASET_TYPE,
+)
+
 from .atomic_writer import atomic_write_text
 from .models import ChannelIdentity
 
@@ -46,8 +51,8 @@ def build_manifest(
     status: str = "completed",
 ) -> Dict[str, Any]:
     return {
-        "dataset_type": "direct_channel_export",
-        "schema_version": "1.0",
+        "dataset_type": DIRECT_CHANNEL_EXPORT_DATASET_TYPE,
+        "schema_version": DATASET_SCHEMA_VERSION,
         "exported_at": datetime.now(timezone.utc).isoformat(),
         "source": {
             "type": "channel",

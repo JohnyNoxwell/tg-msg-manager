@@ -6,6 +6,7 @@ Current compatibility surface:
 
 - `_sqlite_write_path.py` -> compatibility aggregator over split writer modules
 - `_sqlite_sync_state.py` -> compatibility wrapper for state/export/retry writers
+- both wrappers remain infrastructure-only and must not import services or CLI modules
 
 ## Writer Modules
 

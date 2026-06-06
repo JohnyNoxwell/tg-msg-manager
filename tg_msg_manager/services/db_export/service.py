@@ -1,6 +1,3 @@
-import logging
-import os
-from time import perf_counter
 from typing import Any, Callable, Dict, List, Optional
 
 from ...core.models.message import MessageData
@@ -11,16 +8,15 @@ from .manifest_writer import DBExportManifestWriter
 from .models import DBExportSource, ExistingExportArtifact
 from .payload_writer import DBExportPayloadWriter
 from .plan_builder import DBExportPlanBuilder
+from .run_coordinator import (
+    DBExportFullRunCoordinator,
+    DBExportUpdateRunCoordinator,
+)
 from .skip_policy import DBExportSkipPolicy
 from .source_loader import DBExportSourceLoader
 from .state_manager import DBExportStateManager
 from .txt_renderer import DBExportTxtRenderer
 from ..rendering.txt_profiles import DEFAULT_TXT_PROFILE, validate_txt_profile
-
-logger = logging.getLogger(__name__)
-
-EXPORT_RUN_STATUS_SUCCESS = "success"
-EXPORT_RUN_STATUS_FAILED = "failed"
 
 
 class DBExportService:
@@ -63,6 +59,19 @@ class DBExportService:
             jsonl_renderer=self.jsonl_renderer,
         )
         self.event_emitter = event_emitter or DBExportEventEmitter()
+        self.full_run_coordinator = DBExportFullRunCoordinator(
+            source_loader=self.source_loader,
+            plan_builder=self.plan_builder,
+            skip_policy=self.skip_policy,
+            state_manager=self.state_manager,
+            payload_writer=self.payload_writer,
+            event_emitter=self.event_emitter,
+        )
+        self.update_run_coordinator = DBExportUpdateRunCoordinator(
+            source_loader=self.source_loader,
+            state_manager=self.state_manager,
+            payload_writer=self.payload_writer,
+        )
 
     def _load_export_manifest(
         self, output_dir: str, user_id: int
@@ -317,133 +326,15 @@ class DBExportService:
         txt_profile: str = DEFAULT_TXT_PROFILE,
     ) -> str:
         txt_profile = validate_txt_profile(txt_profile)
-        started_at = perf_counter()
-        resolved_output_dir = output_dir or self.default_output_dir
-        processed_count = 0
-        processed_last_ts: Optional[int] = None
-        run_id = self._start_export_run(user_id=user_id)
-
-        def track_progress(count: int, item: Any) -> None:
-            nonlocal processed_count, processed_last_ts
-            processed_count = count
-            timestamp = getattr(item, "timestamp", None)
-            if timestamp is None and isinstance(item, dict):
-                timestamp = item.get("timestamp")
-            if hasattr(timestamp, "timestamp"):
-                processed_last_ts = int(timestamp.timestamp())
-            elif timestamp is not None:
-                processed_last_ts = int(timestamp)
-
-        try:
-            source = self._load_export_source(
-                user_id=user_id,
-                as_json=as_json,
-                json_profile=json_profile,
-            )
-            if source is None:
-                logger.warning("No messages found in DB for user %s", user_id)
-                self._finish_export_run(
-                    run_id,
-                    status=EXPORT_RUN_STATUS_SUCCESS,
-                    new_messages_count=0,
-                )
-                return ""
-
-            if not os.path.exists(resolved_output_dir):
-                os.makedirs(resolved_output_dir)
-
-            plan = self._prepare_export_plan(
-                user_id=user_id,
-                output_dir=resolved_output_dir,
-                source=source,
-                as_json=as_json,
-                include_date=include_date,
-                json_profile=json_profile,
-                txt_profile=txt_profile,
-            )
-            unchanged = self._maybe_skip_unchanged_export(
-                output_dir=resolved_output_dir,
-                user_id=user_id,
-                fingerprint=plan.fingerprint,
-                source_count=source.source_count,
-            )
-            if unchanged:
-                self._upsert_export_target_state(
-                    user_id=user_id,
-                    output_path=unchanged.output_path,
-                    target_author=plan.target_author,
-                    source=source,
-                    fingerprint=plan.fingerprint,
-                    part_count=unchanged.part_count,
-                )
-                self._finish_export_run(
-                    run_id,
-                    status=EXPORT_RUN_STATUS_SUCCESS,
-                    new_messages_count=0,
-                )
-                return unchanged.output_path
-
-            self._cleanup_existing_export_files(
-                output_dir=resolved_output_dir,
-                user_id=user_id,
-                ext=plan.ext,
-                output_path=plan.output_path,
-            )
-            writer, count = await self._write_export_payloads(
-                source=source,
-                output_path=plan.output_path,
-                as_json=as_json,
-                json_profile=json_profile,
-                txt_profile=txt_profile,
-                expected_count=source.source_count,
-                target_user_id=user_id,
-                target_author=plan.target_author,
-                overwrite=True,
-                on_progress=track_progress,
-            )
-            elapsed_seconds = perf_counter() - started_at
-            self.event_emitter.emit_completed(
-                user_id=user_id,
-                count=count,
-                as_json=as_json,
-                output_path=plan.output_path,
-                elapsed_seconds=elapsed_seconds,
-                write_calls=writer.write_calls,
-                bytes_written=writer.bytes_written,
-                rotation_count=writer.rotation_count,
-                state_persist_count=writer.state_persist_count,
-            )
-            self._upsert_export_target_state(
-                user_id=user_id,
-                output_path=plan.output_path,
-                target_author=plan.target_author,
-                source=source,
-                fingerprint=plan.fingerprint,
-                part_count=writer.current_part,
-            )
-            last_ts, _last_message_id = self._extract_export_cursor(
-                source=source,
-                fingerprint=plan.fingerprint,
-            )
-            self._finish_export_run(
-                run_id,
-                status=EXPORT_RUN_STATUS_SUCCESS,
-                new_messages_count=count,
-                last_new_message_ts=last_ts,
-            )
-            logger.info(
-                "DB Export complete for %s: %s messages.", plan.target_author, count
-            )
-            return plan.output_path
-        except Exception as exc:
-            self._finish_export_run(
-                run_id,
-                status=EXPORT_RUN_STATUS_FAILED,
-                new_messages_count=processed_count,
-                last_new_message_ts=processed_last_ts,
-                error=str(exc),
-            )
-            raise
+        return await self.full_run_coordinator.run(
+            user_id=user_id,
+            output_dir=output_dir,
+            default_output_dir=self.default_output_dir,
+            as_json=as_json,
+            include_date=include_date,
+            json_profile=json_profile,
+            txt_profile=txt_profile,
+        )
 
     async def update_user_messages(
         self,
@@ -455,102 +346,13 @@ class DBExportService:
         txt_profile: str = DEFAULT_TXT_PROFILE,
     ) -> str:
         txt_profile = validate_txt_profile(txt_profile)
-        resolved_output_dir = output_dir or self.default_output_dir
-        export_target = self.state_manager.get_export_target(user_id)
-        if not self._supports_incremental_update(
-            export_target=export_target,
+        return await self.update_run_coordinator.run(
+            user_id=user_id,
             output_dir=output_dir,
+            default_output_dir=self.default_output_dir,
             as_json=as_json,
             include_date=include_date,
             json_profile=json_profile,
-        ):
-            return await self.export_user_messages(
-                user_id,
-                output_dir=output_dir,
-                as_json=as_json,
-                include_date=include_date,
-                json_profile=json_profile,
-                txt_profile=txt_profile,
-            )
-
-        output_path = self._resolve_existing_export_path(
-            export_target=export_target,
-            fallback_output_dir=resolved_output_dir,
+            txt_profile=txt_profile,
+            full_export=self.export_user_messages,
         )
-        if not output_path or not os.path.exists(output_path):
-            return await self.export_user_messages(
-                user_id,
-                output_dir=output_dir,
-                as_json=as_json,
-                include_date=include_date,
-                json_profile=json_profile,
-                txt_profile=txt_profile,
-            )
-
-        last_ts = int(getattr(export_target, "last_exported_message_ts"))
-        last_message_id = int(getattr(export_target, "last_exported_message_id"))
-        run_id = self._start_export_run(user_id=user_id)
-        processed_count = 0
-        processed_last_ts: Optional[int] = None
-
-        def track_progress(count: int, item: Any) -> None:
-            nonlocal processed_count, processed_last_ts
-            processed_count = count
-            timestamp = getattr(item, "timestamp", None)
-            if timestamp is None and isinstance(item, dict):
-                timestamp = item.get("timestamp")
-            processed_last_ts = int(timestamp) if timestamp is not None else None
-
-        try:
-            source = self._load_incremental_export_source(
-                user_id=user_id,
-                last_exported_message_ts=last_ts,
-                last_exported_message_id=last_message_id,
-                as_json=as_json,
-                json_profile=json_profile,
-            )
-            if source is None:
-                self._finish_export_run(
-                    run_id,
-                    status=EXPORT_RUN_STATUS_SUCCESS,
-                    new_messages_count=0,
-                )
-                return output_path
-
-            writer, count = await self._write_export_payloads(
-                source=source,
-                output_path=output_path,
-                as_json=as_json,
-                json_profile=json_profile,
-                txt_profile=txt_profile,
-                expected_count=source.source_count,
-                target_user_id=user_id,
-                target_author=getattr(export_target, "last_known_author_name", None)
-                or f"User_{user_id}",
-                overwrite=False,
-                on_progress=track_progress,
-            )
-            self._refresh_export_target_artifact_from_db_state(
-                user_id=user_id,
-                output_path=output_path,
-                as_json=as_json,
-                include_date=include_date,
-                json_profile=json_profile,
-                part_count=writer.current_part,
-            )
-            self._finish_export_run(
-                run_id,
-                status=EXPORT_RUN_STATUS_SUCCESS,
-                new_messages_count=count,
-                last_new_message_ts=processed_last_ts,
-            )
-            return output_path
-        except Exception as exc:
-            self._finish_export_run(
-                run_id,
-                status=EXPORT_RUN_STATUS_FAILED,
-                new_messages_count=processed_count,
-                last_new_message_ts=processed_last_ts,
-                error=str(exc),
-            )
-            raise

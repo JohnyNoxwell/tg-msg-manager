@@ -19,7 +19,8 @@ def _parse_media_size_argument(value: str) -> int:
         parsed = parse_media_size(value)
     except ValueError as exc:
         raise argparse.ArgumentTypeError(str(exc)) from exc
-    assert parsed is not None
+    if parsed is None:
+        raise argparse.ArgumentTypeError("media size is required")
     return parsed
 
 

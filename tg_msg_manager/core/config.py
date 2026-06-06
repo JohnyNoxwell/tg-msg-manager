@@ -143,7 +143,20 @@ def _normalized_config_data(config_data: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
-def load_settings(config_path: Optional[str] = None) -> Settings:
+def _config_settings_kwargs(config_data: dict[str, Any]) -> dict[str, Any]:
+    settings_kwargs: dict[str, Any] = {}
+    for key, value in config_data.items():
+        env_key = f"TG_{key.upper()}"
+        if env_key not in os.environ:
+            settings_kwargs[key] = value
+    return settings_kwargs
+
+
+def load_settings(
+    config_path: Optional[str] = None,
+    *,
+    require_api_credentials: bool = True,
+) -> Settings:
     """
     Loads settings from config.json (if exists) and overrides with ENV.
     """
@@ -153,24 +166,20 @@ def load_settings(config_path: Optional[str] = None) -> Settings:
         if config_path and os.path.exists(config_path):
             with open(config_path, "r", encoding="utf-8") as f:
                 config_data = _normalized_config_data(json.load(f))
-            synthetic_env: list[str] = []
-            for key, value in config_data.items():
-                env_key = f"TG_{key.upper()}"
-                if env_key in os.environ:
-                    continue
-                if isinstance(value, (list, set, tuple, dict)):
-                    env_value = json.dumps(
-                        list(value) if isinstance(value, set) else value
-                    )
-                else:
-                    env_value = str(value)
-                os.environ[env_key] = env_value
-                synthetic_env.append(env_key)
-            try:
-                return Settings()
-            finally:
-                for key in synthetic_env:
-                    os.environ.pop(key, None)
+            settings_kwargs = _config_settings_kwargs(config_data)
+            if not require_api_credentials:
+                if "api_id" not in config_data and "TG_API_ID" not in os.environ:
+                    settings_kwargs["api_id"] = 0
+                if "api_hash" not in config_data and "TG_API_HASH" not in os.environ:
+                    settings_kwargs["api_hash"] = ""
+            return Settings(**settings_kwargs)
+        if not require_api_credentials:
+            settings_kwargs = {}
+            if "TG_API_ID" not in os.environ:
+                settings_kwargs["api_id"] = 0
+            if "TG_API_HASH" not in os.environ:
+                settings_kwargs["api_hash"] = ""
+            return Settings(**settings_kwargs)
         return Settings()
     except Exception as e:
         logger.error(f"Configuration error: {e}")

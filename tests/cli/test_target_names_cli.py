@@ -72,6 +72,23 @@ class TestTargetNamesCLI(unittest.IsolatedAsyncioTestCase):
         mock_storage.close.assert_awaited_once()
         mock_target_handler.assert_awaited_once()
 
+    @patch("tg_msg_manager.cli.SQLiteStorage")
+    @patch("tg_msg_manager.cli._handle_target_command", new_callable=AsyncMock)
+    @patch("tg_msg_manager.cli.build_app_runtime")
+    async def test_run_cli_target_names_builds_runtime_without_api_credentials(
+        self, mock_build_runtime, mock_target_handler, mock_storage_cls
+    ):
+        mock_build_runtime.return_value = self.runtime
+        mock_storage = MagicMock()
+        mock_storage.close = AsyncMock()
+        mock_storage_cls.return_value = mock_storage
+
+        with patch.object(sys, "argv", ["prog", "target", "names", "1001"]):
+            await run_cli()
+
+        mock_build_runtime.assert_called_once_with(require_api_credentials=False)
+        mock_target_handler.assert_awaited_once()
+
     async def test_handler_renders_json_success(self):
         target = TargetNameTargetRecord(
             target_id=1001, target_type="user", current_username="new_handle"

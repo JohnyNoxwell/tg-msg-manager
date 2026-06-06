@@ -3,6 +3,8 @@ from __future__ import annotations
 from pathlib import Path
 from typing import Any, Optional
 
+from tg_msg_manager.core.models.dataset_contracts import KNOWN_DATASET_FILES
+
 from .contract_validator import validate_contract_v1_files
 from .discussion_validator import validate_discussion_files
 from .jsonl_validator import validate_messages_jsonl
@@ -18,22 +20,6 @@ from .models import (
 )
 from .options import DatasetInspectionOptions, DatasetValidationOptions
 from .state_validator import validate_state_files
-
-KNOWN_DATASET_FILES = (
-    "manifest.json",
-    "messages.jsonl",
-    "messages.txt",
-    "media_manifest.jsonl",
-    "run_changelog.jsonl",
-    "channel_export_state.json",
-    "discussion_metadata.jsonl",
-    "discussion_comments.jsonl",
-    "discussion_comments.txt",
-    "discussion_threads.jsonl",
-    "discussion_export_state.json",
-    "media/",
-)
-
 
 def validate_dataset(options: DatasetValidationOptions) -> ValidationReport:
     dataset_path = options.dataset_path

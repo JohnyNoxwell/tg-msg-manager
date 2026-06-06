@@ -3,10 +3,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from tg_msg_manager.core.models.dataset_contracts import (
+    MEDIA_MANIFEST_JSONL,
+    MESSAGES_JSONL,
+)
+
 from .jsonl_validator import JsonlRecord, load_jsonl_records
 from .models import MediaSummary, ValidationIssue, issue_error, issue_warning
 
-MEDIA_MANIFEST_JSONL = "media_manifest.jsonl"
 MEDIA_FILE_STATUSES = {"downloaded", "already_exists"}
 KNOWN_MEDIA_STATUSES = {
     "metadata_only",
@@ -108,7 +112,7 @@ def validate_media_manifest(
             issues.append(
                 issue_warning(
                     "media_manifest_without_message_media",
-                    f"Media manifest record {media_id} is absent from messages.jsonl media",
+                    f"Media manifest record {media_id} is absent from {MESSAGES_JSONL} media",
                     path=MEDIA_MANIFEST_JSONL,
                     line=record.line,
                 )
@@ -152,7 +156,7 @@ def validate_media_manifest(
         issues.append(
             issue_warning(
                 "message_media_missing_manifest",
-                f"Message media record {media_id} is missing from media_manifest.jsonl",
+                f"Message media record {media_id} is missing from {MEDIA_MANIFEST_JSONL}",
                 path=MEDIA_MANIFEST_JSONL,
             )
         )

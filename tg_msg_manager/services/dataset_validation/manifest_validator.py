@@ -5,9 +5,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Optional, Tuple
 
-from .models import ValidationIssue, issue_error, issue_warning
+from tg_msg_manager.core.models.dataset_contracts import MANIFEST_JSON
 
-MANIFEST_JSON = "manifest.json"
+from .models import ValidationIssue, issue_error, issue_warning
 
 
 @dataclass(frozen=True)

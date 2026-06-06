@@ -1,6 +1,5 @@
-from argparse import Namespace
-
 from .cli_commands import _handle_export_channel_command
+from .cli.channel_export_options import build_channel_export_command_options
 from .cli_io import (
     TerminalInput,
     pause_for_enter,
@@ -386,20 +385,18 @@ async def _handle_menu_export_channel(ctx) -> None:
         return
 
     try:
-        await _handle_export_channel_command(
-            ctx,
-            Namespace(
-                channel=channel.strip(),
-                limit=limit,
-                media=normalized_media,
-                max_media_size=max_media_size,
-                media_types=media_types,
-                discussion=discussion,
-                max_comments_per_post=max_comments_per_post,
-                output_dir=output_dir,
-                force=force,
-            ),
+        options = build_channel_export_command_options(
+            channel=channel.strip(),
+            limit=limit,
+            media=normalized_media,
+            max_media_size=max_media_size,
+            media_types=media_types,
+            discussion=discussion,
+            max_comments_per_post=max_comments_per_post,
+            output_dir=output_dir,
+            force=force,
         )
+        await _handle_export_channel_command(ctx, options)
     except SystemExit as exc:
         print(UI.paint(str(exc), UI.CLR_WARN))
     pause_for_enter()

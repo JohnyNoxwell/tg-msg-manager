@@ -65,6 +65,33 @@ class TestFileRotateWriter(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(os.path.exists(new_state_path))
         self.assertFalse(os.path.exists(legacy_state_path))
 
+    async def test_missing_state_recovers_existing_jsonl_part_count(self):
+        base_path = os.path.join(self.tmpdir, "messages.jsonl")
+        with open(base_path, "w", encoding="utf-8") as f:
+            f.write('{"id": 1}\n{"id": 2}\n')
+
+        resumed = FileRotateWriter(base_path, as_json=True, max_msgs=3, overwrite=False)
+
+        self.assertEqual(resumed.current_part, 1)
+        self.assertEqual(resumed.current_count, 2)
+
+    async def test_corrupt_state_recovers_highest_available_jsonl_part(self):
+        base_path = os.path.join(self.tmpdir, "messages.jsonl")
+        part2_path = os.path.join(self.tmpdir, "messages_part2.jsonl")
+        state_dir = os.path.join(self.tmpdir, ".writer_state")
+        os.makedirs(state_dir)
+        with open(base_path, "w", encoding="utf-8") as f:
+            f.write('{"id": 1}\n{"id": 2}\n')
+        with open(part2_path, "w", encoding="utf-8") as f:
+            f.write('{"id": 3}\n')
+        with open(os.path.join(state_dir, "messages.json"), "w", encoding="utf-8") as f:
+            f.write("{corrupt")
+
+        resumed = FileRotateWriter(base_path, as_json=True, max_msgs=2, overwrite=False)
+
+        self.assertEqual(resumed.current_part, 2)
+        self.assertEqual(resumed.current_count, 1)
+
     async def test_finalize_persists_state_when_persist_is_batched(self):
         base_path = os.path.join(self.tmpdir, "chat_log.txt")
 

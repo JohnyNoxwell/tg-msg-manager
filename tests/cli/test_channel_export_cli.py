@@ -7,6 +7,10 @@ from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 from tg_msg_manager.cli import _command_needs_client, run_cli
+from tg_msg_manager.cli.channel_export_options import (
+    build_channel_export_service_options,
+    channel_export_options_from_namespace,
+)
 from tg_msg_manager.cli_commands import _handle_export_channel_command
 from tg_msg_manager.cli_menu import _handle_menu_export_channel
 from tg_msg_manager.cli_parser import build_cli_parser
@@ -92,6 +96,23 @@ class TestChannelExportCLIParser(unittest.TestCase):
                 ]
             )
 
+    def test_missing_parsed_media_size_is_rejected_explicitly(self):
+        parser = build_cli_parser()
+
+        with (
+            patch("tg_msg_manager.cli_parser.parse_media_size", return_value=None),
+            self.assertRaises(SystemExit),
+        ):
+            parser.parse_args(
+                [
+                    "export-channel",
+                    "--channel",
+                    "@example",
+                    "--max-media-size",
+                    "50MB",
+                ]
+            )
+
     def test_invalid_media_types_are_rejected(self):
         parser = build_cli_parser()
 
@@ -159,6 +180,75 @@ class TestChannelExportCLIParser(unittest.TestCase):
                         value,
                     ]
                 )
+
+
+class TestChannelExportOptionBuilder(unittest.IsolatedAsyncioTestCase):
+    async def _run_menu_export_channel(self, inputs):
+        ctx = MagicMock()
+
+        with (
+            patch(
+                "tg_msg_manager.cli_menu.TerminalInput.prompt_with_esc",
+                side_effect=inputs,
+            ),
+            patch("tg_msg_manager.cli_menu.pause_for_enter"),
+            patch(
+                "tg_msg_manager.cli_menu._handle_export_channel_command",
+                new_callable=AsyncMock,
+            ) as mock_handler,
+        ):
+            await _handle_menu_export_channel(ctx)
+
+        return mock_handler.await_args.args[1]
+
+    async def test_argparse_and_menu_build_equivalent_service_options(self):
+        parser = build_cli_parser()
+        cli_args = parser.parse_args(
+            [
+                "export-channel",
+                "--channel",
+                "@example",
+                "--limit",
+                "25",
+                "--media",
+                "full",
+                "--max-media-size",
+                "50MB",
+                "--media-types",
+                "photo,video",
+                "--discussion",
+                "metadata",
+                "--max-comments-per-post",
+                "20",
+                "--output-dir",
+                "/tmp/out",
+                "--force",
+            ]
+        )
+        menu_options = await self._run_menu_export_channel(
+            [
+                "@example",
+                "25",
+                "full",
+                "metadata",
+                "20",
+                "y",
+                "/tmp/out",
+                "50MB",
+                "photo,video",
+            ]
+        )
+
+        cli_service_options = build_channel_export_service_options(
+            channel_export_options_from_namespace(cli_args),
+            default_output_dir="/tmp/default",
+        )
+        menu_service_options = build_channel_export_service_options(
+            menu_options,
+            default_output_dir="/tmp/default",
+        )
+
+        self.assertEqual(menu_service_options, cli_service_options)
 
 
 class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):

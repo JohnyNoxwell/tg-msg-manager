@@ -1,9 +1,9 @@
 import os
 import asyncio
 import logging
-import json
 
 from ..core.telemetry import telemetry
+from .file_writer_state import WriterState, WriterStateStore
 
 logger = logging.getLogger(__name__)
 
@@ -39,6 +39,7 @@ class FileRotateWriter:
         self.legacy_state_path = os.path.join(
             self.directory, f".{self.name_no_ext}.writer_state.json"
         )
+        self.state_store = WriterStateStore(self.state_path, self.legacy_state_path)
 
         self.current_part = 1
         self.current_count = 0
@@ -74,7 +75,7 @@ class FileRotateWriter:
     def _remove_state_file(self, path: str):
         if os.path.exists(path):
             try:
-                os.remove(path)
+                self.state_store.remove(path)
             except Exception as e:
                 logger.error(f"Error removing writer state {path}: {e}")
 
@@ -87,13 +88,12 @@ class FileRotateWriter:
         return self._get_path_for_part(self.current_part)
 
     def _persist_state_sync(self):
-        state = {
-            "current_part": self.current_part,
-            "current_count": self.current_count,
-        }
-        os.makedirs(self.state_dir, exist_ok=True)
-        with open(self.state_path, "w", encoding="utf-8") as f:
-            json.dump(state, f)
+        self.state_store.save(
+            WriterState(
+                current_part=self.current_part,
+                current_count=self.current_count,
+            )
+        )
         self.state_persist_count += 1
         telemetry.track_counter("file_writer.state_persists", 1)
 
@@ -110,49 +110,18 @@ class FileRotateWriter:
 
     def _detect_current_state(self):
         """Finds the highest part number that exists and counts its messages."""
-        existing_state_path = (
-            self.state_path
-            if os.path.exists(self.state_path)
-            else self.legacy_state_path
+        recovery = self.state_store.recover(
+            path_for_part=self._get_path_for_part,
+            as_json=self.as_json,
+            max_msgs=self.max_msgs,
         )
-        if os.path.exists(existing_state_path):
-            try:
-                with open(existing_state_path, "r", encoding="utf-8") as f:
-                    state = json.load(f)
-                self.current_part = max(1, int(state.get("current_part", 1)))
-                self.current_count = max(0, int(state.get("current_count", 0)))
-                self.current_file_path = self._get_path()
-                if os.path.exists(self.current_file_path):
-                    if existing_state_path == self.legacy_state_path:
-                        self._persist_state_sync()
-                        self._remove_state_file(self.legacy_state_path)
-                    return
-            except Exception:
-                self.current_part = 1
-                self.current_count = 0
-
-        while True:
-            path = self._get_path()
-            if os.path.exists(path):
-                try:
-                    with open(path, "r", encoding="utf-8") as f:
-                        # For JSONL, count is number of lines
-                        # For TXT, counting is more complex; we treat as 0 for simplicity or implement logic
-                        if self.as_json:
-                            self.current_count = sum(1 for _ in f)
-                        else:
-                            self.current_count = 0  # Simple override for text
-                except Exception:
-                    self.current_count = 0
-
-                if self.current_count >= self.max_msgs:
-                    self.current_part += 1
-                    continue
-                break
-            else:
-                break
+        self.current_part = recovery.state.current_part
+        self.current_count = recovery.state.current_count
         self.current_file_path = self._get_path()
-        self._persist_state_sync()
+        if recovery.persist:
+            self._persist_state_sync()
+        if recovery.remove_legacy:
+            self._remove_state_file(self.legacy_state_path)
 
     async def write_block(self, content: str, msg_count: int = 1):
         """Writes a block of content to the current file, rotating if needed."""
