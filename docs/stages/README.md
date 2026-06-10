@@ -24,6 +24,7 @@ Stage 5R.1 isolated wheel install / CLI smoke is recorded as passed and Stage 5S
 Stage 5S release candidate tag plan is recorded as passed in [`reports/STAGE_5S_RELEASE_CANDIDATE_TAG_PLAN_REPORT.md`](reports/STAGE_5S_RELEASE_CANDIDATE_TAG_PLAN_REPORT.md); tag execution remains a separate explicitly authorized stage.
 Stage 5T stable release decision keeps the project at release-candidate status because RC tag execution and post-RC smoke evidence are absent; see [`reports/STAGE_5T_STABLE_RELEASE_DECISION_REPORT.md`](reports/STAGE_5T_STABLE_RELEASE_DECISION_REPORT.md).
 Stage 5U created and pushed annotated RC tag `v0.1.0-rc1`; post-RC smoke remains a separate stage; see [`reports/STAGE_5U_CREATE_RELEASE_CANDIDATE_TAG_REPORT.md`](reports/STAGE_5U_CREATE_RELEASE_CANDIDATE_TAG_REPORT.md).
+Stage 5U.1 verified that exact RC tag `v0.1.0-rc1` builds, installs, and passes help-only CLI smoke; see [`reports/STAGE_5U_1_POST_RC_TAG_SMOKE_FROM_TAG_REPORT.md`](reports/STAGE_5U_1_POST_RC_TAG_SMOKE_FROM_TAG_REPORT.md).
 Stage 5O.14 test suite component split is recorded in [`reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md`](reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md).
 Stage 5O.13 storage compatibility guardrails is recorded in [`reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md`](reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md).
 Stage 5O.12 context sync dependency extraction is recorded in [`reports/STAGE_5O_12_CONTEXT_SYNC_DEPENDENCY_EXTRACTION_REPORT.md`](reports/STAGE_5O_12_CONTEXT_SYNC_DEPENDENCY_EXTRACTION_REPORT.md).
@@ -219,6 +220,7 @@ Current completed prompt groups:
 - Stage 5Q.3 release candidate checklist decision task prompt.
 - Stage 5T stable release decision task prompt.
 - Stage 5U create release candidate tag task prompt.
+- Stage 5U.1 post-RC tag smoke from tag task prompt.
 
 Stage 5T stable release decision task files:
 
@@ -227,6 +229,10 @@ Stage 5T stable release decision task files:
 Stage 5U create release candidate tag task files:
 
 - [`completed/stage_5u_create_release_candidate_tag.md`](completed/stage_5u_create_release_candidate_tag.md)
+
+Stage 5U.1 post-RC tag smoke from tag task files:
+
+- [`completed/stage_5u_1_post_rc_tag_smoke_from_tag.md`](completed/stage_5u_1_post_rc_tag_smoke_from_tag.md)
 
 Stage 5Q.3 release candidate checklist decision task files:
 
