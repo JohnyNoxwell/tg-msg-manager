@@ -200,7 +200,9 @@ def _read_user_target(conn, user_id: int) -> Optional[TargetNameTargetRecord]:
         return None
 
     data = dict(row)
-    data["first_seen"] = _min_known(data["history_first_seen"], data["target_first_seen"])
+    data["first_seen"] = _min_known(
+        data["history_first_seen"], data["target_first_seen"]
+    )
     data["last_seen"] = _max_known(data["history_last_seen"], data["target_last_seen"])
     return TargetNameTargetRecord.coerce(data)
 

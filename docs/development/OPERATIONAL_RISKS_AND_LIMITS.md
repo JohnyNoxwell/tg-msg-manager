@@ -90,3 +90,15 @@ verification.
 Do not claim live smoke checks passed unless a future active stage explicitly
 scopes them and records the exact command/result without exposing private
 message contents, sessions, DB rows, logs, media, screenshots, or credentials.
+
+## Deferred And Release Boundaries
+
+- Stage 5N.2 chat/channel title history remains deferred. The current SQLite
+  schema does not store title history; known chat/channel targets can expose
+  only the current stored title.
+- The `export-pm` private archive public contract remains deferred and separate
+  from the user/group `export` plus `db-export` contract.
+- Live Telegram smoke checks are optional, manual/session-dependent checks
+  separate from offline release verification.
+- A stable release requires a separate explicit decision stage. Documentation
+  audits, release-candidate checks, and package dry runs do not authorize it.

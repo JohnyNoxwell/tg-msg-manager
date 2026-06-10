@@ -6,11 +6,6 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- [`active/stage_5p_post_refactor_full_verification.md`](active/stage_5p_post_refactor_full_verification.md)
-- [`active/stage_5q_0_public_docs_cli_alignment.md`](active/stage_5q_0_public_docs_cli_alignment.md)
-- [`active/stage_5q_1_packaging_metadata_dependency_readiness.md`](active/stage_5q_1_packaging_metadata_dependency_readiness.md)
-- [`active/stage_5q_2_privacy_deferred_areas_audit.md`](active/stage_5q_2_privacy_deferred_areas_audit.md)
-- [`active/stage_5q_3_release_candidate_checklist_decision.md`](active/stage_5q_3_release_candidate_checklist_decision.md)
 - [`active/stage_5r_0_package_build_dry_run.md`](active/stage_5r_0_package_build_dry_run.md)
 - [`active/stage_5r_1_isolated_wheel_install_smoke.md`](active/stage_5r_1_isolated_wheel_install_smoke.md)
 - [`active/stage_5s_release_candidate_tag_plan.md`](active/stage_5s_release_candidate_tag_plan.md)
@@ -20,6 +15,13 @@ Execute these release-preparation stages sequentially. Stage 5Q and Stage 5R
 are split into atomic sub-stages. No active stage authorizes a version bump,
 tag creation, package publishing, or stable release.
 
+Stage 5P.1 Ruff formatting remediation is recorded in [`reports/STAGE_5P_1_RUFF_FORMATTING_REMEDIATION_REPORT.md`](reports/STAGE_5P_1_RUFF_FORMATTING_REMEDIATION_REPORT.md).
+Stage 5P.2 target identity history duplicate observation remediation is recorded in [`reports/STAGE_5P_2_TARGET_IDENTITY_HISTORY_DUPLICATE_OBSERVATION_REMEDIATION_REPORT.md`](reports/STAGE_5P_2_TARGET_IDENTITY_HISTORY_DUPLICATE_OBSERVATION_REMEDIATION_REPORT.md).
+Stage 5P post-refactor full verification is recorded as passed and Stage 5Q is unblocked in [`reports/STAGE_5P_POST_REFACTOR_FULL_VERIFICATION_REPORT.md`](reports/STAGE_5P_POST_REFACTOR_FULL_VERIFICATION_REPORT.md).
+Stage 5Q.0 public docs / CLI alignment is recorded as passed and Stage 5Q.1 is unblocked in [`reports/STAGE_5Q_0_PUBLIC_DOCS_CLI_ALIGNMENT_REPORT.md`](reports/STAGE_5Q_0_PUBLIC_DOCS_CLI_ALIGNMENT_REPORT.md).
+Stage 5Q.1 packaging metadata / dependency readiness is recorded as passed and Stage 5Q.2 is unblocked in [`reports/STAGE_5Q_1_PACKAGING_METADATA_DEPENDENCY_READINESS_REPORT.md`](reports/STAGE_5Q_1_PACKAGING_METADATA_DEPENDENCY_READINESS_REPORT.md).
+Stage 5Q.2 privacy / deferred areas audit is recorded as passed and Stage 5Q.3 is unblocked in [`reports/STAGE_5Q_2_PRIVACY_DEFERRED_AREAS_AUDIT_REPORT.md`](reports/STAGE_5Q_2_PRIVACY_DEFERRED_AREAS_AUDIT_REPORT.md).
+Stage 5Q.3 release candidate checklist decision is recorded as passed and only Stage 5R.0 is authorized next in [`reports/STAGE_5Q_RELEASE_CANDIDATE_CHECKLIST_REPORT.md`](reports/STAGE_5Q_RELEASE_CANDIDATE_CHECKLIST_REPORT.md); its conservative notes draft is [`reports/STAGE_5Q_RELEASE_CANDIDATE_NOTES_DRAFT.md`](reports/STAGE_5Q_RELEASE_CANDIDATE_NOTES_DRAFT.md).
 Stage 5O.14 test suite component split is recorded in [`reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md`](reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md).
 Stage 5O.13 storage compatibility guardrails is recorded in [`reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md`](reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md).
 Stage 5O.12 context sync dependency extraction is recorded in [`reports/STAGE_5O_12_CONTEXT_SYNC_DEPENDENCY_EXTRACTION_REPORT.md`](reports/STAGE_5O_12_CONTEXT_SYNC_DEPENDENCY_EXTRACTION_REPORT.md).
@@ -206,6 +208,41 @@ Current completed prompt groups:
 - Stage 5O.13 storage compatibility guardrails task prompt.
 - Stage 5O.14 test suite component split task prompt.
 - Stage 5O.9 file writer state boundary task prompt.
+- Stage 5P post-refactor full verification task prompt.
+- Stage 5P.1 Ruff formatting remediation task prompt.
+- Stage 5P.2 target identity history duplicate observation remediation task prompt.
+- Stage 5Q.0 public docs / CLI alignment task prompt.
+- Stage 5Q.1 packaging metadata / dependency readiness task prompt.
+- Stage 5Q.2 privacy / deferred areas audit task prompt.
+- Stage 5Q.3 release candidate checklist decision task prompt.
+
+Stage 5Q.3 release candidate checklist decision task files:
+
+- [`completed/stage_5q_3_release_candidate_checklist_decision.md`](completed/stage_5q_3_release_candidate_checklist_decision.md)
+
+Stage 5Q.2 privacy / deferred areas audit task files:
+
+- [`completed/stage_5q_2_privacy_deferred_areas_audit.md`](completed/stage_5q_2_privacy_deferred_areas_audit.md)
+
+Stage 5Q.1 packaging metadata / dependency readiness task files:
+
+- [`completed/stage_5q_1_packaging_metadata_dependency_readiness.md`](completed/stage_5q_1_packaging_metadata_dependency_readiness.md)
+
+Stage 5Q.0 public docs / CLI alignment task files:
+
+- [`completed/stage_5q_0_public_docs_cli_alignment.md`](completed/stage_5q_0_public_docs_cli_alignment.md)
+
+Stage 5P.2 target identity history duplicate observation remediation task files:
+
+- [`completed/stage_5p_2_target_identity_history_duplicate_observation_remediation.md`](completed/stage_5p_2_target_identity_history_duplicate_observation_remediation.md)
+
+Stage 5P.1 Ruff formatting remediation task files:
+
+- [`completed/stage_5p_1_ruff_formatting_remediation.md`](completed/stage_5p_1_ruff_formatting_remediation.md)
+
+Stage 5P post-refactor full verification task files:
+
+- [`completed/stage_5p_post_refactor_full_verification.md`](completed/stage_5p_post_refactor_full_verification.md)
 
 Stage 5O.14 test suite component split task files:
 

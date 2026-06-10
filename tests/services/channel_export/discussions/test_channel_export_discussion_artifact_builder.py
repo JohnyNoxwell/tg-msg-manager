@@ -39,7 +39,9 @@ def make_source(
     return ChannelDiscussionSource(
         status=status,
         discussion_chat_id=discussion_chat_id,
-        discussion_entity=object() if status == DISCUSSION_SOURCE_STATUS_RESOLVED else None,
+        discussion_entity=object()
+        if status == DISCUSSION_SOURCE_STATUS_RESOLVED
+        else None,
         error=error,
     )
 

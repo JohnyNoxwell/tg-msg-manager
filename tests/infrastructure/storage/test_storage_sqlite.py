@@ -644,6 +644,8 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             [item.author_name for item in history], ["Target User", "Renamed User"]
         )
+        self.assertEqual(history[0].username, "target_user")
+        self.assertEqual(history[0].source_message_id, 10)
         self.assertEqual(history[-1].chat_id, 321)
         self.assertEqual(history[-1].source_message_id, 11)
 

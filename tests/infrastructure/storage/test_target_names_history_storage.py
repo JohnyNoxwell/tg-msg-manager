@@ -60,8 +60,12 @@ class TestTargetNamesHistoryStorage(unittest.TestCase):
         self.assertEqual(resolution.matches[0].target_type, "user")
         self.assertEqual(resolution.matches[0].current_username, "new_handle")
         self.assertEqual(resolution.matches[0].current_display_name, "New Name")
-        self.assertTrue(all(isinstance(item, TargetNameSnapshotRecord) for item in snapshots))
-        self.assertEqual([item.display_name for item in snapshots], ["Old Name", "New Name"])
+        self.assertTrue(
+            all(isinstance(item, TargetNameSnapshotRecord) for item in snapshots)
+        )
+        self.assertEqual(
+            [item.display_name for item in snapshots], ["Old Name", "New Name"]
+        )
 
     def test_resolves_user_by_locally_stored_username_history(self):
         with self.storage._write_transaction() as conn:

@@ -81,7 +81,7 @@ class SQLiteIdentityMixin:
 
         latest = conn.execute(
             """
-            SELECT author_name, username
+            SELECT observed_at, author_name, username
             FROM user_identity_history
             WHERE user_id = ?
             ORDER BY observed_at DESC, COALESCE(source_message_id, 0) DESC
@@ -94,6 +94,39 @@ class SQLiteIdentityMixin:
             and latest["author_name"] == normalized_author
             and latest["username"] == normalized_username
         ):
+            return
+
+        if (
+            latest
+            and (
+                latest["author_name"] is None
+                or normalized_author is None
+                or latest["author_name"] == normalized_author
+            )
+            and (
+                latest["username"] is None
+                or normalized_username is None
+                or latest["username"] == normalized_username
+            )
+        ):
+            conn.execute(
+                """
+                UPDATE user_identity_history
+                SET author_name = COALESCE(author_name, ?),
+                    username = COALESCE(username, ?),
+                    chat_id = COALESCE(chat_id, ?),
+                    source_message_id = COALESCE(source_message_id, ?)
+                WHERE user_id = ? AND observed_at = ?
+            """,
+                (
+                    normalized_author,
+                    normalized_username,
+                    chat_id,
+                    source_message_id,
+                    user_id,
+                    latest["observed_at"],
+                ),
+            )
             return
 
         resolved_observed_at = int(observed_at or time.time())

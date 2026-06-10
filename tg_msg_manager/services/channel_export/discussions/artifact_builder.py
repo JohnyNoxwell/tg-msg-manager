@@ -184,9 +184,7 @@ class ChannelDiscussionArtifactBuilder:
         return nested_replies is None or nested_replies > 0
 
     @staticmethod
-    def discussion_root_message_id(
-        post: Any, comments: Iterable[Any]
-    ) -> Optional[int]:
+    def discussion_root_message_id(post: Any, comments: Iterable[Any]) -> Optional[int]:
         raw_payload = getattr(post, "raw_payload", {}) or {}
         for key in ("discussion_root_message_id", "discussion_root_id"):
             value = raw_payload.get(key) if isinstance(raw_payload, dict) else None

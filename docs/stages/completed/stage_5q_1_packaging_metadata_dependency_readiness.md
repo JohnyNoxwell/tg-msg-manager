@@ -1,6 +1,6 @@
 # STAGE 5Q.1 — PACKAGING METADATA / DEPENDENCY READINESS
 
-Status: active task
+Status: completed
 Stage: 5Q.1
 Type: packaging audit
 Depends on: Stage 5P and Stage 5Q.0 reports with `PASSED`

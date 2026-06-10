@@ -9,6 +9,9 @@
 
 **TG_MSG_MNGR** — это локальная CLI-утилита и data pipeline для Telegram exports, SQLite-backed sync, очистки собственных сообщений, channel datasets и read-only validation.
 
+Проект не является SaaS-мониторингом, analytics/OSINT-платформой, системой
+профилирования или GUI dashboard.
+
 ### Quick Reference
 
 ```bash
@@ -22,6 +25,7 @@ python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --me
 python3 -m tg_msg_manager.cli export-channel --channel @example --limit 10 --media metadata --discussion full --max-comments-per-post 100
 python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example
 python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example
+python3 -m tg_msg_manager.cli target names 123456789
 python3 -m tg_msg_manager.cli update
 python3 -m tg_msg_manager.cli retry --list
 python3 -m tg_msg_manager.cli report
@@ -46,6 +50,8 @@ python3 -m tg_msg_manager.cli report
    cd tg-msg-manager
    pip install .
    ```
+   После установки доступен console script `tg-msg-manager`; команды
+   `python3 -m tg_msg_manager.cli ...` остаются основным Python entrypoint.
 
 2. **Запуск интерактивного меню**:
    *   **Способ A (Самый быстрый)**: Из интерактивного терминала, находясь в корне проекта:
@@ -78,7 +84,9 @@ python3 -m tg_msg_manager.cli report
 
 Для автоматизации и опытных пользователей доступны прямые команды:
 
-> ⚠️ **Примечание**: Прямые команды `python3 -m ...` необходимо запускать из корня проекта.
+> ⚠️ **Примечание**: В source checkout сначала выполните установку выше.
+> После установки используйте `tg-msg-manager ...` или
+> `python3 -m tg_msg_manager.cli ...` из активного Python-окружения.
 
 *   **Экспорт сообщений**: 
     `python3 -m tg_msg_manager.cli export --user-id 123456789 --depth 3`
@@ -140,6 +148,11 @@ python3 -m tg_msg_manager.cli report
     `python3 -m tg_msg_manager.cli report`
     `python3 -m tg_msg_manager.cli report --json`
     Команда работает только через SQLite/filesystem read-side и не требует Telegram credentials.
+*   **Локальная история имён цели**:
+    `python3 -m tg_msg_manager.cli target names 123456789`
+    `python3 -m tg_msg_manager.cli target names 123456789 --field username --format json`
+    Команда читает только локальные SQLite metadata, не подключается к Telegram
+    и не выполняет identity/profiling/OSINT-анализ.
 *   **Установка алиасов**:
     `python3 -m tg_msg_manager.cli setup`
 
@@ -250,6 +263,9 @@ Legacy aliases still supported:
 
 **TG_MSG_MNGR** is a local CLI utility and data pipeline for Telegram exports, SQLite-backed sync, self-message cleanup, channel datasets, and read-only validation.
 
+It is not a SaaS monitoring, analytics/OSINT, profiling, or GUI dashboard
+platform.
+
 ### Quick Reference
 
 ```bash
@@ -263,6 +279,7 @@ python3 -m tg_msg_manager.cli export-channel --channel @example --limit 100 --me
 python3 -m tg_msg_manager.cli export-channel --channel @example --limit 10 --media metadata --discussion full --max-comments-per-post 100
 python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example
 python3 -m tg_msg_manager.cli inspect-dataset --path exports/channels/example
+python3 -m tg_msg_manager.cli target names 123456789
 python3 -m tg_msg_manager.cli update
 python3 -m tg_msg_manager.cli retry --list
 python3 -m tg_msg_manager.cli report
@@ -276,6 +293,8 @@ python3 -m tg_msg_manager.cli report
    cd tg-msg-manager
    pip install .
    ```
+   The installed console script is `tg-msg-manager`; commands using
+   `python3 -m tg_msg_manager.cli ...` remain the primary Python entrypoint.
 
 2. **Launch Interactive Menu**:
    *   **Method A (Fastest)**: From an interactive terminal in the project root:
@@ -321,7 +340,9 @@ Core system capabilities:
 
 Subcommands can be executed directly for automation:
 
-> ⚠️ **Note**: Full `python3 -m ...` commands must be executed from the project root.
+> ⚠️ **Note**: In a source checkout, complete the installation step above first.
+> After installation, use `tg-msg-manager ...` or
+> `python3 -m tg_msg_manager.cli ...` from the active Python environment.
 
 *   **Message Export**: 
     `python3 -m tg_msg_manager.cli export --user-id 123456789 --depth 3`
@@ -383,6 +404,11 @@ Subcommands can be executed directly for automation:
     `python3 -m tg_msg_manager.cli report`
     `python3 -m tg_msg_manager.cli report --json`
     The command is fully read-only and works from SQLite/filesystem state without Telegram credentials.
+*   **Local Target Name History**:
+    `python3 -m tg_msg_manager.cli target names 123456789`
+    `python3 -m tg_msg_manager.cli target names 123456789 --field username --format json`
+    The command reads local SQLite metadata only, does not connect to Telegram,
+    and does not perform identity, profiling, or OSINT analysis.
 *   **Alias Setup**:
     `python3 -m tg_msg_manager.cli setup`
 

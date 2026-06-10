@@ -96,11 +96,14 @@ class TestConfig(unittest.TestCase):
                     fh,
                 )
 
-            with patch.dict(
-                os.environ,
-                {"TG_API_HASH": "env-hash", "TG_DB_PATH": "env.db"},
-                clear=True,
-            ), temporary_cwd(tmpdir):
+            with (
+                patch.dict(
+                    os.environ,
+                    {"TG_API_HASH": "env-hash", "TG_DB_PATH": "env.db"},
+                    clear=True,
+                ),
+                temporary_cwd(tmpdir),
+            ):
                 settings = load_settings(config_path)
 
         self.assertEqual(settings.api_id, 1)

@@ -1,6 +1,6 @@
 # STAGE 5Q.0 — PUBLIC DOCS / CLI ALIGNMENT
 
-Status: active task
+Status: completed
 Stage: 5Q.0
 Type: docs audit
 Depends on: `docs/stages/reports/STAGE_5P_POST_REFACTOR_FULL_VERIFICATION_REPORT.md` with `PASSED`

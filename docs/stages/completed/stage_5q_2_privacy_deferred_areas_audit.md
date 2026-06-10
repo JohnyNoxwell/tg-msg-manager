@@ -1,6 +1,6 @@
 # STAGE 5Q.2 — PRIVACY / DEFERRED AREAS AUDIT
 
-Status: active task
+Status: completed
 Stage: 5Q.2
 Type: safety docs audit
 Depends on: Stage 5P `PASSED`; Stage 5Q.0 `PASSED`; Stage 5Q.1 `PASSED` or non-blocking `PARTIAL`

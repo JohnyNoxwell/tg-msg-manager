@@ -193,8 +193,7 @@ class TargetNameResolutionRecord(StorageRecord):
             return value
         if isinstance(value, Mapping):
             matches = tuple(
-                TargetNameTargetRecord.coerce(item)
-                for item in value.get("matches", ())
+                TargetNameTargetRecord.coerce(item) for item in value.get("matches", ())
             )
             return cls(
                 status=str(value.get("status") or "not_found"),

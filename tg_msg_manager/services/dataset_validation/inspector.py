@@ -21,6 +21,7 @@ from .models import (
 from .options import DatasetInspectionOptions, DatasetValidationOptions
 from .state_validator import validate_state_files
 
+
 def validate_dataset(options: DatasetValidationOptions) -> ValidationReport:
     dataset_path = options.dataset_path
     issues: list[ValidationIssue] = []

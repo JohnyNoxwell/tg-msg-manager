@@ -16,9 +16,7 @@ async def _handle_target_command(ctx, args: argparse.Namespace) -> None:
     result = query_target_names(ctx.storage, args.target, field=args.field)
     if result.status != "found":
         code = (
-            "ambiguous_target"
-            if result.status == "ambiguous"
-            else "target_not_found"
+            "ambiguous_target" if result.status == "ambiguous" else "target_not_found"
         )
         sys.stderr.write(
             render_target_names_error(

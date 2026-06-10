@@ -36,9 +36,7 @@ STORAGE_COMPATIBILITY_SURFACES = (
 
 def _production_files() -> list[Path]:
     return sorted(
-        path
-        for path in PACKAGE_ROOT.rglob("*.py")
-        if "__pycache__" not in path.parts
+        path for path in PACKAGE_ROOT.rglob("*.py") if "__pycache__" not in path.parts
     )
 
 
@@ -78,9 +76,7 @@ def _imported_modules(tree: ast.AST) -> set[str]:
         elif isinstance(node, ast.ImportFrom):
             if node.module:
                 modules.add(node.module)
-                modules.update(
-                    f"{node.module}.{alias.name}" for alias in node.names
-                )
+                modules.update(f"{node.module}.{alias.name}" for alias in node.names)
     return modules
 
 
@@ -187,13 +183,13 @@ class TestStaticArchitectureBoundaries(unittest.TestCase):
         broad_interface = "tg_msg_manager.infrastructure.storage.interface"
         offenders: dict[str, list[str]] = {}
         for path in _production_files():
-            if _relative(path) == Path("tg_msg_manager/infrastructure/storage/interface.py"):
+            if _relative(path) == Path(
+                "tg_msg_manager/infrastructure/storage/interface.py"
+            ):
                 continue
             imports = _imported_modules(_parse(path))
             bad = sorted(
-                module
-                for module in imports
-                if _imports_prefix(module, broad_interface)
+                module for module in imports if _imports_prefix(module, broad_interface)
             )
             if bad:
                 offenders[str(_relative(path))] = bad
