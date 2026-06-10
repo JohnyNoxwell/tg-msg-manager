@@ -6,10 +6,19 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- none
+- [`active/stage_5p_post_refactor_full_verification.md`](active/stage_5p_post_refactor_full_verification.md)
+- [`active/stage_5q_0_public_docs_cli_alignment.md`](active/stage_5q_0_public_docs_cli_alignment.md)
+- [`active/stage_5q_1_packaging_metadata_dependency_readiness.md`](active/stage_5q_1_packaging_metadata_dependency_readiness.md)
+- [`active/stage_5q_2_privacy_deferred_areas_audit.md`](active/stage_5q_2_privacy_deferred_areas_audit.md)
+- [`active/stage_5q_3_release_candidate_checklist_decision.md`](active/stage_5q_3_release_candidate_checklist_decision.md)
+- [`active/stage_5r_0_package_build_dry_run.md`](active/stage_5r_0_package_build_dry_run.md)
+- [`active/stage_5r_1_isolated_wheel_install_smoke.md`](active/stage_5r_1_isolated_wheel_install_smoke.md)
+- [`active/stage_5s_release_candidate_tag_plan.md`](active/stage_5s_release_candidate_tag_plan.md)
+- [`active/stage_5t_stable_release_decision.md`](active/stage_5t_stable_release_decision.md)
 
-No Stage 5O refactoring workflow task files are currently active.
-No target names history workflow task files are currently active.
+Execute these release-preparation stages sequentially. Stage 5Q and Stage 5R
+are split into atomic sub-stages. No active stage authorizes a version bump,
+tag creation, package publishing, or stable release.
 
 Stage 5O.14 test suite component split is recorded in [`reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md`](reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md).
 Stage 5O.13 storage compatibility guardrails is recorded in [`reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md`](reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md).
