@@ -6,12 +6,18 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- none
+- [`active/stage_5v_3_testpypi_trusted_publisher_registration.md`](active/stage_5v_3_testpypi_trusted_publisher_registration.md)
 
 Execute these release-preparation stages sequentially. Stage 5Q and Stage 5R
 are split into atomic sub-stages. Stages 5U.2-5U.4 separate license decision,
-metadata application, and package verification. No active stage authorizes a
-version bump, tag creation, package publishing, or stable release.
+metadata application, and package verification. Stage 5V first decides that
+`v0.1.0-rc1` is ineligible because it predates final MIT metadata; Stages
+5U.5-5U.8 then plan, create, and verify `v0.1.0-rc2`; Stage 5V.1 verifies
+TestPyPI readiness, Stage 5V.2 prepares an OIDC-only GitHub Actions TestPyPI
+workflow, and Stage 5V.3 registers its exact pending publisher without
+publishing. Execute only the first unfinished stage. No active stage authorizes
+an upload, workflow dispatch, version bump, PyPI publish, GitHub Release, or
+stable release.
 
 Stage 5P.1 Ruff formatting remediation is recorded in [`reports/STAGE_5P_1_RUFF_FORMATTING_REMEDIATION_REPORT.md`](reports/STAGE_5P_1_RUFF_FORMATTING_REMEDIATION_REPORT.md).
 Stage 5P.2 target identity history duplicate observation remediation is recorded in [`reports/STAGE_5P_2_TARGET_IDENTITY_HISTORY_DUPLICATE_OBSERVATION_REMEDIATION_REPORT.md`](reports/STAGE_5P_2_TARGET_IDENTITY_HISTORY_DUPLICATE_OBSERVATION_REMEDIATION_REPORT.md).
@@ -29,6 +35,13 @@ Stage 5U.1 verified that exact RC tag `v0.1.0-rc1` builds, installs, and passes 
 Stage 5U.2 selected the compatible MIT license metadata form for Stage 5U.3; see [`reports/STAGE_5U_2_LICENSE_METADATA_DECISION_REPORT.md`](reports/STAGE_5U_2_LICENSE_METADATA_DECISION_REPORT.md).
 Stage 5U.3 applied MIT license metadata and public/package documentation notes; see [`reports/STAGE_5U_3_LICENSE_METADATA_APPLICATION_REPORT.md`](reports/STAGE_5U_3_LICENSE_METADATA_APPLICATION_REPORT.md).
 Stage 5U.4 verified built package artifacts and MIT metadata; see [`reports/STAGE_5U_4_LICENSE_METADATA_PACKAGE_VERIFICATION_REPORT.md`](reports/STAGE_5U_4_LICENSE_METADATA_PACKAGE_VERIFICATION_REPORT.md).
+Stage 5V determined that `v0.1.0-rc1` predates final MIT metadata and requires a new RC tag before TestPyPI; see [`reports/STAGE_5V_TESTPYPI_PUBLISH_PREPARATION_REPORT.md`](reports/STAGE_5V_TESTPYPI_PUBLISH_PREPARATION_REPORT.md).
+Stage 5U.5 recorded the exact eligible commit and annotated `v0.1.0-rc2` tag contract; see [`reports/STAGE_5U_5_RC2_TAG_PLAN_REPORT.md`](reports/STAGE_5U_5_RC2_TAG_PLAN_REPORT.md).
+Stage 5U.6 created and pushed annotated tag `v0.1.0-rc2` on the approved commit; see [`reports/STAGE_5U_6_CREATE_RC2_TAG_REPORT.md`](reports/STAGE_5U_6_CREATE_RC2_TAG_REPORT.md).
+Stage 5U.7 verified exact `v0.1.0-rc2` package artifacts, metadata, and checksums without install or publish; see [`reports/STAGE_5U_7_RC2_PACKAGE_ARTIFACT_VERIFICATION_REPORT.md`](reports/STAGE_5U_7_RC2_PACKAGE_ARTIFACT_VERIFICATION_REPORT.md).
+Stage 5U.8 verified exact `v0.1.0-rc2` isolated wheel installation and scoped help entrypoints; see [`reports/STAGE_5U_8_RC2_ISOLATED_INSTALL_SMOKE_REPORT.md`](reports/STAGE_5U_8_RC2_ISOLATED_INSTALL_SMOKE_REPORT.md).
+Stage 5V.1 classified the public TestPyPI/PyPI name and version state and recorded the manual TestPyPI token contract; see [`reports/STAGE_5V_1_TESTPYPI_NAME_AUTH_PREPARATION_REPORT.md`](reports/STAGE_5V_1_TESTPYPI_NAME_AUTH_PREPARATION_REPORT.md).
+Stage 5V.2 prepared a manual, exact-tag, OIDC-only GitHub Actions workflow for TestPyPI without publishing; see [`reports/STAGE_5V_2_TESTPYPI_TRUSTED_PUBLISHING_SETUP_REPORT.md`](reports/STAGE_5V_2_TESTPYPI_TRUSTED_PUBLISHING_SETUP_REPORT.md).
 Stage 5O.14 test suite component split is recorded in [`reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md`](reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md).
 Stage 5O.13 storage compatibility guardrails is recorded in [`reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md`](reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md).
 Stage 5O.12 context sync dependency extraction is recorded in [`reports/STAGE_5O_12_CONTEXT_SYNC_DEPENDENCY_EXTRACTION_REPORT.md`](reports/STAGE_5O_12_CONTEXT_SYNC_DEPENDENCY_EXTRACTION_REPORT.md).
@@ -228,6 +241,12 @@ Current completed prompt groups:
 - Stage 5U.2 license metadata decision task prompt.
 - Stage 5U.3 license metadata application task prompt.
 - Stage 5U.4 license metadata package verification task prompt.
+- Stage 5V TestPyPI publish source decision task prompt.
+- Stage 5U.5 RC2 tag plan task prompt.
+- Stage 5U.6 create RC2 tag task prompt.
+- Stage 5U.7 RC2 package artifact verification task prompt.
+- Stage 5U.8 RC2 isolated install smoke task prompt.
+- Stage 5V.2 TestPyPI Trusted Publishing setup task prompt.
 
 Stage 5T stable release decision task files:
 
@@ -252,6 +271,34 @@ Stage 5U.3 license metadata application task files:
 Stage 5U.4 license metadata package verification task files:
 
 - [`completed/stage_5u_4_license_metadata_package_verification.md`](completed/stage_5u_4_license_metadata_package_verification.md)
+
+Stage 5V TestPyPI publish source decision task files:
+
+- [`completed/stage_5v_testpypi_publish_preparation.md`](completed/stage_5v_testpypi_publish_preparation.md)
+
+Stage 5U.5 RC2 tag plan task files:
+
+- [`completed/stage_5u_5_rc2_tag_plan.md`](completed/stage_5u_5_rc2_tag_plan.md)
+
+Stage 5U.6 create RC2 tag task files:
+
+- [`completed/stage_5u_6_create_rc2_tag.md`](completed/stage_5u_6_create_rc2_tag.md)
+
+Stage 5U.7 RC2 package artifact verification task files:
+
+- [`completed/stage_5u_7_rc2_package_artifact_verification.md`](completed/stage_5u_7_rc2_package_artifact_verification.md)
+
+Stage 5U.8 RC2 isolated install smoke task files:
+
+- [`completed/stage_5u_8_rc2_isolated_install_smoke.md`](completed/stage_5u_8_rc2_isolated_install_smoke.md)
+
+Stage 5V.1 TestPyPI name and auth preparation task files:
+
+- [`completed/stage_5v_1_testpypi_name_auth_preparation.md`](completed/stage_5v_1_testpypi_name_auth_preparation.md)
+
+Stage 5V.2 TestPyPI Trusted Publishing setup task files:
+
+- [`completed/stage_5v_2_testpypi_trusted_publishing_setup.md`](completed/stage_5v_2_testpypi_trusted_publishing_setup.md)
 
 Stage 5Q.3 release candidate checklist decision task files:
 
