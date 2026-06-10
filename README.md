@@ -243,6 +243,10 @@ Legacy aliases still supported:
 
 Эта harness не требует сети и используется как regression-опора для дальнейших refactor/change batches.
 
+### License
+
+MIT License. See [LICENSE](LICENSE).
+
 <a id="алиасы"></a>
 #### 🚀 Быстрые Алиасы (Power User)
 Выполните `python3 run.py setup`, чтобы создать короткие команды:

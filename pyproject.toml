@@ -8,6 +8,10 @@ version = "0.1.0"
 description = "Локальная Telegram export/data CLI-утилита на базе Telethon."
 authors = [{ name = "R.P." }]
 readme = "README.md"
+license = { file = "LICENSE" }
+classifiers = [
+  "License :: OSI Approved :: MIT License",
+]
 requires-python = ">=3.9"
 dependencies = [
   "telethon>=1.36.0",

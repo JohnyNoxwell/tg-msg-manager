@@ -21,6 +21,11 @@ These names are intentionally different where Python packaging conventions requi
 
 Current code does not expose `tg_msg_manager.__version__`. Do not add a runtime version API unless an active stage explicitly scopes the import contract, tests, and docs update.
 
+## License
+
+The project uses the MIT License. Package license metadata uses the root
+`LICENSE` file as its source.
+
 ## Public Entrypoints
 
 The supported public command entrypoints are:
