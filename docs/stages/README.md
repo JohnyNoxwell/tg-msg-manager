@@ -6,7 +6,6 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- [`active/stage_5s_release_candidate_tag_plan.md`](active/stage_5s_release_candidate_tag_plan.md)
 - [`active/stage_5t_stable_release_decision.md`](active/stage_5t_stable_release_decision.md)
 
 Execute these release-preparation stages sequentially. Stage 5Q and Stage 5R
@@ -22,6 +21,7 @@ Stage 5Q.2 privacy / deferred areas audit is recorded as passed and Stage 5Q.3 i
 Stage 5Q.3 release candidate checklist decision is recorded as passed and only Stage 5R.0 is authorized next in [`reports/STAGE_5Q_RELEASE_CANDIDATE_CHECKLIST_REPORT.md`](reports/STAGE_5Q_RELEASE_CANDIDATE_CHECKLIST_REPORT.md); its conservative notes draft is [`reports/STAGE_5Q_RELEASE_CANDIDATE_NOTES_DRAFT.md`](reports/STAGE_5Q_RELEASE_CANDIDATE_NOTES_DRAFT.md).
 Stage 5R.0 package build dry-run is recorded as passed and Stage 5R.1 is unblocked in [`reports/STAGE_5R_0_PACKAGE_BUILD_DRY_RUN_REPORT.md`](reports/STAGE_5R_0_PACKAGE_BUILD_DRY_RUN_REPORT.md).
 Stage 5R.1 isolated wheel install / CLI smoke is recorded as passed and Stage 5S is unblocked in [`reports/STAGE_5R_BUILD_AND_INSTALL_DRY_RUN_REPORT.md`](reports/STAGE_5R_BUILD_AND_INSTALL_DRY_RUN_REPORT.md).
+Stage 5S release candidate tag plan is recorded as passed in [`reports/STAGE_5S_RELEASE_CANDIDATE_TAG_PLAN_REPORT.md`](reports/STAGE_5S_RELEASE_CANDIDATE_TAG_PLAN_REPORT.md); tag execution remains a separate explicitly authorized stage.
 Stage 5O.14 test suite component split is recorded in [`reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md`](reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md).
 Stage 5O.13 storage compatibility guardrails is recorded in [`reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md`](reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md).
 Stage 5O.12 context sync dependency extraction is recorded in [`reports/STAGE_5O_12_CONTEXT_SYNC_DEPENDENCY_EXTRACTION_REPORT.md`](reports/STAGE_5O_12_CONTEXT_SYNC_DEPENDENCY_EXTRACTION_REPORT.md).
