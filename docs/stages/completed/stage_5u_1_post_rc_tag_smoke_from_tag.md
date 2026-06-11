@@ -1,71 +1,91 @@
-# Stage 5U.1 - Post-RC Tag Smoke From Tag
+# STAGE 5U.1 — POST-RC TAG SMOKE FROM v0.1.0-rc1
 
 Status: completed
+Stage: 5U.1
 Type: release verification
-Depends on: Stage 5U PASSED and tag `v0.1.0-rc1`
+Depends on: `docs/stages/reports/STAGE_5U_CREATE_RELEASE_CANDIDATE_TAG_REPORT.md` with `PASSED`; existing local and remote annotated tag `v0.1.0-rc1`
 
-## CODEX ENTRY CONTRACT
+---
 
-Read `AGENTS.md`, this task, and only listed prerequisite docs. Apply
-`stage-reviewer`, `architecture-guard`, and `stage-completion-auditor`.
+## 0. CODEX ENTRY CONTRACT
 
-## PURPOSE
+Read `AGENTS.md`, this task, and only the listed prerequisite files. Apply
+`stage-reviewer`, `architecture-guard`, and `stage-completion-auditor` from
+`.skills/`. Stop on missing prerequisite evidence, unrelated working-tree
+changes, wrong tag metadata/target, or project-owned smoke failure.
 
-Export, build, install, and run safe help-only CLI smoke from the exact existing
-tag `v0.1.0-rc1` in an isolated temporary workspace.
+## 1. PURPOSE
 
-## FILES TO INSPECT
+Verify that exact tag `v0.1.0-rc1` can be exported, built, installed, and
+executed through safe help-only CLI commands in isolated temporary environments.
 
-- `pyproject.toml`
+## 2. FILES TO INSPECT
+
+- `AGENTS.md`
 - `docs/stages/README.md`
+- `pyproject.toml`
 - `docs/development/PACKAGE_IDENTITY_AND_VERSION_POLICY.md`
 - `docs/development/RELEASE_CANDIDATE_DECISION.md`
 - `docs/stages/reports/STAGE_5U_CREATE_RELEASE_CANDIDATE_TAG_REPORT.md`
 - `docs/stages/reports/STAGE_5R_0_PACKAGE_BUILD_DRY_RUN_REPORT.md`
 - `docs/stages/reports/STAGE_5R_BUILD_AND_INSTALL_DRY_RUN_REPORT.md`
 
-## HARD PROHIBITIONS
+Writable repository paths are limited to this task file, its lifecycle target,
+`docs/stages/reports/STAGE_5U_1_POST_RC_TAG_SMOKE_FROM_TAG_REPORT.md`, and
+`docs/stages/README.md` only when required for lifecycle state.
 
-- Do not change code, tests, package metadata/version/dependencies, CLI, SQLite,
-  dataset contracts, or unrelated docs.
-- Do not create/delete/push tags, publish packages, create a GitHub Release or
-  stable release, access Telegram/private artifacts, or start the next stage.
-- Build/install artifacts may exist only under `/tmp/tg-msg-manager-5u1-*` and
-  must be removed before completion.
+## 3. HARD PROHIBITIONS
 
-## ATOMIC IMPLEMENTATION TASKS
+- Do not change production code, tests, package metadata/version/dependencies,
+  CLI behavior, SQLite schema, dataset/export contracts, or unrelated docs.
+- Do not create, push, delete, or modify tags; do not publish to TestPyPI/PyPI,
+  create a GitHub Release, or create a stable release.
+- Do not access credentials, Telegram sessions, private artifacts, real
+  exports/logs/media/screenshots/DB files, or initialize a Telegram client.
+- Do not start the next stage.
+- Keep all build/install artifacts under a new `/tmp/tg-msg-manager-5u1-*`
+  directory and remove it before completion.
 
-1. Verify Stage 5U evidence, working tree, and local/remote annotated tag.
-2. Export exact tag source to a new temporary directory and inspect metadata.
-3. Build sdist/wheel, install wheel into a fresh venv, and run help-only smoke.
-4. Record artifacts/checksums/results and remove the temporary workspace.
-5. Create the Russian report and complete lifecycle cleanup.
+## 4. ATOMIC IMPLEMENTATION TASKS
 
-## REQUIRED DOCS
+1. Verify Stage 5U evidence, clean working tree, and exact local/remote annotated
+   tag target `2a3b57deed5be899a27577b43e02904123f85823`.
+2. Export exact tag source with `git archive` and verify package name, version,
+   and console-script metadata.
+3. Build sdist/wheel in an isolated build venv, record names/checksums, install
+   the wheel in a separate fresh venv, and run only the four scoped help commands.
+4. Remove the temporary workspace and verify repository/tag state.
+5. Write the Russian report and complete lifecycle cleanup.
 
-- `docs/stages/reports/STAGE_5U_1_POST_RC_TAG_SMOKE_FROM_TAG_REPORT.md`
-- `docs/stages/README.md`
-- Move this task to `docs/stages/completed/` after completion.
+## 5. REQUIRED DOCS
 
-## TESTS / VERIFICATION
+Create or refresh
+`docs/stages/reports/STAGE_5U_1_POST_RC_TAG_SMOKE_FROM_TAG_REPORT.md`; update
+`docs/stages/README.md` only for lifecycle state; move this task to
+`docs/stages/completed/` after the final report exists.
 
-- Verify local/remote `v0.1.0-rc1` and target commit.
-- Export with `git archive`, inspect exported `pyproject.toml`, build sdist and
-  wheel, install wheel in a fresh venv, run the four scoped help commands.
-- Verify cleanup, repository artifact absence, `git status`, and
-  `git diff --check`. Do not claim checks not run.
+## 6. TESTS / VERIFICATION
 
-## REPORT
+Run the exact local/remote tag checks, `git status --short`, `git diff --check`,
+tag-source metadata inspection, isolated build/install, four help-only smoke
+commands, SHA-256 checksums, cleanup verification, and final repository/tag
+checks. Do not claim a check passed unless it ran.
 
-Write the required Russian report with evidence, commands/results, temp path,
-artifacts/checksums, preserved boundaries, applied skills, and lifecycle notes.
+## 7. REPORT
 
-## COMPLETION CRITERIA
+Write the required Russian report with status, prerequisite/tag evidence,
+temporary path, source metadata, commands/results, artifact names/checksums,
+install/smoke/cleanup results, preserved boundaries, skipped commands, applied
+skills, lifecycle notes, and final recommendation.
+
+## 8. COMPLETION CRITERIA
 
 Complete only if exact tag source builds and installs, all scoped help commands
-pass, temp cleanup succeeds, no repository artifacts or forbidden changes
-exist, the report exists, and lifecycle cleanup is complete.
+pass, cleanup succeeds, local and remote tags remain correct, no repository
+artifacts or forbidden changes exist, the report exists, and lifecycle cleanup
+is completed according to `AGENTS.md`.
 
-## OUTPUT LIMITS
+## 9. OUTPUT LIMITS
 
-Follow `AGENTS.md`; do not paste full diffs or full help output.
+Follow `AGENTS.md`; do not paste full diffs, full help output, credentials, or
+private data.
