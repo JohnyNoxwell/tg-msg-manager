@@ -1,6 +1,6 @@
 # STAGE 5Z.0 — PATCH RELEASE v0.1.1
 
-Status: active task
+Status: completed
 Stage: 5Z.0
 Type: release operation
 Depends on: clean synchronized `main`, successful CI for commit `2b9182f`, existing PyPI Trusted Publishing workflow, existing GitHub Release `v0.1.0`, and explicit user authorization to release.
