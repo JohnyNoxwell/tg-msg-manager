@@ -1,6 +1,6 @@
 # STAGE 5V.3 — TESTPYPI TRUSTED PUBLISHER REGISTRATION
 
-Status: active task
+Status: completed
 Stage: 5V.3
 Type: external release configuration
 Depends on:

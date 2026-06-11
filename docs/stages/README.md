@@ -6,7 +6,7 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- [`active/stage_5v_3_testpypi_trusted_publisher_registration.md`](active/stage_5v_3_testpypi_trusted_publisher_registration.md)
+- None.
 
 Execute these release-preparation stages sequentially. Stage 5Q and Stage 5R
 are split into atomic sub-stages. Stages 5U.2-5U.4 separate license decision,
@@ -15,9 +15,18 @@ metadata application, and package verification. Stage 5V first decides that
 5U.5-5U.8 then plan, create, and verify `v0.1.0-rc2`; Stage 5V.1 verifies
 TestPyPI readiness, Stage 5V.2 prepares an OIDC-only GitHub Actions TestPyPI
 workflow, and Stage 5V.3 registers its exact pending publisher without
-publishing. Execute only the first unfinished stage. No active stage authorizes
-an upload, workflow dispatch, version bump, PyPI publish, GitHub Release, or
-stable release.
+publishing. Stage 5V.4 performs and verifies exactly one controlled workflow
+publish of exact tag `v0.1.0-rc2` to TestPyPI. Stage 5V.5 verifies public
+TestPyPI installation and help-only CLI smoke. Stage 5W prepares evidence and
+decides the stable-tag and Trusted Publishing requirements for main PyPI
+without publishing. Stage 5W.0 recorded the exact stable `v0.1.0` tag target
+and commands without creating or pushing the tag. Stage 5W.0.1 created and
+pushed that exact annotated stable tag. Stage 5W.0.2 verified isolated package
+artifacts built from exact `v0.1.0`. Stage 5W.0.3 verified isolated
+installation plus help-only CLI smoke from exact `v0.1.0`. Stage 5W.1
+prepared main PyPI Trusted Publishing without publishing. Stage 5W.2 recorded
+the user-attested exact publisher tuple and verified the local trust controls
+without publishing; Stage 5W.3 remains separate and is not active.
 
 Stage 5P.1 Ruff formatting remediation is recorded in [`reports/STAGE_5P_1_RUFF_FORMATTING_REMEDIATION_REPORT.md`](reports/STAGE_5P_1_RUFF_FORMATTING_REMEDIATION_REPORT.md).
 Stage 5P.2 target identity history duplicate observation remediation is recorded in [`reports/STAGE_5P_2_TARGET_IDENTITY_HISTORY_DUPLICATE_OBSERVATION_REMEDIATION_REPORT.md`](reports/STAGE_5P_2_TARGET_IDENTITY_HISTORY_DUPLICATE_OBSERVATION_REMEDIATION_REPORT.md).
@@ -42,6 +51,16 @@ Stage 5U.7 verified exact `v0.1.0-rc2` package artifacts, metadata, and checksum
 Stage 5U.8 verified exact `v0.1.0-rc2` isolated wheel installation and scoped help entrypoints; see [`reports/STAGE_5U_8_RC2_ISOLATED_INSTALL_SMOKE_REPORT.md`](reports/STAGE_5U_8_RC2_ISOLATED_INSTALL_SMOKE_REPORT.md).
 Stage 5V.1 classified the public TestPyPI/PyPI name and version state and recorded the manual TestPyPI token contract; see [`reports/STAGE_5V_1_TESTPYPI_NAME_AUTH_PREPARATION_REPORT.md`](reports/STAGE_5V_1_TESTPYPI_NAME_AUTH_PREPARATION_REPORT.md).
 Stage 5V.2 prepared a manual, exact-tag, OIDC-only GitHub Actions workflow for TestPyPI without publishing; see [`reports/STAGE_5V_2_TESTPYPI_TRUSTED_PUBLISHING_SETUP_REPORT.md`](reports/STAGE_5V_2_TESTPYPI_TRUSTED_PUBLISHING_SETUP_REPORT.md).
+Stage 5V.3 registered the exact TestPyPI pending publisher and GitHub Environment without dispatching or publishing; see [`reports/STAGE_5V_3_TESTPYPI_TRUSTED_PUBLISHER_REGISTRATION_REPORT.md`](reports/STAGE_5V_3_TESTPYPI_TRUSTED_PUBLISHER_REGISTRATION_REPORT.md).
+Stage 5V.4 published exact `v0.1.0-rc2` artifacts once through Trusted Publishing and publicly verified TestPyPI version `0.1.0`; see [`reports/STAGE_5V_4_TESTPYPI_WORKFLOW_PUBLISH_REPORT.md`](reports/STAGE_5V_4_TESTPYPI_WORKFLOW_PUBLISH_REPORT.md).
+Stage 5V.5 verified public TestPyPI installation of `tg-msg-manager==0.1.0`, expected metadata, and help-only CLI entrypoints; see [`reports/STAGE_5V_5_TESTPYPI_INSTALL_SMOKE_REPORT.md`](reports/STAGE_5V_5_TESTPYPI_INSTALL_SMOKE_REPORT.md).
+Stage 5W verified main PyPI preparation and requires stable tag `v0.1.0` before main PyPI Trusted Publishing; see [`reports/STAGE_5W_PYPI_PUBLISH_PREPARATION_REPORT.md`](reports/STAGE_5W_PYPI_PUBLISH_PREPARATION_REPORT.md).
+Stage 5W.0 planned stable tag `v0.1.0` on the verified RC2 peeled target and authorized only a separate tag-creation stage next; see [`reports/STAGE_5W_0_STABLE_TAG_V0_1_0_PLAN_REPORT.md`](reports/STAGE_5W_0_STABLE_TAG_V0_1_0_PLAN_REPORT.md).
+Stage 5W.0.1 created and pushed annotated stable tag `v0.1.0` on the verified RC2 peeled target; package artifact verification remains separate; see [`reports/STAGE_5W_0_1_CREATE_STABLE_TAG_V0_1_0_REPORT.md`](reports/STAGE_5W_0_1_CREATE_STABLE_TAG_V0_1_0_REPORT.md).
+Stage 5W.0.2 verified exact stable-tag wheel/sdist artifacts, metadata, license, entry point, and checksums without install or publish; see [`reports/STAGE_5W_0_2_STABLE_TAG_PACKAGE_ARTIFACT_VERIFICATION_REPORT.md`](reports/STAGE_5W_0_2_STABLE_TAG_PACKAGE_ARTIFACT_VERIFICATION_REPORT.md).
+Stage 5W.0.3 verified isolated installation of the exact stable-tag wheel, installed metadata, and help-only CLI entrypoints; see [`reports/STAGE_5W_0_3_STABLE_TAG_ISOLATED_INSTALL_SMOKE_REPORT.md`](reports/STAGE_5W_0_3_STABLE_TAG_ISOLATED_INSTALL_SMOKE_REPORT.md).
+Stage 5W.1 prepared a manual exact-tag OIDC workflow and GitHub Environment `pypi` without publishing; see [`reports/STAGE_5W_1_PYPI_TRUSTED_PUBLISHING_SETUP_REPORT.md`](reports/STAGE_5W_1_PYPI_TRUSTED_PUBLISHING_SETUP_REPORT.md).
+Stage 5W.2 recorded the user-confirmed exact main PyPI Trusted Publisher tuple and verified repository trust controls without dispatching or publishing; see [`reports/STAGE_5W_2_PYPI_TRUSTED_PUBLISHER_REGISTRATION_REPORT.md`](reports/STAGE_5W_2_PYPI_TRUSTED_PUBLISHER_REGISTRATION_REPORT.md).
 Stage 5O.14 test suite component split is recorded in [`reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md`](reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md).
 Stage 5O.13 storage compatibility guardrails is recorded in [`reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md`](reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md).
 Stage 5O.12 context sync dependency extraction is recorded in [`reports/STAGE_5O_12_CONTEXT_SYNC_DEPENDENCY_EXTRACTION_REPORT.md`](reports/STAGE_5O_12_CONTEXT_SYNC_DEPENDENCY_EXTRACTION_REPORT.md).
@@ -247,6 +266,14 @@ Current completed prompt groups:
 - Stage 5U.7 RC2 package artifact verification task prompt.
 - Stage 5U.8 RC2 isolated install smoke task prompt.
 - Stage 5V.2 TestPyPI Trusted Publishing setup task prompt.
+- Stage 5V.3 TestPyPI Trusted Publisher registration task prompt.
+- Stage 5V.4 TestPyPI workflow publish task prompt.
+- Stage 5V.5 TestPyPI install smoke task prompt.
+- Stage 5W.0 stable tag v0.1.0 plan task prompt.
+- Stage 5W.0.1 create stable tag v0.1.0 task prompt.
+- Stage 5W.0.2 stable tag package artifact verification task prompt.
+- Stage 5W.0.3 stable tag isolated install smoke task prompt.
+- Stage 5W.2 PyPI Trusted Publisher registration task prompt.
 
 Stage 5T stable release decision task files:
 
@@ -299,6 +326,34 @@ Stage 5V.1 TestPyPI name and auth preparation task files:
 Stage 5V.2 TestPyPI Trusted Publishing setup task files:
 
 - [`completed/stage_5v_2_testpypi_trusted_publishing_setup.md`](completed/stage_5v_2_testpypi_trusted_publishing_setup.md)
+
+Stage 5V.3 TestPyPI Trusted Publisher registration task files:
+
+- [`completed/stage_5v_3_testpypi_trusted_publisher_registration.md`](completed/stage_5v_3_testpypi_trusted_publisher_registration.md)
+
+Stage 5V.4 TestPyPI workflow publish task files:
+
+- [`completed/stage_5v_4_testpypi_workflow_publish.md`](completed/stage_5v_4_testpypi_workflow_publish.md)
+
+Stage 5V.5 TestPyPI install smoke task files:
+
+- [`completed/stage_5v_5_testpypi_install_smoke.md`](completed/stage_5v_5_testpypi_install_smoke.md)
+
+Stage 5W.0.1 create stable tag v0.1.0 task files:
+
+- [`completed/stage_5w_0_1_create_stable_tag_v0_1_0.md`](completed/stage_5w_0_1_create_stable_tag_v0_1_0.md)
+
+Stage 5W.0.2 stable tag package artifact verification task files:
+
+- [`completed/stage_5w_0_2_stable_tag_package_artifact_verification.md`](completed/stage_5w_0_2_stable_tag_package_artifact_verification.md)
+
+Stage 5W.0.3 stable tag isolated install smoke task files:
+
+- [`completed/stage_5w_0_3_stable_tag_isolated_install_smoke.md`](completed/stage_5w_0_3_stable_tag_isolated_install_smoke.md)
+
+Stage 5W.2 PyPI Trusted Publisher registration task files:
+
+- [`completed/stage_5w_2_pypi_trusted_publisher_registration.md`](completed/stage_5w_2_pypi_trusted_publisher_registration.md)
 
 Stage 5Q.3 release candidate checklist decision task files:
 
