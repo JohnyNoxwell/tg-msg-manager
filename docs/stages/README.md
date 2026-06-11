@@ -76,6 +76,7 @@ Stage 5X selected a separate GitHub Release creation stage for `v0.1.0` without 
 Stage 5X.1 created and verified the GitHub Release for existing stable tag `v0.1.0` and closed release-chain `0.1.0`; see [`reports/STAGE_5X_1_GITHUB_RELEASE_CREATION_REPORT.md`](reports/STAGE_5X_1_GITHUB_RELEASE_CREATION_REPORT.md).
 Stage 5Y.0 added bilingual installation and first-run documentation; see [`reports/STAGE_5Y_0_BILINGUAL_INSTALLATION_DOCUMENTATION_REPORT.md`](reports/STAGE_5Y_0_BILINGUAL_INSTALLATION_DOCUMENTATION_REPORT.md).
 Stage 5Z.0 published and verified patch release `0.1.1`; see [`reports/STAGE_5Z_0_PATCH_RELEASE_V0_1_1_REPORT.md`](reports/STAGE_5Z_0_PATCH_RELEASE_V0_1_1_REPORT.md).
+Stage 5Z.1 fixed first-run config bootstrap and published patch release `0.1.2`; see [`reports/STAGE_5Z_1_FIRST_RUN_CONFIG_BOOTSTRAP_AND_PATCH_RELEASE_V0_1_2_REPORT.md`](reports/STAGE_5Z_1_FIRST_RUN_CONFIG_BOOTSTRAP_AND_PATCH_RELEASE_V0_1_2_REPORT.md).
 Stage 5O.14 test suite component split is recorded in [`reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md`](reports/STAGE_5O_14_TEST_SUITE_COMPONENT_SPLIT_REPORT.md).
 Stage 5O.13 storage compatibility guardrails is recorded in [`reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md`](reports/STAGE_5O_13_STORAGE_COMPATIBILITY_GUARDRAILS_REPORT.md).
 Stage 5O.12 context sync dependency extraction is recorded in [`reports/STAGE_5O_12_CONTEXT_SYNC_DEPENDENCY_EXTRACTION_REPORT.md`](reports/STAGE_5O_12_CONTEXT_SYNC_DEPENDENCY_EXTRACTION_REPORT.md).
