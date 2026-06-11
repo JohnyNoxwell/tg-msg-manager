@@ -44,23 +44,62 @@ python3 -m tg_msg_manager.cli report
 
 ### 🚀 Быстрый старт
 
-1. **Установка**:
-   ```bash
-   git clone https://github.com/JohnyNoxwell/tg-msg-manager.git
-   cd tg-msg-manager
-   pip install .
-   ```
-   После установки доступен console script `tg-msg-manager`; команды
-   `python3 -m tg_msg_manager.cli ...` остаются основным Python entrypoint.
+#### Рекомендуется: установка из PyPI
 
-2. **Запуск интерактивного меню**:
-   *   **Способ A (Самый быстрый)**: Из интерактивного терминала, находясь в корне проекта:
-       ```bash
-       python3 run.py
-       ```
-   *   **Способ B (После настройки)**: Введите `tg` в любом месте терминала (см. раздел [Алиасы](#алиасы)).
+macOS / Linux:
 
-3. **Навигация**: Используйте двузначные коды меню: **01-10** для основных функций, **11** для `retry`, **12** для `report`, **98** — переключение языка, **00** — выход, **ESC** — возврат назад. Старые короткие вводы `1-9`, `R`, `P`, `L`, `0` сохранены для совместимости.
+```bash
+python3 -m pip install tg-msg-manager
+tg-msg-manager
+```
+
+Windows PowerShell:
+
+```powershell
+py -m pip install tg-msg-manager
+tg-msg-manager
+```
+
+#### Установка последней версии из репозитория
+
+```bash
+git clone https://github.com/JohnyNoxwell/tg-msg-manager.git
+cd tg-msg-manager
+python3 -m pip install .
+tg-msg-manager
+```
+
+В Windows замените `python3` на `py`.
+
+#### Установка для разработки
+
+```bash
+git clone https://github.com/JohnyNoxwell/tg-msg-manager.git
+cd tg-msg-manager
+python3 -m pip install -e ".[dev]"
+```
+
+#### Обновление PyPI-версии
+
+```bash
+python3 -m pip install --upgrade tg-msg-manager
+```
+
+В Windows замените `python3` на `py`.
+
+После установки доступен console script `tg-msg-manager`. Перед полноценным
+запуском создайте `config.json` вручную по примеру
+[`config.example.json`](config.example.json). Пошаговая настройка:
+[`docs/user/QUICKSTART.md`](docs/user/QUICKSTART.md).
+
+Рабочая директория создаётся автоматически:
+
+- macOS / Linux: `~/TG_MSG_MANAGER`
+- Windows: `%USERPROFILE%\TG_MSG_MANAGER`
+
+Запустите интерактивное меню командой `tg-msg-manager`. Используйте двузначные
+коды меню: **01-10** для основных функций, **11** для `retry`, **12** для
+`report`, **98** — переключение языка, **00** — выход, **ESC** — возврат назад.
 
 ---
 
@@ -297,23 +336,61 @@ python3 -m tg_msg_manager.cli report
 
 ### 🚀 Quick Start
 
-1. **Installation**:
-   ```bash
-   git clone https://github.com/JohnyNoxwell/tg-msg-manager.git
-   cd tg-msg-manager
-   pip install .
-   ```
-   The installed console script is `tg-msg-manager`; commands using
-   `python3 -m tg_msg_manager.cli ...` remain the primary Python entrypoint.
+#### Recommended: install from PyPI
 
-2. **Launch Interactive Menu**:
-   *   **Method A (Fastest)**: From an interactive terminal in the project root:
-       ```bash
-       python3 run.py
-       ```
-   *   **Method B (After setup)**: Type `tg` anywhere in your terminal (see [Aliases](#aliases)).
+macOS / Linux:
 
-3. **Navigation**: Use two-digit menu codes: **01-10** for primary actions, **11** for `retry`, **12** for `report`, **98** for language toggle, **00** for exit, and **ESC** to go back/cancel. Legacy short inputs `1-9`, `R`, `P`, `L`, and `0` are still accepted for compatibility.
+```bash
+python3 -m pip install tg-msg-manager
+tg-msg-manager
+```
+
+Windows PowerShell:
+
+```powershell
+py -m pip install tg-msg-manager
+tg-msg-manager
+```
+
+#### Install the latest source from the repository
+
+```bash
+git clone https://github.com/JohnyNoxwell/tg-msg-manager.git
+cd tg-msg-manager
+python3 -m pip install .
+tg-msg-manager
+```
+
+On Windows, replace `python3` with `py`.
+
+#### Development installation
+
+```bash
+git clone https://github.com/JohnyNoxwell/tg-msg-manager.git
+cd tg-msg-manager
+python3 -m pip install -e ".[dev]"
+```
+
+#### Upgrade the PyPI installation
+
+```bash
+python3 -m pip install --upgrade tg-msg-manager
+```
+
+On Windows, replace `python3` with `py`.
+
+The installed console script is `tg-msg-manager`. Before a full run, create
+`config.json` manually from [`config.example.json`](config.example.json). See
+the step-by-step guide: [`docs/user/QUICKSTART.md`](docs/user/QUICKSTART.md).
+
+The working directory is created automatically:
+
+- macOS / Linux: `~/TG_MSG_MANAGER`
+- Windows: `%USERPROFILE%\TG_MSG_MANAGER`
+
+Launch the interactive menu with `tg-msg-manager`. Use two-digit menu codes:
+**01-10** for primary actions, **11** for `retry`, **12** for `report`, **98**
+for language toggle, **00** for exit, and **ESC** to go back.
 
 ---
 

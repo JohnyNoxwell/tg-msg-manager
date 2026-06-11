@@ -1,63 +1,225 @@
-# User Quickstart
+# Первый запуск / First Run
 
-This page is a navigation guide for a first local run. It does not replace the
-command reference in [`../../COMMANDS.md`](../../COMMANDS.md).
+[Русский](#русский) | [English](#english)
 
-## Start Here
+Эта страница описывает установку и первый локальный запуск. Полный справочник
+команд находится в [`../../COMMANDS.md`](../../COMMANDS.md).
 
-1. Install the package, launch the interactive menu, and review configuration in
-   [`../../README.md`](../../README.md).
-2. For the full list of commands, flags, defaults, and notes, use
-   [`../../COMMANDS.md`](../../COMMANDS.md).
-3. Keep private exports, sessions, databases, logs, screenshots, and media local
-   by default. Agent and sharing rules are documented in
-   [`../development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md`](../development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md).
-4. Review local operational caveats for sessions, FloodWait/rate limits, SQLite
-   concurrency, scheduler runs, and live smoke checks in
-   [`../development/OPERATIONAL_RISKS_AND_LIMITS.md`](../development/OPERATIONAL_RISKS_AND_LIMITS.md).
+This page covers installation and the first local run. The complete command
+reference is [`../../COMMANDS.md`](../../COMMANDS.md).
 
-## First User Or Group Export
+<a id="русский"></a>
+## Русский
 
-- Use the `export` command reference:
-  [`../../COMMANDS.md#export`](../../COMMANDS.md#export).
-- Use the interactive menu reference:
-  [`../../COMMANDS.md#interactive-menu`](../../COMMANDS.md#interactive-menu).
-- Treat TXT output as a projection. JSONL and SQLite records remain canonical.
+### 1. Выберите способ установки
 
-## First DB Export
+Для обычного использования рекомендуется PyPI:
 
-- Use the `db-export` command reference:
-  [`../../COMMANDS.md#db-export`](../../COMMANDS.md#db-export).
-- Use `README.md` for configuration source order before relying on cached local
-  SQLite data.
+```bash
+python3 -m pip install tg-msg-manager
+```
 
-## First Channel Dataset
+Windows PowerShell:
 
-- Start with the safe metadata-only channel guide:
-  [`../development/SAFE_FIRST_CHANNEL_EXPORT.md`](../development/SAFE_FIRST_CHANNEL_EXPORT.md).
-- Use the full `export-channel` command reference only when you need exact flags:
-  [`../../COMMANDS.md#export-channel`](../../COMMANDS.md#export-channel).
+```powershell
+py -m pip install tg-msg-manager
+```
 
-## Validate And Inspect
+Для установки последней версии из репозитория:
 
-- Validate the local channel dataset:
-  [`../../COMMANDS.md#validate-dataset`](../../COMMANDS.md#validate-dataset).
-- Inspect deterministic counts and statuses:
-  [`../../COMMANDS.md#inspect-dataset`](../../COMMANDS.md#inspect-dataset).
-- Use doctor mode only for read-only diagnostic findings and suggested actions.
-  It does not repair, migrate, fetch from Telegram, rewrite datasets, write
-  SQLite data, or analyze message meaning.
+```bash
+git clone https://github.com/JohnyNoxwell/tg-msg-manager.git
+cd tg-msg-manager
+python3 -m pip install .
+```
 
-## Local Target Name History
+Для разработки используйте editable install:
 
-- Use `target names` to inspect locally stored metadata only:
-  [`../../COMMANDS.md#target-names`](../../COMMANDS.md#target-names).
-- The command does not refresh Telegram metadata and can be incomplete when a
-  target was not observed before.
-- It reports stored name facts only; it is not identity or profiling analysis.
+```bash
+python3 -m pip install -e ".[dev]"
+```
 
-## Documentation Map
+### 2. Создайте конфигурацию
 
-- Main documentation index: [`../README.md`](../README.md).
-- Architecture boundary index: [`../architecture/README.md`](../architecture/README.md).
-- Development and testing index: [`../development/README.md`](../development/README.md).
+`config.json` автоматически не создаётся. Скопируйте
+[`../../config.example.json`](../../config.example.json) в рабочую директорию и
+укажите свои `api_id` и `api_hash`.
+
+macOS / Linux:
+
+```bash
+mkdir -p ~/TG_MSG_MANAGER
+cp config.example.json ~/TG_MSG_MANAGER/config.json
+```
+
+Windows PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\TG_MSG_MANAGER"
+Copy-Item config.example.json "$HOME\TG_MSG_MANAGER\config.json"
+```
+
+Если пакет установлен только из PyPI и файла `config.example.json` рядом нет,
+создайте `config.json` вручную по примеру из README. Не публикуйте credentials,
+Telegram-сессии, базы, логи или экспорты.
+
+### 3. Запустите приложение
+
+```bash
+tg-msg-manager
+```
+
+Альтернативный Python entrypoint:
+
+```bash
+python3 -m tg_msg_manager.cli
+```
+
+В Windows замените `python3` на `py`.
+
+### 4. Найдите рабочие файлы
+
+Рабочая директория создаётся автоматически:
+
+- macOS / Linux: `~/TG_MSG_MANAGER`
+- Windows: `%USERPROFILE%\TG_MSG_MANAGER`
+
+Основная структура:
+
+```text
+TG_MSG_MANAGER/
+├── config.json
+├── messages.db
+├── tg_msg_manager.session
+├── LOGS/
+├── DB_EXPORTS/
+├── PRIVAT_DIALOGS/
+├── PUBLIC_GROUPS/
+└── exports/
+    └── channels/
+```
+
+Файл или каталог появляется только когда соответствующая функция впервые его
+использует.
+
+### 5. Обновите установленный пакет
+
+```bash
+python3 -m pip install --upgrade tg-msg-manager
+```
+
+В Windows замените `python3` на `py`.
+
+Дальше используйте [`../../COMMANDS.md`](../../COMMANDS.md) для команд,
+[`../development/SAFE_FIRST_CHANNEL_EXPORT.md`](../development/SAFE_FIRST_CHANNEL_EXPORT.md)
+для первого безопасного channel export и
+[`../development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md`](../development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md)
+для правил работы с приватными файлами.
+
+<a id="english"></a>
+## English
+
+### 1. Choose an installation method
+
+PyPI is recommended for normal use:
+
+```bash
+python3 -m pip install tg-msg-manager
+```
+
+Windows PowerShell:
+
+```powershell
+py -m pip install tg-msg-manager
+```
+
+To install the latest source from the repository:
+
+```bash
+git clone https://github.com/JohnyNoxwell/tg-msg-manager.git
+cd tg-msg-manager
+python3 -m pip install .
+```
+
+For development, use an editable install:
+
+```bash
+python3 -m pip install -e ".[dev]"
+```
+
+### 2. Create the configuration
+
+`config.json` is not created automatically. Copy
+[`../../config.example.json`](../../config.example.json) into the working
+directory and set your `api_id` and `api_hash`.
+
+macOS / Linux:
+
+```bash
+mkdir -p ~/TG_MSG_MANAGER
+cp config.example.json ~/TG_MSG_MANAGER/config.json
+```
+
+Windows PowerShell:
+
+```powershell
+New-Item -ItemType Directory -Force "$HOME\TG_MSG_MANAGER"
+Copy-Item config.example.json "$HOME\TG_MSG_MANAGER\config.json"
+```
+
+If the package was installed only from PyPI and `config.example.json` is not
+available nearby, create `config.json` manually from the README example. Do not
+publish credentials, Telegram sessions, databases, logs, or exports.
+
+### 3. Launch the application
+
+```bash
+tg-msg-manager
+```
+
+Alternative Python entrypoint:
+
+```bash
+python3 -m tg_msg_manager.cli
+```
+
+On Windows, replace `python3` with `py`.
+
+### 4. Find the working files
+
+The working directory is created automatically:
+
+- macOS / Linux: `~/TG_MSG_MANAGER`
+- Windows: `%USERPROFILE%\TG_MSG_MANAGER`
+
+Main layout:
+
+```text
+TG_MSG_MANAGER/
+├── config.json
+├── messages.db
+├── tg_msg_manager.session
+├── LOGS/
+├── DB_EXPORTS/
+├── PRIVAT_DIALOGS/
+├── PUBLIC_GROUPS/
+└── exports/
+    └── channels/
+```
+
+A file or directory appears only after the corresponding feature first uses
+it.
+
+### 5. Upgrade the installed package
+
+```bash
+python3 -m pip install --upgrade tg-msg-manager
+```
+
+On Windows, replace `python3` with `py`.
+
+Continue with [`../../COMMANDS.md`](../../COMMANDS.md) for commands,
+[`../development/SAFE_FIRST_CHANNEL_EXPORT.md`](../development/SAFE_FIRST_CHANNEL_EXPORT.md)
+for the first safe channel export, and
+[`../development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md`](../development/PRIVACY_AND_SENSITIVE_ARTIFACTS.md)
+for private-file handling rules.
