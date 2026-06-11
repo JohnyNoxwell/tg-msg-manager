@@ -11,6 +11,23 @@ from pydantic_settings import (
 
 logger = logging.getLogger(__name__)
 SUPPORTED_LANGS = {"ru", "en"}
+DEFAULT_CONFIG = {
+    "api_id": 0,
+    "api_hash": "",
+    "session_name": "tg_msg_manager",
+    "db_path": "messages.db",
+    "account_name": "Default Account",
+    "whitelist_chats": [],
+    "include_chats": [],
+    "chats_to_search_user_msgs": [],
+    "max_rps": 3.0,
+    "log_level": "INFO",
+    "lang": "ru",
+}
+
+
+class ConfigurationSetupRequired(ValueError):
+    pass
 
 
 class Settings(BaseSettings):
@@ -152,6 +169,31 @@ def _config_settings_kwargs(config_data: dict[str, Any]) -> dict[str, Any]:
     return settings_kwargs
 
 
+def ensure_default_config(config_path: str) -> bool:
+    """Create a safe first-run config without overwriting an existing file."""
+    os.makedirs(os.path.dirname(os.path.abspath(config_path)), exist_ok=True)
+    try:
+        with open(config_path, "x", encoding="utf-8") as config_file:
+            json.dump(DEFAULT_CONFIG, config_file, ensure_ascii=False, indent=2)
+            config_file.write("\n")
+        return True
+    except FileExistsError:
+        return False
+
+
+def _require_configured_api_credentials(
+    settings: Settings,
+    config_path: Optional[str],
+) -> None:
+    if settings.api_id > 0 and settings.api_hash.strip() not in ("", "YOUR_API_HASH"):
+        return
+    location = config_path or "config.json"
+    raise ConfigurationSetupRequired(
+        f"Telegram API credentials are not configured. Edit {location} "
+        "and set api_id and api_hash."
+    )
+
+
 def load_settings(
     config_path: Optional[str] = None,
     *,
@@ -172,7 +214,10 @@ def load_settings(
                     settings_kwargs["api_id"] = 0
                 if "api_hash" not in config_data and "TG_API_HASH" not in os.environ:
                     settings_kwargs["api_hash"] = ""
-            return Settings(**settings_kwargs)
+            settings = Settings(**settings_kwargs)
+            if require_api_credentials:
+                _require_configured_api_credentials(settings, config_path)
+            return settings
         if not require_api_credentials:
             settings_kwargs = {}
             if "TG_API_ID" not in os.environ:
@@ -180,7 +225,9 @@ def load_settings(
             if "TG_API_HASH" not in os.environ:
                 settings_kwargs["api_hash"] = ""
             return Settings(**settings_kwargs)
-        return Settings()
+        settings = Settings()
+        _require_configured_api_credentials(settings, config_path)
+        return settings
     except Exception as e:
         logger.error(f"Configuration error: {e}")
         raise

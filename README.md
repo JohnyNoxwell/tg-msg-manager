@@ -87,9 +87,9 @@ python3 -m pip install --upgrade tg-msg-manager
 
 В Windows замените `python3` на `py`.
 
-После установки доступен console script `tg-msg-manager`. Перед полноценным
-запуском создайте `config.json` вручную по примеру
-[`config.example.json`](config.example.json). Пошаговая настройка:
+После установки доступен console script `tg-msg-manager`. При первом запуске
+он автоматически создаёт безопасный базовый `config.json` в рабочей директории.
+Укажите в нём свои `api_id` и `api_hash`. Пошаговая настройка:
 [`docs/user/QUICKSTART.md`](docs/user/QUICKSTART.md).
 
 Рабочая директория создаётся автоматически:
@@ -379,9 +379,10 @@ python3 -m pip install --upgrade tg-msg-manager
 
 On Windows, replace `python3` with `py`.
 
-The installed console script is `tg-msg-manager`. Before a full run, create
-`config.json` manually from [`config.example.json`](config.example.json). See
-the step-by-step guide: [`docs/user/QUICKSTART.md`](docs/user/QUICKSTART.md).
+The installed console script is `tg-msg-manager`. On first run it automatically
+creates a safe base `config.json` in the working directory. Set your `api_id`
+and `api_hash` there. See the step-by-step guide:
+[`docs/user/QUICKSTART.md`](docs/user/QUICKSTART.md).
 
 The working directory is created automatically:
 

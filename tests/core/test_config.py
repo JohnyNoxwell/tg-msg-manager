@@ -9,7 +9,11 @@ from unittest.mock import patch
 # Add project root to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tg_msg_manager.core.config import Settings, load_settings
+from tg_msg_manager.core.config import (
+    ConfigurationSetupRequired,
+    Settings,
+    load_settings,
+)
 from tg_msg_manager.core.runtime import build_app_runtime
 
 
@@ -162,6 +166,35 @@ class TestConfig(unittest.TestCase):
         self.assertEqual(settings.api_hash, "")
         self.assertEqual(settings.db_path, "local.db")
         self.assertEqual(settings.lang, "ru")
+
+    def test_build_app_runtime_creates_safe_config_on_first_run(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app_home = os.path.join(tmpdir, "TG_MSG_MANAGER")
+            config_path = os.path.join(app_home, "config.json")
+
+            with patch.dict(os.environ, {}, clear=True):
+                with self.assertRaises(ConfigurationSetupRequired):
+                    build_app_runtime(project_root=app_home)
+
+            with open(config_path, "r", encoding="utf-8") as config_file:
+                config_data = json.load(config_file)
+
+        self.assertEqual(config_data["api_id"], 0)
+        self.assertEqual(config_data["api_hash"], "")
+        self.assertEqual(config_data["db_path"], "messages.db")
+
+    def test_build_app_runtime_does_not_overwrite_existing_config(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            config_path = os.path.join(tmpdir, "config.json")
+            original = '{"api_id": 1, "api_hash": "kept"}\n'
+            with open(config_path, "w", encoding="utf-8") as config_file:
+                config_file.write(original)
+
+            with patch.dict(os.environ, {}, clear=True):
+                build_app_runtime(project_root=tmpdir)
+
+            with open(config_path, "r", encoding="utf-8") as config_file:
+                self.assertEqual(config_file.read(), original)
 
     @patch("tg_msg_manager.core.runtime.load_settings")
     def test_build_app_runtime_resolves_project_relative_paths(

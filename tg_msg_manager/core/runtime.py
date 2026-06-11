@@ -3,7 +3,7 @@ import sys
 from dataclasses import dataclass
 from typing import List, Optional
 
-from .config import Settings, load_settings
+from .config import Settings, ensure_default_config, load_settings
 
 APP_HOME_ENV = "TG_HOME"
 DEFAULT_APP_HOME = "TG_MSG_MANAGER"
@@ -93,6 +93,7 @@ def build_app_runtime(
         )
 
     _ensure_base_directories(resolved_project_root)
+    ensure_default_config(resolved_config_path)
     settings = load_settings(
         resolved_config_path,
         require_api_credentials=require_api_credentials,

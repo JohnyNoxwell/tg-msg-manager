@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tg-msg-manager"
-version = "0.1.1"
+version = "0.1.2"
 description = "Локальная Telegram export/data CLI-утилита на базе Telethon."
 authors = [{ name = "R.P." }]
 readme = "README.md"

@@ -3,6 +3,14 @@ All notable changes to this project will be documented in this file in both Engl
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-06-11
+
+### Fixed (EN)
+- **First-run configuration**: The CLI now creates a safe base `config.json` in the application working directory when it is missing, never overwrites an existing config, and clearly asks for Telegram API credentials before network commands.
+
+### Исправлено (RU)
+- **Конфигурация первого запуска**: CLI теперь создаёт безопасный базовый `config.json` в рабочей директории приложения, если файл отсутствует, никогда не перезаписывает существующий конфиг и явно просит указать Telegram API credentials перед сетевыми командами.
+
 ## [0.1.1] - 2026-06-11
 
 ### Changed (EN)

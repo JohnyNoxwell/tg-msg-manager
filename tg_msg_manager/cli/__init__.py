@@ -35,6 +35,7 @@ from ..cli_support import (
     get_safe_user_and_chat,
     resolve_id,
 )
+from ..core.config import ConfigurationSetupRequired
 from ..core.logging import setup_logging
 from ..core.process import ProcessManager
 from ..core.runtime import AppRuntime, build_app_runtime
@@ -330,6 +331,9 @@ async def main_menu(runtime: Optional[AppRuntime] = None):
 def main():
     try:
         asyncio.run(run_cli())
+    except ConfigurationSetupRequired as exc:
+        sys.stderr.write(f"{exc}\n")
+        sys.exit(2)
     except KeyboardInterrupt:
         sys.exit(0)
 

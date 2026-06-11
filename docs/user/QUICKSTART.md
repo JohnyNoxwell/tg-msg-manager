@@ -41,27 +41,16 @@ python3 -m pip install -e ".[dev]"
 
 ### 2. Создайте конфигурацию
 
-`config.json` автоматически не создаётся. Скопируйте
-[`../../config.example.json`](../../config.example.json) в рабочую директорию и
-укажите свои `api_id` и `api_hash`.
-
-macOS / Linux:
+Запустите CLI один раз:
 
 ```bash
-mkdir -p ~/TG_MSG_MANAGER
-cp config.example.json ~/TG_MSG_MANAGER/config.json
+tg-msg-manager
 ```
 
-Windows PowerShell:
-
-```powershell
-New-Item -ItemType Directory -Force "$HOME\TG_MSG_MANAGER"
-Copy-Item config.example.json "$HOME\TG_MSG_MANAGER\config.json"
-```
-
-Если пакет установлен только из PyPI и файла `config.example.json` рядом нет,
-создайте `config.json` вручную по примеру из README. Не публикуйте credentials,
-Telegram-сессии, базы, логи или экспорты.
+CLI автоматически создаст безопасный базовый `config.json` в рабочей
+директории и попросит указать `api_id` и `api_hash`. Существующий конфиг не
+перезаписывается. Не публикуйте credentials, Telegram-сессии, базы, логи или
+экспорты.
 
 ### 3. Запустите приложение
 
@@ -149,27 +138,16 @@ python3 -m pip install -e ".[dev]"
 
 ### 2. Create the configuration
 
-`config.json` is not created automatically. Copy
-[`../../config.example.json`](../../config.example.json) into the working
-directory and set your `api_id` and `api_hash`.
-
-macOS / Linux:
+Run the CLI once:
 
 ```bash
-mkdir -p ~/TG_MSG_MANAGER
-cp config.example.json ~/TG_MSG_MANAGER/config.json
+tg-msg-manager
 ```
 
-Windows PowerShell:
-
-```powershell
-New-Item -ItemType Directory -Force "$HOME\TG_MSG_MANAGER"
-Copy-Item config.example.json "$HOME\TG_MSG_MANAGER\config.json"
-```
-
-If the package was installed only from PyPI and `config.example.json` is not
-available nearby, create `config.json` manually from the README example. Do not
-publish credentials, Telegram sessions, databases, logs, or exports.
+The CLI automatically creates a safe base `config.json` in the working
+directory and asks you to set `api_id` and `api_hash`. It never overwrites an
+existing config. Do not publish credentials, Telegram sessions, databases,
+logs, or exports.
 
 ### 3. Launch the application
 
