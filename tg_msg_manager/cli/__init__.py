@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import sys
 from types import SimpleNamespace
 from typing import Optional
@@ -133,7 +134,7 @@ class CLIContext:
         self.active_uid = None
 
     async def initialize(self):
-        setup_logging()
+        setup_logging(level=self.settings.log_level, log_dir=self.paths.logs_dir)
         telemetry.reset()
         if not self.pm.acquire_lock():
             print(_("error_locked"))
@@ -158,7 +159,9 @@ class CLIContext:
             sys.stdout.write("Connecting to Telegram...\n")
             sys.stdout.flush()
             self.client = TelethonClientWrapper(
-                self.settings.session_name,
+                self.settings.session_name
+                if os.path.isabs(self.settings.session_name)
+                else os.path.join(self.paths.project_root, self.settings.session_name),
                 self.settings.api_id,
                 self.settings.api_hash,
                 max_rps=self.settings.max_rps,

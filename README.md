@@ -183,7 +183,13 @@ python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --f
 
 ### ⚙️ Конфигурация
 
-Приложение читает настройки из `config.json`, переменных окружения `TG_*`, `.env` и init args.
+После установки из PyPI приложение использует постоянный рабочий каталог
+`~/TG_MSG_MANAGER`. При первом запуске автоматически создаются каталоги для
+базы, логов и экспортов. Путь можно переопределить через `TG_HOME`.
+
+Приложение читает настройки из `~/TG_MSG_MANAGER/config.json`, переменных
+окружения `TG_*`, `.env` и init args. Относительные пути базы и Telegram-сессии
+разрешаются внутри рабочего каталога, а не внутри текущей директории shell.
 
 Базовый пример:
 
@@ -443,7 +449,14 @@ python3 -m tg_msg_manager.cli export --user-id 123456789 --chat-id 987654321 --f
 
 ### ⚙️ Configuration
 
-The app reads settings from `config.json`, `TG_*` environment variables, `.env`, and init args.
+After installation from PyPI, the app uses `~/TG_MSG_MANAGER` as its stable
+working directory. Database, log, and export directories are created
+automatically on first run. Override the location with `TG_HOME`.
+
+The app reads settings from `~/TG_MSG_MANAGER/config.json`, `TG_*` environment
+variables, `.env`, and init args. Relative database and Telegram session paths
+are resolved inside the working directory instead of the shell's current
+directory.
 
 Minimal example:
 

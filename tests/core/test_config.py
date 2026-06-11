@@ -187,6 +187,54 @@ class TestConfig(unittest.TestCase):
             require_api_credentials=True,
         )
 
+    @patch("tg_msg_manager.core.runtime.load_settings")
+    def test_build_app_runtime_uses_tg_home_and_creates_directories(
+        self, mock_load_settings
+    ):
+        mock_load_settings.return_value = Settings(
+            api_id=1,
+            api_hash="h",
+            db_path="data/messages.db",
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            app_home = os.path.join(tmpdir, "custom-home")
+            with patch.dict(os.environ, {"TG_HOME": app_home}, clear=True):
+                runtime = build_app_runtime()
+
+            self.assertEqual(runtime.paths.project_root, app_home)
+            self.assertTrue(os.path.isdir(os.path.join(app_home, "data")))
+            self.assertTrue(os.path.isdir(runtime.paths.logs_dir))
+            self.assertTrue(os.path.isdir(runtime.paths.db_exports_dir))
+            self.assertTrue(os.path.isdir(runtime.paths.private_dialogs_dir))
+            self.assertTrue(os.path.isdir(runtime.paths.public_groups_dir))
+            self.assertTrue(os.path.isdir(runtime.paths.channel_exports_dir))
+
+        mock_load_settings.assert_called_once_with(
+            os.path.join(app_home, "config.json"),
+            require_api_credentials=True,
+        )
+
+    @patch("tg_msg_manager.core.runtime.load_settings")
+    def test_build_app_runtime_defaults_to_stable_user_home(self, mock_load_settings):
+        mock_load_settings.return_value = Settings(api_id=1, api_hash="h")
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            user_home = os.path.join(tmpdir, "user")
+            unrelated_cwd = os.path.join(tmpdir, "cwd")
+            os.makedirs(user_home)
+            os.makedirs(unrelated_cwd)
+
+            with (
+                patch.dict(os.environ, {"HOME": user_home}, clear=True),
+                temporary_cwd(unrelated_cwd),
+            ):
+                runtime = build_app_runtime()
+
+            expected_home = os.path.join(user_home, "TG_MSG_MANAGER")
+            self.assertEqual(runtime.paths.project_root, expected_home)
+            self.assertNotEqual(runtime.paths.project_root, unrelated_cwd)
+
 
 if __name__ == "__main__":
     unittest.main()

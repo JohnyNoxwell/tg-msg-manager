@@ -51,7 +51,10 @@ class HumanFormatter(logging.Formatter):
 
 
 def setup_logging(
-    level: str = "INFO", console_level: str = "WARNING", log_to_file: bool = True
+    level: str = "INFO",
+    console_level: str = "WARNING",
+    log_to_file: bool = True,
+    log_dir: str = "LOGS",
 ):
     """
     Configures logging:
@@ -71,7 +74,6 @@ def setup_logging(
 
     # 2. File Handler (JSON)
     if log_to_file:
-        log_dir = "LOGS"
         os.makedirs(log_dir, exist_ok=True)
         log_file = os.path.join(log_dir, f"app_{datetime.now().strftime('%Y%m%d')}.log")
         file_handler = logging.FileHandler(log_file, encoding="utf-8")

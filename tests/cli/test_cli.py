@@ -68,6 +68,10 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
             await ctx.initialize()
 
             self.assertIsNone(ctx.client)
+            mock_setup_logging.assert_called_once_with(
+                level="INFO",
+                log_dir="/tmp/tg-msg-manager/LOGS",
+            )
             mock_storage.start.assert_awaited_once()
             mock_cleaner_cls.assert_called_once()
 
@@ -116,6 +120,10 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
             ctx = CLIContext(self.runtime, needs_client=True)
             await ctx.initialize()
 
+            self.assertEqual(
+                mock_client_cls.call_args.args[0],
+                "/tmp/tg-msg-manager/tg_msg_manager",
+            )
             self.assertTrue(callable(mock_exporter_cls.call_args.kwargs["event_sink"]))
             self.assertTrue(callable(mock_cleaner_cls.call_args.kwargs["event_sink"]))
             self.assertTrue(

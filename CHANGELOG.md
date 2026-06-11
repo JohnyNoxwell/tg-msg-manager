@@ -10,6 +10,7 @@ All notable changes to this project will be documented in this file in both Engl
 - **Stage 5K release checklist scope**: Added a no-publish release checklist boundary document and packaging metadata readiness audit evidence.
 
 ### Changed (EN)
+- **Stable PyPI Runtime Home**: Installed CLI runs now use the visible `~/TG_MSG_MANAGER` directory instead of the shell working directory, with `TG_HOME` available as an override. Runtime directories, logs, relative database paths, and relative Telegram session paths are resolved under that stable application home.
 - **Release boundary**: Non-channel contract coverage is now fixture-backed and focused, while generated-output filename/rotation/no-new-work coverage, full raw JSON, SQLite schema contract status, live smoke checks, and `export-pm` / private archive contract work remain deferred. No release, tag, package publish, or version bump has occurred.
 - **Release checklist separation**: Checklist inspections, release-candidate decision evidence, and any future actual release/version stage are documented as separate steps.
 
@@ -20,6 +21,7 @@ All notable changes to this project will be documented in this file in both Engl
 - **Stage 5K release checklist scope**: Добавлены no-publish boundary документ для release checklist и evidence packaging metadata readiness audit.
 
 ### Изменения (RU)
+- **Стабильный runtime-каталог для PyPI**: Установленный CLI теперь использует видимую директорию `~/TG_MSG_MANAGER` вместо текущей директории shell; путь можно переопределить через `TG_HOME`. Runtime-каталоги, логи, относительные пути базы и Telegram-сессии разрешаются внутри стабильного каталога приложения.
 - **Release boundary**: Non-channel contract coverage теперь fixture-backed и focused, но generated-output coverage для filenames/rotation/no-new-work, full raw JSON, SQLite schema contract status, live smoke checks и `export-pm` / private archive contract work остаются deferred. Release, tag, package publish и version bump не выполнялись.
 - **Разделение release checklist**: Checklist inspections, release-candidate decision evidence и любой будущий actual release/version stage задокументированы как отдельные шаги.
 
