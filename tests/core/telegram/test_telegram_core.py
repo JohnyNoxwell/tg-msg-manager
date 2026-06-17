@@ -12,7 +12,10 @@ from telethon.errors import FloodWaitError
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tg_msg_manager.core.telegram.throttler import RateThrottler
-from tg_msg_manager.core.telegram.client import TelethonClientWrapper
+from tg_msg_manager.core.telegram.client import (
+    TelethonClientWrapper,
+    _FLOOD_WAIT_MAX_RETRIES,
+)
 
 
 class TestTelegramCore(unittest.IsolatedAsyncioTestCase):
@@ -115,6 +118,78 @@ class TestTelegramCore(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(
             wrapper.client.get_messages.await_args_list[1].kwargs["limit"], 1
         )
+
+    async def test_get_messages_stops_after_flood_wait_retry_limit(self):
+        wrapper = TelethonClientWrapper("dummy", 1, "hash", max_rps=100)
+        wrapper.client = AsyncMock()
+        wrapper.client.get_messages.side_effect = [
+            FloodWaitError(request=None, capture=0)
+            for _ in range(_FLOOD_WAIT_MAX_RETRIES + 1)
+        ]
+
+        original_sleep = asyncio.sleep
+        sleep_mock = AsyncMock()
+        try:
+            asyncio.sleep = sleep_mock
+            with self.assertRaises(FloodWaitError):
+                await wrapper.get_messages("entity", limit=1)
+        finally:
+            asyncio.sleep = original_sleep
+
+        self.assertEqual(
+            wrapper.client.get_messages.await_count,
+            _FLOOD_WAIT_MAX_RETRIES + 1,
+        )
+        self.assertEqual(sleep_mock.await_count, _FLOOD_WAIT_MAX_RETRIES)
+
+    async def test_download_media_retry_preserves_file(self):
+        wrapper = TelethonClientWrapper("dummy", 1, "hash", max_rps=100)
+        wrapper.client = AsyncMock()
+        wrapper.client.download_media.side_effect = [
+            FloodWaitError(request=None, capture=0),
+            "/tmp/test_media.jpg",
+        ]
+
+        original_sleep = asyncio.sleep
+        try:
+            asyncio.sleep = AsyncMock()
+            result = await wrapper.download_media("media", file="/tmp/test_media.jpg")
+        finally:
+            asyncio.sleep = original_sleep
+
+        self.assertEqual(result, "/tmp/test_media.jpg")
+        self.assertEqual(wrapper.client.download_media.await_count, 2)
+        self.assertEqual(
+            wrapper.client.download_media.await_args_list[0].kwargs["file"],
+            "/tmp/test_media.jpg",
+        )
+        self.assertEqual(
+            wrapper.client.download_media.await_args_list[1].kwargs["file"],
+            "/tmp/test_media.jpg",
+        )
+
+    async def test_download_media_stops_after_flood_wait_retry_limit(self):
+        wrapper = TelethonClientWrapper("dummy", 1, "hash", max_rps=100)
+        wrapper.client = AsyncMock()
+        wrapper.client.download_media.side_effect = [
+            FloodWaitError(request=None, capture=0)
+            for _ in range(_FLOOD_WAIT_MAX_RETRIES + 1)
+        ]
+
+        original_sleep = asyncio.sleep
+        sleep_mock = AsyncMock()
+        try:
+            asyncio.sleep = sleep_mock
+            with self.assertRaises(FloodWaitError):
+                await wrapper.download_media("media", file="/tmp/test_media.jpg")
+        finally:
+            asyncio.sleep = original_sleep
+
+        self.assertEqual(
+            wrapper.client.download_media.await_count,
+            _FLOOD_WAIT_MAX_RETRIES + 1,
+        )
+        self.assertEqual(sleep_mock.await_count, _FLOOD_WAIT_MAX_RETRIES)
 
     async def test_iter_messages_falls_back_to_local_sender_filter_for_unresolved_numeric_user(
         self,

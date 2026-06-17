@@ -12,6 +12,8 @@ from ..telemetry import telemetry
 
 logger = logging.getLogger(__name__)
 
+_FLOOD_WAIT_MAX_RETRIES = 3
+
 
 class TelethonClientWrapper(TelegramClientInterface):
     """
@@ -90,26 +92,36 @@ class TelethonClientWrapper(TelegramClientInterface):
             return []
 
         started_at = perf_counter()
-        await self.throttler.throttle()
-        telemetry.track_request()
 
         try:
-            # Telethon's get_messages handles both ids and limit
-            msgs = await self.client.get_messages(entity, ids=message_ids, limit=limit)
-            results = []
-            for msg in msgs:
-                if msg:
-                    results.append(self._normalize_message(entity, msg))
-            telemetry.track_counter("telegram.get_messages.items", len(results))
-            return results
-        except FloodWaitError as e:
-            logger.debug(
-                f"FloodWait during get_messages: {e.seconds}s. Slowing down rps."
-            )
-            self.throttler.adjust_rate(0.6)
-            telemetry.track_flood_wait(e.seconds)
-            await asyncio.sleep(e.seconds)
-            return await self.get_messages(entity, message_ids=message_ids, limit=limit)
+            for attempt in range(_FLOOD_WAIT_MAX_RETRIES + 1):
+                await self.throttler.throttle()
+                telemetry.track_request()
+                try:
+                    # Telethon's get_messages handles both ids and limit
+                    msgs = await self.client.get_messages(
+                        entity, ids=message_ids, limit=limit
+                    )
+                    results = []
+                    for msg in msgs:
+                        if msg:
+                            results.append(self._normalize_message(entity, msg))
+                    telemetry.track_counter("telegram.get_messages.items", len(results))
+                    return results
+                except FloodWaitError as e:
+                    logger.debug(
+                        "FloodWait during get_messages: %ss. Slowing down rps.",
+                        e.seconds,
+                    )
+                    self.throttler.adjust_rate(0.6)
+                    telemetry.track_flood_wait(e.seconds)
+                    if attempt >= _FLOOD_WAIT_MAX_RETRIES:
+                        logger.error(
+                            "FloodWait retry limit exceeded during get_messages."
+                        )
+                        telemetry.track_error()
+                        raise
+                    await asyncio.sleep(e.seconds)
         finally:
             telemetry.track_duration(
                 "telegram.get_messages.total", perf_counter() - started_at
@@ -281,22 +293,30 @@ class TelethonClientWrapper(TelegramClientInterface):
             return None
 
         started_at = perf_counter()
-        await self.throttler.throttle()
-        telemetry.track_request()
         try:
-            return await self.client.download_media(media, file=file)
-        except FloodWaitError as e:
-            logger.debug(
-                f"FloodWait during download_media: {e.seconds}s. Slowing down rps."
-            )
-            self.throttler.adjust_rate(0.6)
-            telemetry.track_flood_wait(e.seconds)
-            await asyncio.sleep(e.seconds)
-            return await self.download_media(media, file=file)
-        except Exception as e:
-            logger.error(f"Error downloading media: {e}")
-            telemetry.track_error()
-            return None
+            for attempt in range(_FLOOD_WAIT_MAX_RETRIES + 1):
+                await self.throttler.throttle()
+                telemetry.track_request()
+                try:
+                    return await self.client.download_media(media, file=file)
+                except FloodWaitError as e:
+                    logger.debug(
+                        "FloodWait during download_media: %ss. Slowing down rps.",
+                        e.seconds,
+                    )
+                    self.throttler.adjust_rate(0.6)
+                    telemetry.track_flood_wait(e.seconds)
+                    if attempt >= _FLOOD_WAIT_MAX_RETRIES:
+                        logger.error(
+                            "FloodWait retry limit exceeded during download_media."
+                        )
+                        telemetry.track_error()
+                        raise
+                    await asyncio.sleep(e.seconds)
+                except Exception as e:
+                    logger.error(f"Error downloading media: {e}")
+                    telemetry.track_error()
+                    return None
         finally:
             telemetry.track_duration(
                 "telegram.download_media.total", perf_counter() - started_at
