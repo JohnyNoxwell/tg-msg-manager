@@ -3,6 +3,20 @@ All notable changes to this project will be documented in this file in both Engl
 
 ## [Unreleased]
 
+### Added (EN)
+- **Stage 6A Application Runtime Boundary**: Added `tg_msg_manager.application` runtime assembly with `ApplicationSession`, `RuntimeResourceFactory`, and `create_service_bundle` as stable non-CLI entrypoints, including `needs_client=False` support for headless local runtime setup.
+
+### Changed (EN)
+- **CLI Runtime Assembly**: `CLIContext` now delegates process, storage, Telegram client, and service lifecycle wiring to `ApplicationSession` while preserving existing CLI behavior and lifecycle messages.
+- **Architecture Guardrails**: Added static boundary coverage and docs for the application runtime layer so CLI modules remain adapters and non-CLI integrations do not import CLI runtime code.
+
+### Добавлено (RU)
+- **Stage 6A application runtime boundary**: Добавлен runtime assembly слой `tg_msg_manager.application` со стабильными non-CLI entrypoints `ApplicationSession`, `RuntimeResourceFactory` и `create_service_bundle`, включая `needs_client=False` для headless local runtime setup.
+
+### Изменения (RU)
+- **CLI runtime assembly**: `CLIContext` теперь делегирует wiring process, storage, Telegram client и service lifecycle в `ApplicationSession`, сохраняя существующее CLI behavior и lifecycle messages.
+- **Architecture guardrails**: Добавлены static boundary tests и docs для application runtime layer, чтобы CLI modules оставались adapters, а non-CLI integrations не импортировали CLI runtime code.
+
 ## [0.1.2] - 2026-06-11
 
 ### Fixed (EN)

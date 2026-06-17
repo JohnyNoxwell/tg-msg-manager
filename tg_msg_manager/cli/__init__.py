@@ -1,6 +1,5 @@
 import asyncio
 import logging
-import os
 import sys
 from types import SimpleNamespace
 from typing import Optional
@@ -35,12 +34,9 @@ from ..cli_support import (
     get_safe_user_and_chat,
     resolve_id,
 )
+from ..application.session import ApplicationSession, ApplicationSessionLockError
 from ..core.config import ConfigurationSetupRequired
-from ..core.logging import setup_logging
-from ..core.process import ProcessManager
 from ..core.runtime import AppRuntime, build_app_runtime
-from ..core.telemetry import telemetry
-from ..core.telegram.client import TelethonClientWrapper
 from ..cli_io import (
     TerminalInput,
     render_main_menu,
@@ -48,13 +44,6 @@ from ..cli_io import (
 )
 from ..i18n import _, use_lang
 from ..infrastructure.storage.sqlite import SQLiteStorage
-from ..services.alias_manager import AliasManager
-from ..services.channel_export import ChannelExportService
-from ..services.cleaner import CleanerService
-from ..services.db_export import DBExportService
-from ..services.exporter import ExportService
-from ..services.private_archive import PrivateArchiveService
-from ..services.retry_worker import RetryWorker
 
 
 logger = logging.getLogger(__name__)
@@ -105,6 +94,14 @@ def _format_telegram_login_error(error: BaseException) -> Optional[str]:
     return None
 
 
+_LIFECYCLE_MESSAGES = {
+    "storage_opening": "Opening SQLite database...\n",
+    "storage_ready": "SQLite database ready.\n",
+    "telegram_connecting": "Connecting to Telegram...\n",
+    "telegram_connected": "Telegram connection established.\n",
+}
+
+
 class CLIContext:
     """
     Centralized context for CLI resource management.
@@ -115,106 +112,71 @@ class CLIContext:
         self.runtime = runtime
         self.settings = runtime.settings
         self.paths = runtime.paths
-        self.pm = ProcessManager(lock_path=self.paths.lock_path)
-        self.storage: Optional[SQLiteStorage] = None
-        self.client: Optional[TelethonClientWrapper] = None
         self.needs_client = needs_client
-
-        # Services
-        self.exporter: Optional[ExportService] = None
-        self.cleaner: Optional[CleanerService] = None
-        self.db_exporter: Optional[DBExportService] = None
-        self.private_archive: Optional[PrivateArchiveService] = None
-        self.channel_exporter: Optional[ChannelExportService] = None
-        self.retry_worker: Optional[RetryWorker] = None
-        self.alias_manager = AliasManager(
-            project_root=self.paths.project_root,
-            python_executable=self.runtime.python_executable,
+        self.session = ApplicationSession(
+            runtime,
+            needs_client=needs_client,
+            event_sink=render_service_event,
+            lifecycle_event_sink=self._render_lifecycle_event,
+            login_error_handler=self._handle_telegram_login_error,
+            interrupt_callback=self.emergency_callback,
         )
+        self.pm = self.session.pm
+        self.storage: Optional[SQLiteStorage] = None
+        self.client = None
+
+        self.exporter = None
+        self.cleaner = None
+        self.db_exporter = None
+        self.private_archive = None
+        self.channel_exporter = None
+        self.retry_worker = None
+        self.alias_manager = None
 
         self.active_uid = None
 
+    def _render_lifecycle_event(self, event: str) -> None:
+        message = _LIFECYCLE_MESSAGES.get(event)
+        if message is None:
+            return
+        sys.stdout.write(message)
+        sys.stdout.flush()
+
+    def _handle_telegram_login_error(self, error: BaseException) -> bool:
+        message = _format_telegram_login_error(error)
+        if message is None:
+            return False
+        sys.stderr.write(f"{message}\n")
+        sys.stderr.flush()
+        sys.exit(1)
+
+    def _sync_session_attributes(self) -> None:
+        self.pm = self.session.pm
+        self.storage = self.session.storage
+        self.client = self.session.client
+        services = self.session.services
+        if services is None:
+            return
+        self.exporter = services.exporter
+        self.cleaner = services.cleaner
+        self.db_exporter = services.db_exporter
+        self.private_archive = services.private_archive
+        self.channel_exporter = services.channel_exporter
+        self.retry_worker = services.retry_worker
+        self.alias_manager = services.alias_manager
+
     async def initialize(self):
-        setup_logging(level=self.settings.log_level, log_dir=self.paths.logs_dir)
-        telemetry.reset()
-        if not self.pm.acquire_lock():
+        try:
+            await self.session.initialize()
+        except ApplicationSessionLockError:
             print(_("error_locked"))
             sys.exit(1)
-
-        # Setup async signals early
-        self.pm.setup_async_signals(asyncio.get_running_loop(), self.emergency_callback)
-
-        sys.stdout.write("Opening SQLite database...\n")
-        sys.stdout.flush()
-        self.storage = SQLiteStorage(self.paths.db_path, process_manager=self.pm)
-        sys.stdout.write("SQLite database ready.\n")
-        sys.stdout.flush()
-        await self.storage.start()
-
-        self.db_exporter = DBExportService(
-            self.storage,
-            default_output_dir=self.paths.db_exports_dir,
-        )
-
-        if self.needs_client:
-            sys.stdout.write("Connecting to Telegram...\n")
-            sys.stdout.flush()
-            self.client = TelethonClientWrapper(
-                self.settings.session_name
-                if os.path.isabs(self.settings.session_name)
-                else os.path.join(self.paths.project_root, self.settings.session_name),
-                self.settings.api_id,
-                self.settings.api_hash,
-                max_rps=self.settings.max_rps,
-            )
-            try:
-                await self.client.connect()
-            except Exception as exc:
-                message = _format_telegram_login_error(exc)
-                if message is None:
-                    raise
-                sys.stderr.write(f"{message}\n")
-                sys.stderr.flush()
-                sys.exit(1)
-            sys.stdout.write("Telegram connection established.\n")
-            sys.stdout.flush()
-            self.exporter = ExportService(
-                self.client, self.storage, event_sink=render_service_event
-            )
-            self.private_archive = PrivateArchiveService(
-                self.client,
-                self.storage,
-                base_dir=self.paths.private_dialogs_dir,
-                event_sink=render_service_event,
-            )
-            self.channel_exporter = ChannelExportService(
-                client=self.client,
-                base_dir=self.paths.channel_exports_dir,
-                event_sink=render_service_event,
-            )
-            self.retry_worker = RetryWorker(
-                storage=self.storage,
-                client=self.client,
-                exporter=self.exporter,
-                private_archive=self.private_archive,
-            )
-
-        self.cleaner = CleanerService(
-            self.client,
-            self.storage,
-            whitelist=self.settings.whitelist_chats,
-            include_list=self.settings.include_chats,
-            artifact_roots=self.paths.artifact_roots(),
-            event_sink=render_service_event,
-        )
+        finally:
+            self._sync_session_attributes()
 
     async def shutdown(self):
-        if self.client:
-            await self.client.disconnect()
-        if self.storage:
-            await self.storage.close()
-        if self.pm:
-            self.pm.release_lock()
+        await self.session.shutdown()
+        self._sync_session_attributes()
 
     async def emergency_callback(self):
         """Async callback for signal handling."""

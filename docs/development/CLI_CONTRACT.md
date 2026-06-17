@@ -1,6 +1,6 @@
 # CLI Contract
 
-Last verified: 2026-06-10
+Last verified: 2026-06-17
 
 Console script:
 
@@ -9,6 +9,19 @@ Console script:
 Primary Python entrypoint:
 
 - `python3 -m tg_msg_manager.cli`
+
+## Runtime Boundary
+
+CLI remains an adapter over the application runtime: it parses arguments,
+routes commands/menu choices, renders stdout/stderr, and calls
+`ApplicationSession`.
+
+Non-CLI integrations should import runtime assembly from
+`tg_msg_manager.application`, especially
+`tg_msg_manager.application.ApplicationSession`. They must not import
+`tg_msg_manager.cli` modules to construct a headless runtime. Use
+`needs_client=False` when the integration only needs local storage/services and
+must not construct a Telegram client.
 
 ## Commands
 

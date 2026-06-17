@@ -3,9 +3,13 @@ import unittest
 from contextlib import redirect_stderr, redirect_stdout
 from io import StringIO
 from argparse import Namespace
+from types import SimpleNamespace
 from unittest.mock import AsyncMock, MagicMock, patch
 from telethon.errors import FloodWaitError, PhoneNumberFloodError
 
+from tg_msg_manager.application.resources import RuntimeResourceFactory
+from tg_msg_manager.application.session import ApplicationSession
+from tg_msg_manager.application.services import create_service_bundle
 from tg_msg_manager.cli import (
     CLIContext,
     _dispatch_main_menu_choice,
@@ -19,7 +23,7 @@ from tg_msg_manager.core.config import Settings
 from tg_msg_manager.core.runtime import AppPaths, AppRuntime
 from tg_msg_manager.core.models.setup import SchedulerSetupResult
 from tg_msg_manager.infrastructure.storage.records import PrimaryTarget
-from tg_msg_manager.i18n import get_lang
+from tg_msg_manager.i18n import _, get_lang
 from tg_msg_manager.services.rendering import DEFAULT_TXT_PROFILE
 
 
@@ -41,10 +45,94 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
             python_executable="/usr/bin/python3",
         )
 
-    @patch("tg_msg_manager.cli.setup_logging")
-    @patch("tg_msg_manager.cli.DBExportService")
-    @patch("tg_msg_manager.cli.CleanerService")
-    @patch("tg_msg_manager.cli.SQLiteStorage")
+    @patch("tg_msg_manager.application.session.create_service_bundle")
+    @patch("tg_msg_manager.application.session.setup_logging")
+    async def test_application_session_preserves_initialization_order(
+        self,
+        mock_setup_logging,
+        mock_create_service_bundle,
+    ):
+        del mock_setup_logging
+        observed = []
+        pm = MagicMock()
+        pm.acquire_lock.side_effect = lambda: observed.append("acquire_lock") or True
+        pm.setup_async_signals.side_effect = lambda *args: observed.append(
+            "setup_signals"
+        )
+        storage = MagicMock()
+        storage.start = AsyncMock(side_effect=lambda: observed.append("storage_start"))
+        client = MagicMock()
+        client.connect = AsyncMock(side_effect=lambda: observed.append("client_connect"))
+        factory = MagicMock()
+        factory.create_process_manager.return_value = pm
+        factory.create_storage.side_effect = (
+            lambda process_manager: observed.append("create_storage") or storage
+        )
+        factory.create_telegram_client.side_effect = (
+            lambda: observed.append("create_client") or client
+        )
+        mock_create_service_bundle.side_effect = (
+            lambda **kwargs: observed.append("create_services")
+            or SimpleNamespace(
+                exporter=MagicMock(),
+                cleaner=MagicMock(),
+                db_exporter=MagicMock(),
+                private_archive=MagicMock(),
+                channel_exporter=MagicMock(),
+                retry_worker=MagicMock(),
+                alias_manager=MagicMock(),
+            )
+        )
+
+        with patch(
+            "tg_msg_manager.application.session.RuntimeResourceFactory",
+            return_value=factory,
+        ):
+            session = ApplicationSession(
+                self.runtime,
+                event_sink=lambda event: None,
+                lifecycle_event_sink=observed.append,
+            )
+            await session.initialize()
+
+        self.assertEqual(
+            observed,
+            [
+                "acquire_lock",
+                "setup_signals",
+                "storage_opening",
+                "create_storage",
+                "storage_ready",
+                "storage_start",
+                "telegram_connecting",
+                "create_client",
+                "client_connect",
+                "telegram_connected",
+                "create_services",
+            ],
+        )
+        mock_create_service_bundle.assert_called_once()
+
+    async def test_application_session_preserves_shutdown_order(self):
+        observed = []
+        session = ApplicationSession(self.runtime, event_sink=lambda event: None)
+        session.client = MagicMock()
+        session.client.disconnect = AsyncMock(
+            side_effect=lambda: observed.append("disconnect")
+        )
+        session.storage = MagicMock()
+        session.storage.close = AsyncMock(side_effect=lambda: observed.append("close"))
+        session.pm = MagicMock()
+        session.pm.release_lock.side_effect = lambda: observed.append("release_lock")
+
+        await session.shutdown()
+
+        self.assertEqual(observed, ["disconnect", "close", "release_lock"])
+
+    @patch("tg_msg_manager.application.session.setup_logging")
+    @patch("tg_msg_manager.application.services.DBExportService")
+    @patch("tg_msg_manager.application.services.CleanerService")
+    @patch("tg_msg_manager.application.resources.SQLiteStorage")
     async def test_initialize_delete_context_without_client(
         self,
         mock_storage_cls,
@@ -60,32 +148,71 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         mock_cleaner_cls.return_value = MagicMock()
 
         with (
-            patch("tg_msg_manager.cli.ProcessManager.acquire_lock", return_value=True),
-            patch("tg_msg_manager.cli.ProcessManager.setup_async_signals"),
-            patch("tg_msg_manager.cli.ProcessManager.release_lock"),
+            patch(
+                "tg_msg_manager.application.resources.TelethonClientWrapper"
+            ) as mock_client_cls,
+            patch(
+                "tg_msg_manager.application.resources.ProcessManager.acquire_lock",
+                return_value=True,
+            ),
+            patch(
+                "tg_msg_manager.application.resources.ProcessManager.setup_async_signals"
+            ),
+            patch("tg_msg_manager.application.resources.ProcessManager.release_lock"),
         ):
             ctx = CLIContext(self.runtime, needs_client=False)
             await ctx.initialize()
 
             self.assertIsNone(ctx.client)
+            self.assertIsNone(ctx.exporter)
+            self.assertIsNone(ctx.private_archive)
+            self.assertIsNone(ctx.channel_exporter)
+            self.assertIsNone(ctx.retry_worker)
+            self.assertIs(ctx.cleaner, mock_cleaner_cls.return_value)
+            self.assertIs(ctx.db_exporter, mock_db_exporter_cls.return_value)
             mock_setup_logging.assert_called_once_with(
                 level="INFO",
                 log_dir="/tmp/tg-msg-manager/LOGS",
             )
             mock_storage.start.assert_awaited_once()
             mock_cleaner_cls.assert_called_once()
+            mock_client_cls.assert_not_called()
 
             await ctx.shutdown()
             mock_storage.close.assert_awaited_once()
 
-    @patch("tg_msg_manager.cli.setup_logging")
-    @patch("tg_msg_manager.cli.PrivateArchiveService")
-    @patch("tg_msg_manager.cli.ChannelExportService")
-    @patch("tg_msg_manager.cli.DBExportService")
-    @patch("tg_msg_manager.cli.CleanerService")
-    @patch("tg_msg_manager.cli.ExportService")
-    @patch("tg_msg_manager.cli.TelethonClientWrapper")
-    @patch("tg_msg_manager.cli.SQLiteStorage")
+    @patch("tg_msg_manager.application.session.setup_logging")
+    @patch("tg_msg_manager.application.resources.SQLiteStorage")
+    async def test_initialize_lock_failure_exits_before_storage(
+        self,
+        mock_storage_cls,
+        mock_setup_logging,
+    ):
+        del mock_setup_logging
+        output = StringIO()
+        with (
+            patch(
+                "tg_msg_manager.application.resources.ProcessManager.acquire_lock",
+                return_value=False,
+            ),
+            redirect_stdout(output),
+            self.assertRaises(SystemExit) as raised,
+        ):
+            ctx = CLIContext(self.runtime, needs_client=False)
+            await ctx.initialize()
+
+        self.assertEqual(raised.exception.code, 1)
+        self.assertIn(_("error_locked"), output.getvalue())
+        mock_storage_cls.assert_not_called()
+
+    @patch("tg_msg_manager.application.session.setup_logging")
+    @patch("tg_msg_manager.application.services.PrivateArchiveService")
+    @patch("tg_msg_manager.application.services.ChannelExportService")
+    @patch("tg_msg_manager.application.services.DBExportService")
+    @patch("tg_msg_manager.application.services.CleanerService")
+    @patch("tg_msg_manager.application.services.ExportService")
+    @patch("tg_msg_manager.application.resources.TelethonClientWrapper")
+    @patch("tg_msg_manager.application.resources.SQLiteStorage")
     async def test_initialize_live_context_wires_service_event_sinks(
         self,
         mock_storage_cls,
@@ -113,9 +240,14 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         mock_client_cls.return_value = mock_client
 
         with (
-            patch("tg_msg_manager.cli.ProcessManager.acquire_lock", return_value=True),
-            patch("tg_msg_manager.cli.ProcessManager.setup_async_signals"),
-            patch("tg_msg_manager.cli.ProcessManager.release_lock"),
+            patch(
+                "tg_msg_manager.application.resources.ProcessManager.acquire_lock",
+                return_value=True,
+            ),
+            patch(
+                "tg_msg_manager.application.resources.ProcessManager.setup_async_signals"
+            ),
+            patch("tg_msg_manager.application.resources.ProcessManager.release_lock"),
         ):
             ctx = CLIContext(self.runtime, needs_client=True)
             await ctx.initialize()
@@ -123,6 +255,12 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(
                 mock_client_cls.call_args.args[0],
                 "/tmp/tg-msg-manager/tg_msg_manager",
+            )
+            mock_client_cls.assert_called_once_with(
+                "/tmp/tg-msg-manager/tg_msg_manager",
+                1,
+                "hash",
+                max_rps=3.0,
             )
             self.assertTrue(callable(mock_exporter_cls.call_args.kwargs["event_sink"]))
             self.assertTrue(callable(mock_cleaner_cls.call_args.kwargs["event_sink"]))
@@ -136,14 +274,14 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
             await ctx.shutdown()
             mock_client.disconnect.assert_awaited_once()
 
-    @patch("tg_msg_manager.cli.setup_logging")
-    @patch("tg_msg_manager.cli.PrivateArchiveService")
-    @patch("tg_msg_manager.cli.ChannelExportService")
-    @patch("tg_msg_manager.cli.DBExportService")
-    @patch("tg_msg_manager.cli.CleanerService")
-    @patch("tg_msg_manager.cli.ExportService")
-    @patch("tg_msg_manager.cli.TelethonClientWrapper")
-    @patch("tg_msg_manager.cli.SQLiteStorage")
+    @patch("tg_msg_manager.application.session.setup_logging")
+    @patch("tg_msg_manager.application.services.PrivateArchiveService")
+    @patch("tg_msg_manager.application.services.ChannelExportService")
+    @patch("tg_msg_manager.application.services.DBExportService")
+    @patch("tg_msg_manager.application.services.CleanerService")
+    @patch("tg_msg_manager.application.services.ExportService")
+    @patch("tg_msg_manager.application.resources.TelethonClientWrapper")
+    @patch("tg_msg_manager.application.resources.SQLiteStorage")
     async def test_initialize_login_flood_wait_exits_with_readable_message(
         self,
         mock_storage_cls,
@@ -170,9 +308,14 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
 
         error_output = StringIO()
         with (
-            patch("tg_msg_manager.cli.ProcessManager.acquire_lock", return_value=True),
-            patch("tg_msg_manager.cli.ProcessManager.setup_async_signals"),
-            patch("tg_msg_manager.cli.ProcessManager.release_lock"),
+            patch(
+                "tg_msg_manager.application.resources.ProcessManager.acquire_lock",
+                return_value=True,
+            ),
+            patch(
+                "tg_msg_manager.application.resources.ProcessManager.setup_async_signals"
+            ),
+            patch("tg_msg_manager.application.resources.ProcessManager.release_lock"),
             redirect_stderr(error_output),
             self.assertRaises(SystemExit) as raised,
         ):
@@ -191,6 +334,137 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         await ctx.shutdown()
         mock_storage.close.assert_awaited_once()
         mock_client.disconnect.assert_awaited_once()
+
+    def test_cli_context_exposes_application_session_process_manager(self):
+        session = MagicMock()
+        session.pm = MagicMock()
+        session.storage = None
+        session.client = None
+        session.services = None
+
+        with patch(
+            "tg_msg_manager.cli.ApplicationSession",
+            return_value=session,
+        ) as session_cls:
+            ctx = CLIContext(self.runtime, needs_client=False)
+
+        self.assertIs(ctx.session, session)
+        self.assertIs(ctx.pm, session.pm)
+        self.assertIsNone(ctx.storage)
+        self.assertIsNone(ctx.client)
+        session_cls.assert_called_once()
+
+    def test_resource_factory_preserves_relative_session_path_and_client_options(self):
+        factory = RuntimeResourceFactory(self.runtime, needs_client=True)
+
+        with patch(
+            "tg_msg_manager.application.resources.TelethonClientWrapper"
+        ) as mock_client_cls:
+            client = factory.create_telegram_client()
+
+        self.assertIs(client, mock_client_cls.return_value)
+        mock_client_cls.assert_called_once_with(
+            "/tmp/tg-msg-manager/tg_msg_manager",
+            1,
+            "hash",
+            max_rps=3.0,
+        )
+
+    def test_resource_factory_preserves_absolute_session_path(self):
+        runtime = AppRuntime(
+            settings=Settings(
+                api_id=1,
+                api_hash="hash",
+                db_path="messages.db",
+                session_name="/tmp/session/custom",
+            ),
+            paths=self.runtime.paths,
+            python_executable=self.runtime.python_executable,
+        )
+        factory = RuntimeResourceFactory(runtime, needs_client=True)
+
+        self.assertEqual(factory.resolve_session_path(), "/tmp/session/custom")
+
+    def test_resource_factory_no_client_skips_telegram_client_construction(self):
+        factory = RuntimeResourceFactory(self.runtime, needs_client=False)
+
+        with patch(
+            "tg_msg_manager.application.resources.TelethonClientWrapper"
+        ) as mock_client_cls:
+            client = factory.create_telegram_client()
+
+        self.assertIsNone(client)
+        mock_client_cls.assert_not_called()
+
+    def test_service_bundle_factory_preserves_service_constructor_arguments(self):
+        storage = MagicMock()
+        client = MagicMock()
+
+        def event_sink(event):
+            return None
+
+        with (
+            patch("tg_msg_manager.application.services.DBExportService") as db_cls,
+            patch("tg_msg_manager.application.services.ExportService") as export_cls,
+            patch(
+                "tg_msg_manager.application.services.PrivateArchiveService"
+            ) as private_cls,
+            patch(
+                "tg_msg_manager.application.services.ChannelExportService"
+            ) as channel_cls,
+            patch("tg_msg_manager.application.services.RetryWorker") as retry_cls,
+            patch("tg_msg_manager.application.services.CleanerService") as cleaner_cls,
+            patch("tg_msg_manager.application.services.AliasManager") as alias_cls,
+        ):
+            bundle = create_service_bundle(
+                runtime=self.runtime,
+                storage=storage,
+                client=client,
+                needs_client=True,
+                event_sink=event_sink,
+            )
+
+        db_cls.assert_called_once_with(
+            storage,
+            default_output_dir="/tmp/tg-msg-manager/DB_EXPORTS",
+        )
+        export_cls.assert_called_once_with(client, storage, event_sink=event_sink)
+        private_cls.assert_called_once_with(
+            client,
+            storage,
+            base_dir="/tmp/tg-msg-manager/PRIVAT_DIALOGS",
+            event_sink=event_sink,
+        )
+        channel_cls.assert_called_once_with(
+            client=client,
+            base_dir="/tmp/tg-msg-manager/exports/channels",
+            event_sink=event_sink,
+        )
+        retry_cls.assert_called_once_with(
+            storage=storage,
+            client=client,
+            exporter=export_cls.return_value,
+            private_archive=private_cls.return_value,
+        )
+        cleaner_cls.assert_called_once_with(
+            client,
+            storage,
+            whitelist=self.runtime.settings.whitelist_chats,
+            include_list=self.runtime.settings.include_chats,
+            artifact_roots=self.runtime.paths.artifact_roots(),
+            event_sink=event_sink,
+        )
+        alias_cls.assert_called_once_with(
+            project_root="/tmp/tg-msg-manager",
+            python_executable="/usr/bin/python3",
+        )
+        self.assertIs(bundle.exporter, export_cls.return_value)
+        self.assertIs(bundle.cleaner, cleaner_cls.return_value)
+        self.assertIs(bundle.db_exporter, db_cls.return_value)
+        self.assertIs(bundle.private_archive, private_cls.return_value)
+        self.assertIs(bundle.channel_exporter, channel_cls.return_value)
+        self.assertIs(bundle.retry_worker, retry_cls.return_value)
+        self.assertIs(bundle.alias_manager, alias_cls.return_value)
 
     def test_login_phone_flood_without_seconds_gets_readable_message(self):
         message = _format_telegram_login_error(PhoneNumberFloodError(request=None))

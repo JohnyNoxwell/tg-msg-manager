@@ -30,6 +30,26 @@ Architecture docs are stable references for repository boundaries, storage/model
 - [`STATE_AND_INCREMENTAL_MODEL.md`](STATE_AND_INCREMENTAL_MODEL.md) - direct channel export state and incremental consistency model.
 - [`TXT_RENDERING.md`](TXT_RENDERING.md) - TXT profile projection boundary for user/group export.
 
+## Application runtime boundary
+
+`tg_msg_manager/application/` is reserved for the application/runtime assembly
+layer. It may wire settings, paths, process locks, logging, storage,
+Telegram adapters, and service construction into explicit runtime/session
+objects. It may depend on `core`, `infrastructure`, `services`, and Telegram
+adapter modules, but it must not contain product algorithms, storage SQL,
+dataset formatting rules, analytics, OSINT/profiling logic, or CLI rendering.
+
+The stable non-CLI runtime entrypoint is the package import
+`tg_msg_manager.application.ApplicationSession`, with supporting assembly
+exports from `tg_msg_manager.application` such as `RuntimeResourceFactory` and
+`create_service_bundle`. External adapters may build an `AppRuntime`, create an
+`ApplicationSession`, and pass `needs_client=False` for local/headless
+workflows that must not construct a Telegram client.
+
+CLI modules remain adapters. They parse arguments, route menu choices, render
+stdout/stderr output, and call the application runtime/session. Core, services,
+and infrastructure must not import CLI modules.
+
 ## Channel export docs
 
 - [`STAGE_3C_CHANNEL_DISCUSSION_CONTEXT_EXPORT_DESIGN.md`](STAGE_3C_CHANNEL_DISCUSSION_CONTEXT_EXPORT_DESIGN.md) - discussion export architecture design.

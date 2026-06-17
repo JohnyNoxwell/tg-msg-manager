@@ -1,6 +1,6 @@
 # Architecture Rules
 
-Last updated: 2026-05-08
+Last updated: 2026-06-17
 
 ## 1. CLI Thin Only
 
@@ -18,6 +18,37 @@ CLI modules must not:
 - implement Telegram traversal;
 - implement deep-context clustering;
 - own export-file formatting rules.
+
+## Application Runtime Assembly Boundary
+
+`tg_msg_manager/application/` is the application/runtime assembly layer. It may
+wire core models, infrastructure resources, services, process/session
+lifecycle, and Telegram adapters into explicit runtime/session objects.
+
+Application runtime modules may:
+
+- construct and own runtime/session assembly;
+- coordinate process lock, logging, telemetry reset, storage lifecycle, and
+  optional Telegram client lifecycle;
+- create service bundles from explicit runtime resources;
+- provide headless entrypoints that CLI or other adapters can call.
+
+Stable non-CLI runtime entrypoint:
+
+- `from tg_msg_manager.application import ApplicationSession`
+- pass `needs_client=False` for local/headless runtime assembly that must not
+  construct a Telegram client.
+
+Application runtime modules must not:
+
+- render CLI output or parse CLI arguments;
+- import `tg_msg_manager.cli`, `cli_commands`, `cli_menu`, or `cli_parser`;
+- contain raw SQL or SQLite schema changes;
+- add export, dataset, media, discussion, analytics, OSINT, profiling, or
+  LLM-dependent product logic.
+
+CLI remains an adapter over this boundary: parse args, route menu choices,
+render output, call runtime/session APIs.
 
 ## 2. Services Do Not Contain SQL
 

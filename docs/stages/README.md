@@ -6,9 +6,21 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- None.
+- none
 
-Execute these release-preparation stages sequentially. Stage 5Q and Stage 5R
+Stage 6A CLI runtime boundary extraction is complete. The older
+release-preparation summary below is historical index context, not active task
+authorization.
+
+Stage 6A.0 CLI runtime boundary precheck is recorded in [`reports/STAGE_6A_0_CLI_RUNTIME_BOUNDARY_PRECHECK_REPORT.md`](reports/STAGE_6A_0_CLI_RUNTIME_BOUNDARY_PRECHECK_REPORT.md).
+Stage 6A.1 application runtime boundary guardrails are recorded in [`reports/STAGE_6A_1_APPLICATION_RUNTIME_BOUNDARY_GUARDRAILS_REPORT.md`](reports/STAGE_6A_1_APPLICATION_RUNTIME_BOUNDARY_GUARDRAILS_REPORT.md).
+Stage 6A.2 runtime resource factory extraction is recorded in [`reports/STAGE_6A_2_RUNTIME_RESOURCE_FACTORY_EXTRACTION_REPORT.md`](reports/STAGE_6A_2_RUNTIME_RESOURCE_FACTORY_EXTRACTION_REPORT.md).
+Stage 6A.3 service bundle factory extraction is recorded in [`reports/STAGE_6A_3_SERVICE_BUNDLE_FACTORY_EXTRACTION_REPORT.md`](reports/STAGE_6A_3_SERVICE_BUNDLE_FACTORY_EXTRACTION_REPORT.md).
+Stage 6A.4 runtime session lifecycle extraction is recorded in [`reports/STAGE_6A_4_RUNTIME_SESSION_LIFECYCLE_EXTRACTION_REPORT.md`](reports/STAGE_6A_4_RUNTIME_SESSION_LIFECYCLE_EXTRACTION_REPORT.md).
+Stage 6A.5 CLIContext adapter shrink is recorded in [`reports/STAGE_6A_5_CLI_CONTEXT_ADAPTER_SHRINK_REPORT.md`](reports/STAGE_6A_5_CLI_CONTEXT_ADAPTER_SHRINK_REPORT.md).
+Stage 6A.6 headless runtime contract is recorded in [`reports/STAGE_6A_6_HEADLESS_RUNTIME_CONTRACT_REPORT.md`](reports/STAGE_6A_6_HEADLESS_RUNTIME_CONTRACT_REPORT.md).
+
+Release-preparation stages were executed sequentially. Stage 5Q and Stage 5R
 are split into atomic sub-stages. Stages 5U.2-5U.4 separate license decision,
 metadata application, and package verification. Stage 5V first decides that
 `v0.1.0-rc1` is ineligible because it predates final MIT metadata; Stages

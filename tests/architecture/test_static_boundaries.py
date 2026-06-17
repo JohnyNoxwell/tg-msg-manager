@@ -7,6 +7,7 @@ from pathlib import Path
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 PACKAGE_ROOT = PROJECT_ROOT / "tg_msg_manager"
 STORAGE_ROOT = PACKAGE_ROOT / "infrastructure" / "storage"
+APPLICATION_ROOT = PACKAGE_ROOT / "application"
 
 SQL_METHODS = {"execute", "executemany", "executescript"}
 SQL_KEYWORD_RE = re.compile(
@@ -23,6 +24,12 @@ CLI_IMPORT_PREFIXES = (
     "tg_msg_manager.cli_menu",
     "tg_msg_manager.cli_parser",
     "tg_msg_manager.cli_support",
+)
+APPLICATION_LAYER_ALLOWED_IMPORT_PREFIXES = (
+    "tg_msg_manager.core",
+    "tg_msg_manager.infrastructure",
+    "tg_msg_manager.services",
+    "tg_msg_manager.utils",
 )
 
 STORAGE_COMPATIBILITY_SURFACES = (
@@ -106,6 +113,17 @@ def _imports_prefix(module: str, prefix: str) -> bool:
     return module == prefix or module.startswith(f"{prefix}.")
 
 
+def _is_allowed_application_import(module: str) -> bool:
+    if not module.startswith("tg_msg_manager."):
+        return True
+    if _imports_prefix(module, "tg_msg_manager.application"):
+        return True
+    return any(
+        _imports_prefix(module, prefix)
+        for prefix in APPLICATION_LAYER_ALLOWED_IMPORT_PREFIXES
+    )
+
+
 class TestStaticArchitectureBoundaries(unittest.TestCase):
     def test_raw_sql_stays_under_storage_boundary(self):
         offenders: set[Path] = set()
@@ -178,6 +196,74 @@ class TestStaticArchitectureBoundaries(unittest.TestCase):
                     offenders[str(_relative(path))] = bad
 
         self.assertEqual(offenders, {})
+
+    def test_application_runtime_boundary_import_expectation(self):
+        if not APPLICATION_ROOT.exists():
+            self.assertFalse(APPLICATION_ROOT.exists())
+            return
+
+        offenders: dict[str, list[str]] = {}
+        for path in sorted(APPLICATION_ROOT.rglob("*.py")):
+            imports = _imported_modules(_parse(path))
+            bad = sorted(
+                module
+                for module in imports
+                if any(_imports_prefix(module, prefix) for prefix in CLI_IMPORT_PREFIXES)
+                or not _is_allowed_application_import(module)
+            )
+            if bad:
+                offenders[str(_relative(path))] = bad
+
+        self.assertEqual(offenders, {})
+        self.assertEqual(
+            APPLICATION_LAYER_ALLOWED_IMPORT_PREFIXES,
+            (
+                "tg_msg_manager.core",
+                "tg_msg_manager.infrastructure",
+                "tg_msg_manager.services",
+                "tg_msg_manager.utils",
+            ),
+        )
+
+    def test_cli_context_does_not_import_service_constructors(self):
+        cli_module = PACKAGE_ROOT / "cli" / "__init__.py"
+        text = cli_module.read_text(encoding="utf-8")
+
+        self.assertNotIn("from ..services", text)
+        self.assertIn("from ..application.session import ApplicationSession", text)
+
+    def test_cli_context_does_not_construct_runtime_resources_directly(self):
+        cli_module = PACKAGE_ROOT / "cli" / "__init__.py"
+        tree = _parse(cli_module)
+        cli_context = next(
+            node
+            for node in tree.body
+            if isinstance(node, ast.ClassDef) and node.name == "CLIContext"
+        )
+        forbidden_calls = {
+            "AliasManager",
+            "ChannelExportService",
+            "CleanerService",
+            "DBExportService",
+            "ExportService",
+            "PrivateArchiveService",
+            "ProcessManager",
+            "RetryWorker",
+            "RuntimeResourceFactory",
+            "SQLiteStorage",
+            "TelethonClientWrapper",
+            "create_service_bundle",
+        }
+        observed: set[str] = set()
+        for node in ast.walk(cli_context):
+            if not isinstance(node, ast.Call):
+                continue
+            if isinstance(node.func, ast.Name):
+                observed.add(node.func.id)
+            elif isinstance(node.func, ast.Attribute):
+                observed.add(node.func.attr)
+
+        self.assertEqual(sorted(observed & forbidden_calls), [])
 
     def test_new_code_does_not_import_storage_interface_aggregator(self):
         broad_interface = "tg_msg_manager.infrastructure.storage.interface"
