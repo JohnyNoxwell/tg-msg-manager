@@ -3,6 +3,9 @@ All notable changes to this project will be documented in this file in both Engl
 
 ## [Unreleased]
 
+### Fixed (EN)
+- **Direct Export Exit Codes**: Direct `export` and `export-pm` commands now exit non-zero when the current network/archive operation fails, while preserving existing error logging and PM retry enqueue behavior.
+
 ### Added (EN)
 - **Stage 6A Application Runtime Boundary**: Added `tg_msg_manager.application` runtime assembly with `ApplicationSession`, `RuntimeResourceFactory`, and `create_service_bundle` as stable non-CLI entrypoints, including `needs_client=False` support for headless local runtime setup.
 
@@ -16,6 +19,9 @@ All notable changes to this project will be documented in this file in both Engl
 ### Изменения (RU)
 - **CLI runtime assembly**: `CLIContext` теперь делегирует wiring process, storage, Telegram client и service lifecycle в `ApplicationSession`, сохраняя существующее CLI behavior и lifecycle messages.
 - **Architecture guardrails**: Добавлены static boundary tests и docs для application runtime layer, чтобы CLI modules оставались adapters, а non-CLI integrations не импортировали CLI runtime code.
+
+### Исправлено (RU)
+- **Exit codes прямого export**: Прямые команды `export` и `export-pm` теперь завершаются с ненулевым кодом, если текущая network/archive операция падает; существующее error logging и enqueue retry для PM сохранены.
 
 ## [0.1.2] - 2026-06-11
 

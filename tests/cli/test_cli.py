@@ -578,6 +578,48 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
             mock_ctx.db_exporter.export_user_messages.await_args.kwargs["as_json"]
         )
 
+    @patch("tg_msg_manager.cli.commands.export._run_export_sync", new_callable=AsyncMock)
+    @patch("tg_msg_manager.cli.commands.export.get_safe_user_and_chat")
+    @patch("tg_msg_manager.cli.CLIContext")
+    async def test_run_cli_export_failure_exits_non_zero(
+        self,
+        mock_ctx_cls,
+        mock_get_safe_user_and_chat,
+        mock_run_export_sync,
+    ):
+        mock_ctx = MagicMock()
+        mock_ctx.initialize = AsyncMock()
+        mock_ctx.shutdown = AsyncMock()
+        mock_ctx.pm.should_stop.return_value = False
+        mock_ctx_cls.return_value = mock_ctx
+
+        user_ent = MagicMock(id=404307871)
+        chat_ent = MagicMock(id=1274306614)
+        mock_get_safe_user_and_chat.return_value = (user_ent, chat_ent)
+        mock_run_export_sync.side_effect = RuntimeError("boom")
+
+        with (
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "prog",
+                    "export",
+                    "--user-id",
+                    "404307871",
+                    "--chat-id",
+                    "1274306614",
+                ],
+            ),
+            self.assertLogs("tg_msg_manager.cli.commands.export", level="ERROR") as logs,
+            self.assertRaises(SystemExit) as raised,
+        ):
+            await run_cli(runtime=self.runtime)
+
+        self.assertEqual(raised.exception.code, 1)
+        self.assertIn("Error during export: boom", "\n".join(logs.output))
+        mock_ctx.shutdown.assert_awaited_once()
+
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_retry_runs_worker(self, mock_ctx_cls):
         mock_ctx = MagicMock()
@@ -614,10 +656,17 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         user_ent = MagicMock(id=777)
         mock_get_safe_user_and_chat.return_value = (user_ent, None)
 
-        with patch.object(sys, "argv", ["prog", "export-pm", "--user-id", "777"]):
+        with (
+            patch.object(sys, "argv", ["prog", "export-pm", "--user-id", "777"]),
+            self.assertLogs("tg_msg_manager.cli.commands.export", level="ERROR") as logs,
+            self.assertRaises(SystemExit) as raised,
+        ):
             await run_cli(runtime=self.runtime)
 
+        self.assertEqual(raised.exception.code, 1)
+        self.assertIn("Error during PM archive: boom", "\n".join(logs.output))
         mock_enqueue_retry.assert_called_once()
+        mock_ctx.shutdown.assert_awaited_once()
 
     @patch("tg_msg_manager.cli_menu._handle_menu_retry", new_callable=AsyncMock)
     async def test_dispatch_main_menu_choice_routes_retry_hotkey(

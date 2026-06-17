@@ -12,6 +12,8 @@ Stage 6A CLI runtime boundary extraction is complete. The older
 release-preparation summary below is historical index context, not active task
 authorization.
 
+Stage 6B.0 direct export failure exit code is recorded in [`reports/STAGE_6B_0_DIRECT_EXPORT_FAILURE_EXIT_CODE_REPORT.md`](reports/STAGE_6B_0_DIRECT_EXPORT_FAILURE_EXIT_CODE_REPORT.md).
+Stage 6B.1 direct PM archive failure exit code is recorded in [`reports/STAGE_6B_1_DIRECT_PM_ARCHIVE_FAILURE_EXIT_CODE_REPORT.md`](reports/STAGE_6B_1_DIRECT_PM_ARCHIVE_FAILURE_EXIT_CODE_REPORT.md).
 Stage 6A.0 CLI runtime boundary precheck is recorded in [`reports/STAGE_6A_0_CLI_RUNTIME_BOUNDARY_PRECHECK_REPORT.md`](reports/STAGE_6A_0_CLI_RUNTIME_BOUNDARY_PRECHECK_REPORT.md).
 Stage 6A.1 application runtime boundary guardrails are recorded in [`reports/STAGE_6A_1_APPLICATION_RUNTIME_BOUNDARY_GUARDRAILS_REPORT.md`](reports/STAGE_6A_1_APPLICATION_RUNTIME_BOUNDARY_GUARDRAILS_REPORT.md).
 Stage 6A.2 runtime resource factory extraction is recorded in [`reports/STAGE_6A_2_RUNTIME_RESOURCE_FACTORY_EXTRACTION_REPORT.md`](reports/STAGE_6A_2_RUNTIME_RESOURCE_FACTORY_EXTRACTION_REPORT.md).

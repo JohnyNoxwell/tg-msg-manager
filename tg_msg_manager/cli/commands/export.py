@@ -45,8 +45,10 @@ async def _handle_export_command(ctx, args: argparse.Namespace) -> None:
             show_saved_path=True,
         )
     except Exception as e:
-        if not ctx.pm.should_stop():
-            logger.error(f"Error during export: {e}")
+        if ctx.pm.should_stop():
+            return
+        logger.error(f"Error during export: {e}")
+        raise SystemExit(1) from e
 
 
 async def _handle_export_pm_command(ctx, args: argparse.Namespace) -> None:
@@ -61,3 +63,4 @@ async def _handle_export_pm_command(ctx, args: argparse.Namespace) -> None:
                 error=exc,
             )
             logger.error(f"Error during PM archive: {exc}")
+            raise SystemExit(1) from exc
