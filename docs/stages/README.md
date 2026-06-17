@@ -6,7 +6,9 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- none
+- [`active/stage_6f_0_sqlite_schema_startup_guardrails.md`](active/stage_6f_0_sqlite_schema_startup_guardrails.md) — SQLite schema startup guardrails.
+- [`active/stage_6f_1_sqlite_schema_startup_path_split.md`](active/stage_6f_1_sqlite_schema_startup_path_split.md) — SQLite schema startup path split.
+- [`active/stage_6f_2_sqlite_migration_registry_decision.md`](active/stage_6f_2_sqlite_migration_registry_decision.md) — SQLite migration registry decision.
 
 Stage 6A CLI runtime boundary extraction is complete. The older
 release-preparation summary below is historical index context, not active task
