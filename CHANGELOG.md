@@ -5,6 +5,7 @@ All notable changes to this project will be documented in this file in both Engl
 
 ### Fixed (EN)
 - **Direct Export Exit Codes**: Direct `export` and `export-pm` commands now exit non-zero when the current network/archive operation fails, while preserving existing error logging and PM retry enqueue behavior.
+- **SQLite writer flush reliability**: Background writer batch commit failures now unblock `flush()` and surface the failed write instead of leaving the write queue join waiting forever.
 
 ### Added (EN)
 - **Stage 6A Application Runtime Boundary**: Added `tg_msg_manager.application` runtime assembly with `ApplicationSession`, `RuntimeResourceFactory`, and `create_service_bundle` as stable non-CLI entrypoints, including `needs_client=False` support for headless local runtime setup.
@@ -22,6 +23,7 @@ All notable changes to this project will be documented in this file in both Engl
 
 ### Исправлено (RU)
 - **Exit codes прямого export**: Прямые команды `export` и `export-pm` теперь завершаются с ненулевым кодом, если текущая network/archive операция падает; существующее error logging и enqueue retry для PM сохранены.
+- **Надёжность flush в SQLite writer**: Ошибки batch commit в background writer теперь разблокируют `flush()` и возвращают ошибку записи вместо вечного ожидания write queue join.
 
 ## [0.1.2] - 2026-06-11
 

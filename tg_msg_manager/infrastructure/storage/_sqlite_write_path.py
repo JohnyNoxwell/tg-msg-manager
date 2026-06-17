@@ -95,18 +95,26 @@ class SQLiteWritePathMixin:
 
                 if items:
                     started_at = time.perf_counter()
-                    await asyncio.to_thread(self._save_batches_by_target, items)
-                    telemetry.track_duration(
-                        "storage.background_commit.total",
-                        time.perf_counter() - started_at,
-                    )
-                    telemetry.track_counter("storage.background_commit.batches", 1)
-                    telemetry.track_counter(
-                        "storage.background_commit.messages", len(items)
-                    )
-                    for _ in range(len(items)):
-                        self._write_queue.task_done()
-                    logger.debug(f"Background Writer committed {len(items)} items.")
+                    try:
+                        await asyncio.to_thread(self._save_batches_by_target, items)
+                    except Exception as e:
+                        self._background_writer_error = e
+                        raise
+                    else:
+                        telemetry.track_duration(
+                            "storage.background_commit.total",
+                            time.perf_counter() - started_at,
+                        )
+                        telemetry.track_counter("storage.background_commit.batches", 1)
+                        telemetry.track_counter(
+                            "storage.background_commit.messages", len(items)
+                        )
+                        logger.debug(
+                            f"Background Writer committed {len(items)} items."
+                        )
+                    finally:
+                        for _ in range(len(items)):
+                            self._write_queue.task_done()
 
                 if self._shutdown_event.is_set() and self._write_queue.empty():
                     break

@@ -47,6 +47,7 @@ class SQLiteStorage(
         self._write_queue = asyncio.Queue(maxsize=DEFAULT_WRITE_QUEUE_MAXSIZE)
         self._worker_task = None
         self._shutdown_event = asyncio.Event()
+        self._background_writer_error: Optional[BaseException] = None
 
     def _create_connection(self):
         return create_sqlite_connection(self.db_path, enable_wal=True)
@@ -80,6 +81,12 @@ class SQLiteStorage(
         await self._ensure_worker_started()
         with telemetry.time_block("storage.flush.total"):
             await self._write_queue.join()
+        if self._background_writer_error is not None:
+            error = self._background_writer_error
+            self._background_writer_error = None
+            raise RuntimeError(
+                "Background SQLite writer failed to persist queued messages"
+            ) from error
 
     def request_stop(self):
         """Sets the shutdown event to signal workers to stop."""

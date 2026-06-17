@@ -296,6 +296,25 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(count, 3)
         self.assertEqual(self.storage.get_message_count(9002), 3)
 
+    async def test_flush_raises_and_unblocks_when_background_commit_fails(self):
+        failure = RuntimeError("commit failed")
+        with patch.object(
+            self.storage, "_save_batches_by_target", side_effect=failure
+        ):
+            await self.storage.save_message(
+                self._make_queue_test_message(1, chat_id=9004),
+                flush=False,
+            )
+
+            with self.assertRaisesRegex(
+                RuntimeError,
+                "Background SQLite writer failed to persist queued messages",
+            ):
+                await asyncio.wait_for(self.storage.flush(), timeout=1)
+
+        self.assertTrue(self.storage._write_queue.empty())
+        self.assertIsNone(self.storage._background_writer_error)
+
     async def test_close_drains_queued_writes_before_closing_connection(self):
         msgs = [
             self._make_queue_test_message(1, chat_id=9003),
