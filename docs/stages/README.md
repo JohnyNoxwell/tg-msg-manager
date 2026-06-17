@@ -10,6 +10,13 @@ Current active stage files:
 - [`active/stage_6f_1_sqlite_schema_startup_path_split.md`](active/stage_6f_1_sqlite_schema_startup_path_split.md) — SQLite schema startup path split.
 - [`active/stage_6f_2_sqlite_migration_registry_decision.md`](active/stage_6f_2_sqlite_migration_registry_decision.md) — SQLite migration registry decision.
 
+Stage completion policy: any stage that changes code or tests must run the
+same completion gate as `.github/workflows/ci.yml`. When CI runs `make verify`,
+local/stage completion must run `make verify`; focused checks do not replace
+it. Docs-only stages are exempt when they do not change code/tests. If tooling
+or environment prevents `make verify`, the stage must remain incomplete or
+blocked, not complete.
+
 Stage 6A CLI runtime boundary extraction is complete. The older
 release-preparation summary below is historical index context, not active task
 authorization.
@@ -21,6 +28,7 @@ Stage 6C.1 SQLite writer failed batch queue accounting is recorded in [`reports/
 Stage 6C.2 SQLite writer reliability changelog and lifecycle cleanup is recorded in [`reports/STAGE_6C_2_SQLITE_WRITER_RELIABILITY_CHANGELOG_LIFECYCLE_REPORT.md`](reports/STAGE_6C_2_SQLITE_WRITER_RELIABILITY_CHANGELOG_LIFECYCLE_REPORT.md).
 Stage 6D.0 FloodWait bounded retry is recorded in [`reports/STAGE_6D_0_FLOODWAIT_BOUNDED_RETRY_REPORT.md`](reports/STAGE_6D_0_FLOODWAIT_BOUNDED_RETRY_REPORT.md).
 Stage 6D.1 throttler rate recovery is recorded in [`reports/STAGE_6D_1_THROTTLER_RATE_RECOVERY_REPORT.md`](reports/STAGE_6D_1_THROTTLER_RATE_RECOVERY_REPORT.md).
+Stage 6E.0 CI gate alignment and Ruff format guardrails are recorded in [`reports/STAGE_6E_0_CI_GATE_ALIGNMENT_AND_RUFF_FORMAT_GUARDRAILS_REPORT.md`](reports/STAGE_6E_0_CI_GATE_ALIGNMENT_AND_RUFF_FORMAT_GUARDRAILS_REPORT.md).
 Stage 6A.0 CLI runtime boundary precheck is recorded in [`reports/STAGE_6A_0_CLI_RUNTIME_BOUNDARY_PRECHECK_REPORT.md`](reports/STAGE_6A_0_CLI_RUNTIME_BOUNDARY_PRECHECK_REPORT.md).
 Stage 6A.1 application runtime boundary guardrails are recorded in [`reports/STAGE_6A_1_APPLICATION_RUNTIME_BOUNDARY_GUARDRAILS_REPORT.md`](reports/STAGE_6A_1_APPLICATION_RUNTIME_BOUNDARY_GUARDRAILS_REPORT.md).
 Stage 6A.2 runtime resource factory extraction is recorded in [`reports/STAGE_6A_2_RUNTIME_RESOURCE_FACTORY_EXTRACTION_REPORT.md`](reports/STAGE_6A_2_RUNTIME_RESOURCE_FACTORY_EXTRACTION_REPORT.md).
@@ -187,6 +195,7 @@ Completed stage files under [`completed/`](completed/) are historical instructio
 
 Current completed prompt groups:
 
+- Stage 6E.0 CI gate alignment and Ruff format guardrails task prompt.
 - Stage 6D.1 throttler rate recovery task prompt.
 - Stage 6D.0 FloodWait bounded retry task prompt.
 - Stage 3A direct channel export task prompts.

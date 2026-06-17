@@ -102,7 +102,9 @@ print(json.dumps(cli_modules))
             self.assertIsNone(session.services.channel_exporter)
             self.assertIsNone(session.services.retry_worker)
             self.assertIs(session.services.cleaner, mock_cleaner_cls.return_value)
-            self.assertIs(session.services.db_exporter, mock_db_exporter_cls.return_value)
+            self.assertIs(
+                session.services.db_exporter, mock_db_exporter_cls.return_value
+            )
             self.assertIs(session.services.alias_manager, mock_alias_cls.return_value)
             mock_client_cls.assert_not_called()
             mock_setup_logging.assert_called_once_with(

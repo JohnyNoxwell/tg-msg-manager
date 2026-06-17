@@ -41,8 +41,16 @@ Default workflow:
 2. Read the active task under [`../stages/active/`](../stages/active/).
 3. Read only referenced architecture/development docs.
 4. Implement the smallest scoped change.
-5. Run the checks requested by the active task.
+5. Run the checks requested by the active task. For code or test changes, run the CI-parity gate from `.github/workflows/ci.yml`; when CI runs `make verify`, local stage completion must run `make verify`.
 6. Update docs and reports in the same change when required.
+
+Before push or handoff for code/test changes, run:
+
+```bash
+make pre-commit
+```
+
+`make pre-commit` may format files, then runs `make verify`. `make verify` remains the authoritative completion gate when CI uses it.
 
 ## Documentation rules
 

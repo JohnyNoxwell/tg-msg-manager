@@ -208,7 +208,9 @@ class TestStaticArchitectureBoundaries(unittest.TestCase):
             bad = sorted(
                 module
                 for module in imports
-                if any(_imports_prefix(module, prefix) for prefix in CLI_IMPORT_PREFIXES)
+                if any(
+                    _imports_prefix(module, prefix) for prefix in CLI_IMPORT_PREFIXES
+                )
                 or not _is_allowed_application_import(module)
             )
             if bad:

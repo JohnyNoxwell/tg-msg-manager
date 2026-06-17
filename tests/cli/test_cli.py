@@ -62,17 +62,19 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
         storage = MagicMock()
         storage.start = AsyncMock(side_effect=lambda: observed.append("storage_start"))
         client = MagicMock()
-        client.connect = AsyncMock(side_effect=lambda: observed.append("client_connect"))
+        client.connect = AsyncMock(
+            side_effect=lambda: observed.append("client_connect")
+        )
         factory = MagicMock()
         factory.create_process_manager.return_value = pm
-        factory.create_storage.side_effect = (
-            lambda process_manager: observed.append("create_storage") or storage
+        factory.create_storage.side_effect = lambda process_manager: (
+            observed.append("create_storage") or storage
         )
-        factory.create_telegram_client.side_effect = (
-            lambda: observed.append("create_client") or client
+        factory.create_telegram_client.side_effect = lambda: (
+            observed.append("create_client") or client
         )
-        mock_create_service_bundle.side_effect = (
-            lambda **kwargs: observed.append("create_services")
+        mock_create_service_bundle.side_effect = lambda **kwargs: (
+            observed.append("create_services")
             or SimpleNamespace(
                 exporter=MagicMock(),
                 cleaner=MagicMock(),
@@ -578,7 +580,9 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
             mock_ctx.db_exporter.export_user_messages.await_args.kwargs["as_json"]
         )
 
-    @patch("tg_msg_manager.cli.commands.export._run_export_sync", new_callable=AsyncMock)
+    @patch(
+        "tg_msg_manager.cli.commands.export._run_export_sync", new_callable=AsyncMock
+    )
     @patch("tg_msg_manager.cli.commands.export.get_safe_user_and_chat")
     @patch("tg_msg_manager.cli.CLIContext")
     async def test_run_cli_export_failure_exits_non_zero(
@@ -611,7 +615,9 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
                     "1274306614",
                 ],
             ),
-            self.assertLogs("tg_msg_manager.cli.commands.export", level="ERROR") as logs,
+            self.assertLogs(
+                "tg_msg_manager.cli.commands.export", level="ERROR"
+            ) as logs,
             self.assertRaises(SystemExit) as raised,
         ):
             await run_cli(runtime=self.runtime)
@@ -658,7 +664,9 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
 
         with (
             patch.object(sys, "argv", ["prog", "export-pm", "--user-id", "777"]),
-            self.assertLogs("tg_msg_manager.cli.commands.export", level="ERROR") as logs,
+            self.assertLogs(
+                "tg_msg_manager.cli.commands.export", level="ERROR"
+            ) as logs,
             self.assertRaises(SystemExit) as raised,
         ):
             await run_cli(runtime=self.runtime)

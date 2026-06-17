@@ -19,13 +19,19 @@ make verify
 python3 -m unittest discover tests -p '*non_channel*contract*.py'
 ```
 
+For stages that change code or tests, local completion must match the
+repository CI gate in `.github/workflows/ci.yml`. When CI runs `make verify`,
+the stage cannot be marked complete unless `make verify` passed after the
+code/test changes. Focused checks do not replace this gate.
+
 If a command cannot run, record the exact command, result, and reason in the
 active stage report.
 
 ## Optional Local Checks
 
-These may be useful for deeper local confidence, but they are not mandatory for
-the offline release checklist unless a future active stage makes them required:
+These may be useful for deeper local confidence. For code/test changes,
+`make pre-commit` is the local pre-push/handoff guardrail, but `make verify`
+remains authoritative when CI uses it:
 
 ```bash
 make pre-commit

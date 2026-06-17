@@ -19,7 +19,9 @@ class RuntimeResourceFactory:
         return ProcessManager(lock_path=self.runtime.paths.lock_path)
 
     def create_storage(self, process_manager: ProcessManager) -> SQLiteStorage:
-        return SQLiteStorage(self.runtime.paths.db_path, process_manager=process_manager)
+        return SQLiteStorage(
+            self.runtime.paths.db_path, process_manager=process_manager
+        )
 
     def resolve_session_path(self) -> str:
         session_name = self.runtime.settings.session_name

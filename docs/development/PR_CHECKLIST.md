@@ -2,6 +2,8 @@
 
 - [ ] CLI behavior unchanged
 - [ ] Tests pass
+- [ ] `make verify` passed after code/test changes when CI uses it
+- [ ] `make pre-commit` run before push/handoff for code/test changes, or reason recorded
 - [ ] Smoke scenario checked
 - [ ] Wrapper guard tests still pass
 - [ ] No raw SQL in service layer

@@ -247,6 +247,25 @@ After final report exists and stage is complete:
 
 Do not mark complete unless implementation/docs are done, required checks are run or documented, report exists, relevant docs are updated, and cleanup is done.
 
+For any stage that changes code or tests, completion requires the same full local gate that GitHub Actions runs. If `.github/workflows/ci.yml` runs `make verify`, the stage completion check must include:
+
+```bash
+make verify
+```
+
+Focused checks may be required by the stage, but they do not replace `make verify` after code or test changes. Acceptable exceptions:
+
+- docs-only stages with no code/test changes;
+- environment/tooling failure that makes `make verify` impossible, in which case the stage must be marked incomplete or blocked, not complete.
+
+Before pushing or handing off code/test changes, run the local guardrail:
+
+```bash
+make pre-commit
+```
+
+`make verify` remains the authoritative completion gate when CI uses it.
+
 ## 8. Coding rules
 
 - Preserve behavior first.

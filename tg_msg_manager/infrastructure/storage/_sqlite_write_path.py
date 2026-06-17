@@ -109,9 +109,7 @@ class SQLiteWritePathMixin:
                         telemetry.track_counter(
                             "storage.background_commit.messages", len(items)
                         )
-                        logger.debug(
-                            f"Background Writer committed {len(items)} items."
-                        )
+                        logger.debug(f"Background Writer committed {len(items)} items.")
                     finally:
                         for _ in range(len(items)):
                             self._write_queue.task_done()

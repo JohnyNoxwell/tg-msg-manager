@@ -298,9 +298,7 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
 
     async def test_flush_raises_and_unblocks_when_background_commit_fails(self):
         failure = RuntimeError("commit failed")
-        with patch.object(
-            self.storage, "_save_batches_by_target", side_effect=failure
-        ):
+        with patch.object(self.storage, "_save_batches_by_target", side_effect=failure):
             await self.storage.save_message(
                 self._make_queue_test_message(1, chat_id=9004),
                 flush=False,
