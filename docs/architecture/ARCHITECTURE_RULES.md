@@ -131,6 +131,9 @@ Package-level re-export entrypoints are also compatibility surfaces:
 - `tg_msg_manager/services/private_archive/__init__.py`
 
 New code must not add business logic to these files.
+Internal production code should import canonical implementation modules instead
+of deprecated compatibility surfaces. Public compatibility imports remain
+covered by dedicated compatibility tests.
 
 ## Facade Growth Protection
 

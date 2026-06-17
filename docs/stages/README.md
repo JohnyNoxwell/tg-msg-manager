@@ -6,7 +6,7 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- None.
+- [`active/STAGE_6G_2_SQLITE_WRITE_PATH_AGGREGATOR_SHRINK.md`](active/STAGE_6G_2_SQLITE_WRITE_PATH_AGGREGATOR_SHRINK.md)
 
 Stage completion policy: any stage that changes code or tests must run the
 same completion gate as `.github/workflows/ci.yml`. When CI runs `make verify`,
@@ -19,6 +19,8 @@ Stage 6A CLI runtime boundary extraction is complete. The older
 release-preparation summary below is historical index context, not active task
 authorization.
 
+Stage 6G.0 compatibility surface baseline is recorded in [`reports/STAGE_6G_0_COMPATIBILITY_SURFACE_BASELINE_REPORT.md`](reports/STAGE_6G_0_COMPATIBILITY_SURFACE_BASELINE_REPORT.md).
+Stage 6G.1 internal import convergence is recorded in [`reports/STAGE_6G_1_INTERNAL_IMPORT_CONVERGENCE_REPORT.md`](reports/STAGE_6G_1_INTERNAL_IMPORT_CONVERGENCE_REPORT.md).
 Stage 6B.0 direct export failure exit code is recorded in [`reports/STAGE_6B_0_DIRECT_EXPORT_FAILURE_EXIT_CODE_REPORT.md`](reports/STAGE_6B_0_DIRECT_EXPORT_FAILURE_EXIT_CODE_REPORT.md).
 Stage 6B.1 direct PM archive failure exit code is recorded in [`reports/STAGE_6B_1_DIRECT_PM_ARCHIVE_FAILURE_EXIT_CODE_REPORT.md`](reports/STAGE_6B_1_DIRECT_PM_ARCHIVE_FAILURE_EXIT_CODE_REPORT.md).
 Stage 6C.0 SQLite writer flush failure diagnosis is recorded in [`reports/STAGE_6C_0_SQLITE_WRITER_FLUSH_FAILURE_DIAGNOSIS_REPORT.md`](reports/STAGE_6C_0_SQLITE_WRITER_FLUSH_FAILURE_DIAGNOSIS_REPORT.md).
@@ -196,6 +198,8 @@ Completed stage files under [`completed/`](completed/) are historical instructio
 
 Current completed prompt groups:
 
+- Stage 6G.1 internal import convergence task prompt.
+- Stage 6G.0 compatibility surface baseline task prompt.
 - Stage 6F.2 SQLite migration registry decision task prompt.
 - Stage 6F.1 SQLite schema startup path split task prompt.
 - Stage 6F.0 SQLite schema startup guardrails task prompt.

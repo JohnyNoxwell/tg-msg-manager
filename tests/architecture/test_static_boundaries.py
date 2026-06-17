@@ -39,6 +39,15 @@ STORAGE_COMPATIBILITY_SURFACES = (
     Path("tg_msg_manager/infrastructure/storage/_sqlite_sync_state.py"),
     Path("tg_msg_manager/infrastructure/storage/records.py"),
 )
+DEPRECATED_INTERNAL_IMPORT_SURFACES = {
+    "tg_msg_manager.cli_commands",
+    "tg_msg_manager.core.models.service_payloads",
+    "tg_msg_manager.services.context_engine",
+    "tg_msg_manager.services.db_export",
+    "tg_msg_manager.services.db_exporter",
+    "tg_msg_manager.services.exporter",
+    "tg_msg_manager.services.private_archive",
+}
 
 
 def _production_files() -> list[Path]:
@@ -84,6 +93,37 @@ def _imported_modules(tree: ast.AST) -> set[str]:
             if node.module:
                 modules.add(node.module)
                 modules.update(f"{node.module}.{alias.name}" for alias in node.names)
+    return modules
+
+
+def _module_name_for_path(path: Path) -> str:
+    relative = _relative(path).with_suffix("")
+    parts = list(relative.parts)
+    if parts[-1] == "__init__":
+        parts = parts[:-1]
+    return ".".join(parts)
+
+
+def _resolve_import_from_module(path: Path, node: ast.ImportFrom) -> str:
+    if node.level == 0:
+        return node.module or ""
+    current_package = _module_name_for_path(path).split(".")[:-1]
+    base = current_package[: len(current_package) - node.level + 1]
+    if node.module:
+        base.extend(node.module.split("."))
+    return ".".join(base)
+
+
+def _resolved_imported_modules(path: Path, tree: ast.AST) -> set[str]:
+    modules: set[str] = set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Import):
+            modules.update(alias.name for alias in node.names)
+        elif isinstance(node, ast.ImportFrom):
+            module = _resolve_import_from_module(path, node)
+            if module:
+                modules.add(module)
+                modules.update(f"{module}.{alias.name}" for alias in node.names)
     return modules
 
 
@@ -226,6 +266,20 @@ class TestStaticArchitectureBoundaries(unittest.TestCase):
                 "tg_msg_manager.utils",
             ),
         )
+
+    def test_production_code_does_not_import_deprecated_compatibility_surfaces(self):
+        offenders: dict[str, list[str]] = {}
+        for path in _production_files():
+            imports = _resolved_imported_modules(path, _parse(path))
+            bad = sorted(
+                module
+                for module in imports
+                if module in DEPRECATED_INTERNAL_IMPORT_SURFACES
+            )
+            if bad:
+                offenders[str(_relative(path))] = bad
+
+        self.assertEqual(offenders, {})
 
     def test_cli_context_does_not_import_service_constructors(self):
         cli_module = PACKAGE_ROOT / "cli" / "__init__.py"

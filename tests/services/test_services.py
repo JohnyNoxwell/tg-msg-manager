@@ -8,17 +8,19 @@ from datetime import datetime, timedelta, timezone
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tg_msg_manager.core.models.message import MessageData
-from tg_msg_manager.core.models.service_payloads import (
+from tg_msg_manager.core.models.payloads.export import (
     ExportSyncStartedPayload,
     ExportSyncSummaryPayload,
+)
+from tg_msg_manager.core.models.payloads.private_archive import (
     PrivateArchiveCompletedPayload,
     PrivateArchiveMediaSavedPayload,
     PrivateArchiveStartedPayload,
 )
 from tg_msg_manager.core.telemetry import telemetry
-from tg_msg_manager.services.context_engine import DeepModeEngine
-from tg_msg_manager.services.exporter import ExportService
-from tg_msg_manager.services.private_archive import PrivateArchiveService
+from tg_msg_manager.services.context.engine import DeepModeEngine
+from tg_msg_manager.services.export.service import ExportService
+from tg_msg_manager.services.private_archive.service import PrivateArchiveService
 from tg_msg_manager.services.sync.scan_ranges import (
     ScanRange,
     build_scan_ranges,

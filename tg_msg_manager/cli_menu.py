@@ -1,4 +1,4 @@
-from .cli_commands import _handle_export_channel_command
+from .cli.commands import _handle_export_channel_command
 from .cli.channel_export_options import build_channel_export_command_options
 from .cli_io import (
     TerminalInput,

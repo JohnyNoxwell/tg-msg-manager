@@ -8,7 +8,7 @@ from datetime import datetime
 # Add project root to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tg_msg_manager.core.models.service_payloads import (
+from tg_msg_manager.core.models.payloads.cleaner import (
     CleanerDialogMessagesFoundPayload,
     CleanerDialogScanStartedPayload,
 )

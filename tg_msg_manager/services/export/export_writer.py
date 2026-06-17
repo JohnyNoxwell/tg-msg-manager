@@ -1,6 +1,6 @@
 from typing import Optional
 
-from ..db_export import DBExportService
+from ..db_export.service import DBExportService
 
 
 class ExportArtifactWriter:

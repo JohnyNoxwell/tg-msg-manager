@@ -11,7 +11,7 @@ from tg_msg_manager.services.db_export.skip_policy import DBExportSkipPolicy
 from tg_msg_manager.services.db_export.source_loader import DBExportSourceLoader
 from tg_msg_manager.services.db_export.state_manager import DBExportStateManager
 from tg_msg_manager.services.db_export.summary import DBExportSource
-from tg_msg_manager.services.db_exporter import DBExportService
+from tg_msg_manager.services.db_export.service import DBExportService
 
 
 class TestDBExportComponents(unittest.TestCase):

@@ -6,7 +6,7 @@ from typing import Optional
 
 from telethon.errors import RPCError
 
-from ..cli_commands import (
+from ..cli.commands import (
     _handle_clean_command,
     _handle_db_export_command,
     _handle_delete_command,

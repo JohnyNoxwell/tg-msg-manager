@@ -7,7 +7,7 @@ from datetime import datetime, timedelta
 # Add project root to sys.path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from tg_msg_manager.core.models.service_payloads import (
+from tg_msg_manager.core.models.payloads.export import (
     ExportDialogScanStartedPayload,
     ExportDialogSearchScanningPayload,
     ExportDialogSearchStartedPayload,
@@ -15,7 +15,7 @@ from tg_msg_manager.core.models.service_payloads import (
     ExportTrackedUpdateStartedPayload,
 )
 from tg_msg_manager.infrastructure.storage.sqlite import SQLiteStorage
-from tg_msg_manager.services.exporter import ExportService
+from tg_msg_manager.services.export.service import ExportService
 from tg_msg_manager.core.models.sync_report import TrackedSyncRunReport
 
 

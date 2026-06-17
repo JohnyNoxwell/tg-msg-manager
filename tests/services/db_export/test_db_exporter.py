@@ -12,7 +12,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from tg_msg_manager.core.models.message import MessageData
 from tg_msg_manager.core.telemetry import telemetry
-from tg_msg_manager.services.db_exporter import DBExportService
+from tg_msg_manager.services.db_export.service import DBExportService
 
 
 class TestDBExporter(unittest.TestCase):

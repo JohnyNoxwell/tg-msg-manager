@@ -4,9 +4,9 @@ from pathlib import Path
 from typing import Any, Optional
 
 from ..infrastructure.storage.sqlite import SQLiteStorage
-from ..services.db_export import DBExportService
-from ..services.exporter import ExportService
-from ..services.private_archive import PrivateArchiveService
+from ..services.db_export.service import DBExportService
+from ..services.export.service import ExportService
+from ..services.private_archive.service import PrivateArchiveService
 from ..services.reporting import ReportCollector
 from ..services.retry_worker import RetryWorker
 from .fake_telegram import FakeTelegramClient
