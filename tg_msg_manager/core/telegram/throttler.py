@@ -17,6 +17,8 @@ class RateThrottler:
         if max_requests_per_second is not None:
             rps = max_requests_per_second
         self.rps = rps
+        self._initial_rps = rps
+        self._recovery_factor = 1.05
         self.capacity = burst
         self.tokens = float(burst)
         self.last_refill = time.perf_counter()
@@ -36,6 +38,7 @@ class RateThrottler:
                 self._refill()
 
             self.tokens -= 1
+            self._recover_rate()
             # Ensure we don't refill too far in the past if we haven't used it for a while
             self.last_refill = time.perf_counter()
 
@@ -52,6 +55,11 @@ class RateThrottler:
         """Dynamically adjusts the RPS (e.g. slow down after FloodWait)."""
         self.rps = max(0.1, self.rps * factor)
         logger.info(f"RateThrottler adjusted RPS to {self.rps:.2f}")
+
+    def _recover_rate(self):
+        """Gradually restores RPS after a previous slowdown."""
+        if self.rps < self._initial_rps:
+            self.rps = min(self._initial_rps, self.rps * self._recovery_factor)
 
     def wrap(self, func):
         """Decorator to automatically throttle an async function."""

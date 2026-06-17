@@ -59,6 +59,31 @@ class TestTelegramCore(unittest.IsolatedAsyncioTestCase):
         # Sequence: Request 1 (no wait), R2 (+0.1), R3 (+0.1), R4 (+0.1), R5 (+0.1)
         self.assertGreaterEqual(elapsed, 0.39)
 
+    async def test_throttler_adjust_rate_clamps_minimum(self):
+        throttler = RateThrottler(rps=3.0, burst=1)
+
+        throttler.adjust_rate(0.001)
+
+        self.assertEqual(throttler.rps, 0.1)
+
+    async def test_throttler_recovers_after_slowdown_without_exceeding_initial_rps(
+        self,
+    ):
+        throttler = RateThrottler(rps=3.0, burst=100)
+        throttler.adjust_rate(0.5)
+
+        slowed_rps = throttler.rps
+        await throttler.throttle()
+        first_recovered_rps = throttler.rps
+
+        for _ in range(40):
+            await throttler.throttle()
+
+        self.assertEqual(slowed_rps, 1.5)
+        self.assertGreater(first_recovered_rps, slowed_rps)
+        self.assertLess(first_recovered_rps, 3.0)
+        self.assertEqual(throttler.rps, 3.0)
+
     async def test_wrapper_delegation(self):
         # Mock Telethon client
         wrapper = TelethonClientWrapper("dummy", 1, "hash", max_rps=100)

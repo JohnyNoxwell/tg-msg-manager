@@ -18,6 +18,7 @@ Stage 6C.0 SQLite writer flush failure diagnosis is recorded in [`reports/STAGE_
 Stage 6C.1 SQLite writer failed batch queue accounting is recorded in [`reports/STAGE_6C_1_SQLITE_WRITER_FAILED_BATCH_QUEUE_ACCOUNTING_REPORT.md`](reports/STAGE_6C_1_SQLITE_WRITER_FAILED_BATCH_QUEUE_ACCOUNTING_REPORT.md).
 Stage 6C.2 SQLite writer reliability changelog and lifecycle cleanup is recorded in [`reports/STAGE_6C_2_SQLITE_WRITER_RELIABILITY_CHANGELOG_LIFECYCLE_REPORT.md`](reports/STAGE_6C_2_SQLITE_WRITER_RELIABILITY_CHANGELOG_LIFECYCLE_REPORT.md).
 Stage 6D.0 FloodWait bounded retry is recorded in [`reports/STAGE_6D_0_FLOODWAIT_BOUNDED_RETRY_REPORT.md`](reports/STAGE_6D_0_FLOODWAIT_BOUNDED_RETRY_REPORT.md).
+Stage 6D.1 throttler rate recovery is recorded in [`reports/STAGE_6D_1_THROTTLER_RATE_RECOVERY_REPORT.md`](reports/STAGE_6D_1_THROTTLER_RATE_RECOVERY_REPORT.md).
 Stage 6A.0 CLI runtime boundary precheck is recorded in [`reports/STAGE_6A_0_CLI_RUNTIME_BOUNDARY_PRECHECK_REPORT.md`](reports/STAGE_6A_0_CLI_RUNTIME_BOUNDARY_PRECHECK_REPORT.md).
 Stage 6A.1 application runtime boundary guardrails are recorded in [`reports/STAGE_6A_1_APPLICATION_RUNTIME_BOUNDARY_GUARDRAILS_REPORT.md`](reports/STAGE_6A_1_APPLICATION_RUNTIME_BOUNDARY_GUARDRAILS_REPORT.md).
 Stage 6A.2 runtime resource factory extraction is recorded in [`reports/STAGE_6A_2_RUNTIME_RESOURCE_FACTORY_EXTRACTION_REPORT.md`](reports/STAGE_6A_2_RUNTIME_RESOURCE_FACTORY_EXTRACTION_REPORT.md).
@@ -184,6 +185,7 @@ Completed stage files under [`completed/`](completed/) are historical instructio
 
 Current completed prompt groups:
 
+- Stage 6D.1 throttler rate recovery task prompt.
 - Stage 6D.0 FloodWait bounded retry task prompt.
 - Stage 3A direct channel export task prompts.
 - Stage 3B media hardening and stabilization task prompts.

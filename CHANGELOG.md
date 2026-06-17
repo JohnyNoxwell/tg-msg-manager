@@ -6,6 +6,7 @@ All notable changes to this project will be documented in this file in both Engl
 ### Fixed (EN)
 - **Direct Export Exit Codes**: Direct `export` and `export-pm` commands now exit non-zero when the current network/archive operation fails, while preserving existing error logging and PM retry enqueue behavior.
 - **FloodWait retry hardening**: Telegram `get_messages()` and `download_media()` FloodWait handling now uses bounded iterative retries instead of unlimited recursion, preserving throttling and request arguments.
+- **Throttler rate recovery**: Telegram request throttling now gradually recovers toward the configured starting RPS after FloodWait slowdown instead of staying permanently reduced for the rest of a long run.
 - **SQLite writer flush reliability**: Background writer batch commit failures now unblock `flush()` and surface the failed write instead of leaving the write queue join waiting forever.
 
 ### Added (EN)
@@ -25,6 +26,7 @@ All notable changes to this project will be documented in this file in both Engl
 ### Исправлено (RU)
 - **Exit codes прямого export**: Прямые команды `export` и `export-pm` теперь завершаются с ненулевым кодом, если текущая network/archive операция падает; существующее error logging и enqueue retry для PM сохранены.
 - **Защита FloodWait retry**: Обработка FloodWait в Telegram `get_messages()` и `download_media()` теперь использует ограниченные итеративные повторы вместо бесконечной рекурсии, сохраняя throttling и аргументы запроса.
+- **Восстановление скорости throttler**: Telegram request throttling теперь постепенно восстанавливается к настроенному начальному RPS после FloodWait slowdown, а не остаётся навсегда замедленным до конца долгого run.
 - **Надёжность flush в SQLite writer**: Ошибки batch commit в background writer теперь разблокируют `flush()` и возвращают ошибку записи вместо вечного ожидания write queue join.
 
 ## [0.1.2] - 2026-06-11
