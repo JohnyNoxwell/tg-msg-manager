@@ -6,6 +6,7 @@ from .schema import (
     backfill_missing_reply_refs,
     context_links_has_chat_scope,
     create_context_link_indexes,
+    create_current_schema,
     create_export_runs_indexes,
     create_export_runs_table,
     create_indexes,
@@ -13,6 +14,7 @@ from .schema import (
     create_missing_reply_refs_table,
     create_tables,
     create_target_link_indexes,
+    ensure_compatibility_columns,
     ensure_export_target_columns,
     ensure_retry_queue_columns,
     ensure_sync_target_columns,
@@ -25,6 +27,7 @@ from .schema import (
     resolve_legacy_context_link_chat_id,
     resolve_legacy_target_link_chat_id,
     run_migrations,
+    run_startup_phases,
     sync_targets_has_composite_primary_key,
     table_exists,
     target_links_has_chat_scope,
@@ -38,16 +41,32 @@ class SQLiteSchemaMixin:
     def _init_db(self):
         """Initializes database schema and applies migrations."""
         conn = self._conn
-        self._create_tables(conn)
-        self._ensure_user_identity_schema(conn)
-        self._ensure_export_target_columns(conn)
-        self._ensure_sync_target_columns(conn)
-        self._ensure_retry_queue_columns(conn)
-        self._create_indexes(conn)
-        self._run_migrations(conn)
-        conn.commit()
+        run_startup_phases(
+            create_current_schema=lambda: self._create_current_schema(conn),
+            ensure_compatibility_columns=lambda: self._ensure_compatibility_columns(
+                conn
+            ),
+            create_indexes=lambda: self._create_indexes(conn),
+            run_legacy_migrations=lambda: self._run_migrations(conn),
+            final_commit=conn.commit,
+        )
         logger.info(
             f"SQLite Storage initialized at {self.db_path} with target attribution support."
+        )
+
+    def _create_current_schema(self, conn: sqlite3.Connection):
+        create_current_schema(
+            conn,
+            create_tables=self._create_tables,
+            ensure_user_identity_schema=self._ensure_user_identity_schema,
+        )
+
+    def _ensure_compatibility_columns(self, conn: sqlite3.Connection):
+        ensure_compatibility_columns(
+            conn,
+            ensure_export_target_columns=self._ensure_export_target_columns,
+            ensure_sync_target_columns=self._ensure_sync_target_columns,
+            ensure_retry_queue_columns=self._ensure_retry_queue_columns,
         )
 
     def _create_tables(self, conn: sqlite3.Connection):

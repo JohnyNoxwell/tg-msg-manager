@@ -1,9 +1,9 @@
 # SQLite Schema Split Map
 
-Stage: 5B.5 plan; Stage 5D.0 Stage 1 split applied; Stage 5E.1 Stage 2 migration helper extraction applied.
+Stage: 5B.5 plan; Stage 5D.0 Stage 1 split applied; Stage 5E.1 Stage 2 migration helper extraction applied; Stage 6F.1 startup path split applied.
 Scope: decomposition map for `tg_msg_manager/infrastructure/storage/_sqlite_schema.py` and the schema helper package.
 
-This map records current responsibilities after the Stage 5E.1 mechanical extraction. It does not authorize schema behavior changes, migrations, index changes, table changes, or `PRAGMA user_version` changes.
+This map records current responsibilities after the Stage 6F.1 startup path split. It does not authorize schema behavior changes, migrations, index changes, table changes, or `PRAGMA user_version` changes.
 
 ## Current File
 
@@ -14,14 +14,17 @@ This map records current responsibilities after the Stage 5E.1 mechanical extrac
 - `tg_msg_manager/infrastructure/storage/schema/migrations.py`
 - `tg_msg_manager/infrastructure/storage/schema/compat.py`
 - `tg_msg_manager/infrastructure/storage/schema/backfills.py`
+- `tg_msg_manager/infrastructure/storage/schema/startup.py`
 - Current mixin: `SQLiteSchemaMixin`
 - Current caller: `tg_msg_manager/infrastructure/storage/sqlite.py::SQLiteStorage`
 - Current tests with schema and migration coverage: `tests/infrastructure/storage/test_storage_sqlite.py`
 
 ## Current Responsibility Map
 
-- `SQLiteSchemaMixin` (`37-180`): schema initialization and thin compatibility delegation surface.
-- `_init_db` (`38-52`): initialization sequence; creates base tables, applies compatibility column ensures, creates indexes, runs migrations, commits.
+- `SQLiteSchemaMixin`: schema initialization and thin compatibility delegation surface.
+- `_init_db`: initialization sequence orchestration only; delegates named startup phases and preserves final logging.
+- `_create_current_schema`: delegates current table creation plus user identity schema creation to `schema/startup.py`.
+- `_ensure_compatibility_columns`: delegates legacy compatibility column ensures to `schema/startup.py`.
 - `_create_tables` (`53-54`): delegates base table creation to `schema/tables.py`.
 - `_create_indexes` (`56-57`): delegates top-level index creation to `schema/indexes.py` while preserving user identity index callback order.
 - `_ensure_sync_target_columns` (`59-60`): delegates legacy `sync_targets` compatibility columns to `schema/compat.py`.
@@ -55,6 +58,7 @@ This map records current responsibilities after the Stage 5E.1 mechanical extrac
 - `schema/migrations.py`: extracted Stage 2 migration coordinator for `PRAGMA user_version` 2 through 14.
 - `schema/compat.py`: extracted Stage 2 compatibility column ensures, legacy table rewrite helpers, legacy chat-id resolution helpers, composite primary key migration, and legacy target-link population.
 - `schema/backfills.py`: extracted Stage 2 data backfills and normalization/reclassification helpers.
+- `schema/startup.py`: extracted Stage 6F.1 startup phase runner and grouped startup phases for current schema creation and compatibility column ensures.
 
 ## Stage 5E.0 Precheck Inventory
 
@@ -142,6 +146,10 @@ Delegation rules for Stage 5E.1:
 ## Future Module Boundaries
 
 Keep `SQLiteSchemaMixin` as the compatibility import surface during a split-only stage. It should contain only delegation and initialization ordering after the split.
+
+- `tg_msg_manager/infrastructure/storage/schema/startup.py` (Stage 6F.1 complete)
+  - Category: startup phase orchestration helpers.
+  - Owns `run_startup_phases`, `create_current_schema`, and `ensure_compatibility_columns`.
 
 - `tg_msg_manager/infrastructure/storage/schema/tables.py` (Stage 5D.0 complete)
   - Category: table creation.

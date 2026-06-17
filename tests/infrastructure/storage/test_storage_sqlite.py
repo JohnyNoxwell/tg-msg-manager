@@ -45,6 +45,47 @@ from tg_msg_manager.infrastructure.storage.schema.migrations import run_migratio
 
 
 class TestSQLiteSchemaSplitHelpers(unittest.TestCase):
+    def test_schema_mixin_init_db_preserves_startup_phase_order(self):
+        mixin = SQLiteSchemaMixin()
+        conn = Mock(name="conn")
+        calls = []
+        mixin._conn = conn
+        mixin.db_path = ":memory:"
+        mixin._create_tables = Mock(side_effect=lambda _conn: calls.append("tables"))
+        mixin._ensure_user_identity_schema = Mock(
+            side_effect=lambda _conn: calls.append("user_identity")
+        )
+        mixin._ensure_export_target_columns = Mock(
+            side_effect=lambda _conn: calls.append("export_target_columns")
+        )
+        mixin._ensure_sync_target_columns = Mock(
+            side_effect=lambda _conn: calls.append("sync_target_columns")
+        )
+        mixin._ensure_retry_queue_columns = Mock(
+            side_effect=lambda _conn: calls.append("retry_queue_columns")
+        )
+        mixin._create_indexes = Mock(side_effect=lambda _conn: calls.append("indexes"))
+        mixin._run_migrations = Mock(
+            side_effect=lambda _conn: calls.append("migrations")
+        )
+        conn.commit.side_effect = lambda: calls.append("commit")
+
+        mixin._init_db()
+
+        self.assertEqual(
+            calls,
+            [
+                "tables",
+                "user_identity",
+                "export_target_columns",
+                "sync_target_columns",
+                "retry_queue_columns",
+                "indexes",
+                "migrations",
+                "commit",
+            ],
+        )
+
     def test_run_migrations_uses_extracted_callbacks_in_order_from_version_9(self):
         conn = sqlite3.connect(":memory:")
         conn.execute("PRAGMA user_version = 9")

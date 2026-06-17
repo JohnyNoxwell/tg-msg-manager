@@ -30,6 +30,11 @@ from .inspection import (
     target_links_has_metadata,
 )
 from .migrations import run_migrations
+from .startup import (
+    create_current_schema,
+    ensure_compatibility_columns,
+    run_startup_phases,
+)
 from .tables import (
     create_export_runs_table,
     create_missing_reply_refs_table,
@@ -41,6 +46,7 @@ __all__ = [
     "backfill_missing_reply_refs",
     "context_links_has_chat_scope",
     "create_context_link_indexes",
+    "create_current_schema",
     "create_export_runs_indexes",
     "create_export_runs_table",
     "create_indexes",
@@ -49,6 +55,7 @@ __all__ = [
     "create_tables",
     "create_target_link_indexes",
     "ensure_export_target_columns",
+    "ensure_compatibility_columns",
     "ensure_retry_queue_columns",
     "ensure_sync_target_columns",
     "migrate_existing_links",
@@ -60,6 +67,7 @@ __all__ = [
     "resolve_legacy_context_link_chat_id",
     "resolve_legacy_target_link_chat_id",
     "run_migrations",
+    "run_startup_phases",
     "sync_targets_has_composite_primary_key",
     "table_exists",
     "target_links_has_chat_scope",

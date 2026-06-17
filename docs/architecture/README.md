@@ -15,6 +15,7 @@ Architecture docs are stable references for repository boundaries, storage/model
 - [`EXPORT_SERVICE_SPLIT_MAP.md`](EXPORT_SERVICE_SPLIT_MAP.md) - export service split.
 - [`PRIVATE_ARCHIVE_SPLIT_MAP.md`](PRIVATE_ARCHIVE_SPLIT_MAP.md) - private archive split.
 - [`SQLITE_SCHEMA_SPLIT_MAP.md`](SQLITE_SCHEMA_SPLIT_MAP.md) - SQLite schema split plan.
+- [`SQLITE_MIGRATION_REGISTRY_DECISION.md`](SQLITE_MIGRATION_REGISTRY_DECISION.md) - SQLite migration registry decision.
 - [`SQLITE_WRITE_PATH_SPLIT_MAP.md`](SQLITE_WRITE_PATH_SPLIT_MAP.md) - SQLite write path split.
 - [`STORAGE_CONTRACT_SPLIT_MAP.md`](STORAGE_CONTRACT_SPLIT_MAP.md) - storage contract split.
 - [`PAYLOADS_SPLIT_MAP.md`](PAYLOADS_SPLIT_MAP.md) - payload module split.
