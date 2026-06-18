@@ -41,6 +41,7 @@ from tg_msg_manager.infrastructure.storage.records import (
     UserExportSummary,
 )
 from tg_msg_manager.infrastructure.storage.sqlite import SQLiteStorage
+from tg_msg_manager.infrastructure.storage.write import message_writer
 from tg_msg_manager.infrastructure.storage.schema.migrations import run_migrations
 
 
@@ -285,6 +286,20 @@ class TestSQLiteStorage(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(retrieved.message_id, 1)
         self.assertEqual(retrieved.text, "Hello SQLite")
         self.assertEqual(retrieved.raw_payload["test"], "data")
+
+    async def test_save_message_sync_delegates_row_upsert_to_message_writer(self):
+        msg = self._make_queue_test_message(77, chat_id=9077)
+
+        with patch.object(
+            message_writer,
+            "upsert_message_row_in_conn",
+            wraps=message_writer.upsert_message_row_in_conn,
+        ) as upsert_mock:
+            success = self.storage._save_message_sync(msg)
+
+        self.assertTrue(success)
+        upsert_mock.assert_called_once()
+        self.assertTrue(self.storage.message_exists(9077, 77))
 
     async def test_sqlite_storage_satisfies_service_protocols(self):
         self.assertIsInstance(self.storage, CleanerStorage)

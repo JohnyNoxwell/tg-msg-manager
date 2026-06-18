@@ -105,6 +105,30 @@ def save_msg_internal(
         data["message_id"],
         data.get("reply_to_id"),
     )
+    upsert_message_row_in_conn(storage, conn, data, payload_hash)
+    refresh_missing_reply_state_in_conn(
+        storage,
+        conn,
+        data["chat_id"],
+        data["message_id"],
+        data.get("reply_to_id"),
+    )
+    resolve_missing_reply_refs_for_parent_in_conn(
+        storage,
+        conn,
+        data["chat_id"],
+        data["message_id"],
+    )
+    update_sync_state_for_message_in_conn(
+        storage,
+        conn,
+        data["chat_id"],
+        data["message_id"],
+        target_id,
+    )
+
+
+def upsert_message_row_in_conn(storage, conn, data: dict, payload_hash: str):
     conn.execute(
         """
         INSERT OR REPLACE INTO messages (
@@ -132,26 +156,6 @@ def save_msg_internal(
             payload_hash,
             SCHEMA_VERSION,
         ),
-    )
-    refresh_missing_reply_state_in_conn(
-        storage,
-        conn,
-        data["chat_id"],
-        data["message_id"],
-        data.get("reply_to_id"),
-    )
-    resolve_missing_reply_refs_for_parent_in_conn(
-        storage,
-        conn,
-        data["chat_id"],
-        data["message_id"],
-    )
-    update_sync_state_for_message_in_conn(
-        storage,
-        conn,
-        data["chat_id"],
-        data["message_id"],
-        target_id,
     )
 
 

@@ -73,6 +73,26 @@ class TestArchitectureWrappers(unittest.TestCase):
         self.assertNotIn("connection.execute(", text)
         self.assertNotIn("SQLiteStorage", text)
 
+    def test_sqlite_write_path_stays_thin_compatibility_delegator(self):
+        text = self._read_text(
+            "tg_msg_manager/infrastructure/storage/_sqlite_write_path.py"
+        )
+
+        self.assertIn("queue_writer.save_message", text)
+        self.assertIn("queue_writer.background_writer", text)
+        self.assertIn("message_writer.upsert_message_row_in_conn", text)
+        for forbidden in [
+            "conn.execute(",
+            "asyncio.",
+            "time.perf_counter",
+            "json.dumps(",
+            "SCHEMA_VERSION",
+            "telemetry.track_counter",
+            "logging.getLogger",
+        ]:
+            with self.subTest(forbidden=forbidden):
+                self.assertNotIn(forbidden, text)
+
 
 if __name__ == "__main__":
     unittest.main()

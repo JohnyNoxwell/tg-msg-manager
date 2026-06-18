@@ -14,6 +14,7 @@ Current compatibility surface:
 | --- | --- |
 | `write/connection.py` | connection factory |
 | `write/transaction.py` | write transaction coordinator |
+| `write/queue_writer.py` | write queue, background writer, flush-facing save entrypoints |
 | `write/message_writer.py` | message upsert/delete orchestration |
 | `write/user_writer.py` | users, chats, sync target registration |
 | `write/target_link_writer.py` | `message_target_links` writes |
@@ -26,8 +27,13 @@ Current compatibility surface:
 
 | Old function | New writer | Batch / transaction note |
 | --- | --- | --- |
+| `_enqueue_write_item` | `queue_writer.py` | queue put + backpressure telemetry |
+| `save_message` / `save_messages` | `queue_writer.py` | queue entrypoints; optional flush behavior preserved |
+| `_save_message_sync` | `queue_writer.py` | own write transaction |
+| `_background_writer` | `queue_writer.py` | background batch drain and failure propagation |
 | `_save_batches_by_target` | `message_writer.py` | one DB transaction per background batch |
 | `_save_msg_internal` | `message_writer.py` | inside caller transaction |
+| `_upsert_message_row_in_conn` | `message_writer.py` | raw message row SQL inside caller transaction |
 | `_normalize_raw_payload` | `message_writer.py` | pure helper |
 | `_json_serial` | `message_writer.py` | pure helper |
 | `_ensure_target_link_in_conn` | `target_link_writer.py` | in existing transaction |

@@ -18,6 +18,7 @@ from .message_writer import (
     normalize_raw_payload,
     save_batches_by_target,
     save_msg_internal,
+    upsert_message_row_in_conn,
 )
 from .report_writer import finish_export_run, start_export_run, upsert_export_target
 from .retry_writer import (
@@ -65,6 +66,7 @@ __all__ = [
     "update_last_sync_at",
     "update_sync_state_for_message_in_conn",
     "update_sync_tail",
+    "upsert_message_row_in_conn",
     "upsert_chat",
     "upsert_chat_in_conn",
     "upsert_context_link_in_conn",
