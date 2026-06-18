@@ -16,7 +16,8 @@ make lint
 make format-check
 make test
 make verify
-python3 -m unittest discover tests -p '*non_channel*contract*.py'
+python3 -m pytest tests -q -k non_channel_contract
+python3 -m pytest tests/test_fixture_contract_snapshots.py -q
 ```
 
 For stages that change code or tests, local completion must match the
@@ -26,6 +27,11 @@ code/test changes. Focused checks do not replace this gate.
 
 If a command cannot run, record the exact command, result, and reason in the
 active stage report.
+
+`make test` is the authoritative local test target and runs
+`python3 -m pytest tests -q`. The fixture contract snapshot gate is a normal
+pytest test under `tests/`, so it runs through both `make test` and
+`make verify`.
 
 ## Optional Local Checks
 

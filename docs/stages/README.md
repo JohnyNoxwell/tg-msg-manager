@@ -6,9 +6,7 @@ Only files under [`active/`](active/) are executable current tasks.
 
 Current active stage files:
 
-- [`active/STAGE_7A_1_PYTEST_AUTHORITY_AND_CI_GATE_ALIGNMENT.md`](active/STAGE_7A_1_PYTEST_AUTHORITY_AND_CI_GATE_ALIGNMENT.md)
-- [`active/STAGE_7A_2_FIXTURE_CONTRACT_SNAPSHOT_GATE.md`](active/STAGE_7A_2_FIXTURE_CONTRACT_SNAPSHOT_GATE.md)
-- [`active/STAGE_7A_3_COVERAGE_AND_TYPECHECK_GATE_PRECHECK.md`](active/STAGE_7A_3_COVERAGE_AND_TYPECHECK_GATE_PRECHECK.md)
+- none
 
 Stage completion policy: any stage that changes code or tests must run the
 same completion gate as `.github/workflows/ci.yml`. When CI runs `make verify`,
@@ -26,9 +24,9 @@ Stage 6G.1 internal import convergence is recorded in [`reports/STAGE_6G_1_INTER
 Stage 6G.2 SQLite write path aggregator shrink is recorded in [`reports/STAGE_6G_2_SQLITE_WRITE_PATH_AGGREGATOR_SHRINK_REPORT.md`](reports/STAGE_6G_2_SQLITE_WRITE_PATH_AGGREGATOR_SHRINK_REPORT.md).
 Stage 6H.0 package changelog version history cleanup is recorded in [`reports/STAGE_6H_0_PACKAGE_CHANGELOG_VERSION_HISTORY_CLEANUP_REPORT.md`](reports/STAGE_6H_0_PACKAGE_CHANGELOG_VERSION_HISTORY_CLEANUP_REPORT.md).
 Stage 7A.0 test infrastructure baseline and hardening plan is recorded in [`reports/STAGE_7A_0_TEST_INFRASTRUCTURE_BASELINE_AND_HARDENING_PLAN_REPORT.md`](reports/STAGE_7A_0_TEST_INFRASTRUCTURE_BASELINE_AND_HARDENING_PLAN_REPORT.md).
-Stage 7A.1 pytest authority and CI gate alignment is active in [`active/STAGE_7A_1_PYTEST_AUTHORITY_AND_CI_GATE_ALIGNMENT.md`](active/STAGE_7A_1_PYTEST_AUTHORITY_AND_CI_GATE_ALIGNMENT.md).
-Stage 7A.2 fixture contract snapshot gate is active in [`active/STAGE_7A_2_FIXTURE_CONTRACT_SNAPSHOT_GATE.md`](active/STAGE_7A_2_FIXTURE_CONTRACT_SNAPSHOT_GATE.md).
-Stage 7A.3 coverage and typecheck gate precheck is active in [`active/STAGE_7A_3_COVERAGE_AND_TYPECHECK_GATE_PRECHECK.md`](active/STAGE_7A_3_COVERAGE_AND_TYPECHECK_GATE_PRECHECK.md).
+Stage 7A.1 pytest authority and CI gate alignment is recorded in [`reports/STAGE_7A_1_PYTEST_AUTHORITY_AND_CI_GATE_ALIGNMENT_REPORT.md`](reports/STAGE_7A_1_PYTEST_AUTHORITY_AND_CI_GATE_ALIGNMENT_REPORT.md).
+Stage 7A.2 fixture contract snapshot gate is recorded in [`reports/STAGE_7A_2_FIXTURE_CONTRACT_SNAPSHOT_GATE_REPORT.md`](reports/STAGE_7A_2_FIXTURE_CONTRACT_SNAPSHOT_GATE_REPORT.md).
+Stage 7A.3 coverage and typecheck gate precheck is recorded in [`reports/STAGE_7A_3_COVERAGE_AND_TYPECHECK_GATE_PRECHECK_REPORT.md`](reports/STAGE_7A_3_COVERAGE_AND_TYPECHECK_GATE_PRECHECK_REPORT.md).
 Stage 6B.0 direct export failure exit code is recorded in [`reports/STAGE_6B_0_DIRECT_EXPORT_FAILURE_EXIT_CODE_REPORT.md`](reports/STAGE_6B_0_DIRECT_EXPORT_FAILURE_EXIT_CODE_REPORT.md).
 Stage 6B.1 direct PM archive failure exit code is recorded in [`reports/STAGE_6B_1_DIRECT_PM_ARCHIVE_FAILURE_EXIT_CODE_REPORT.md`](reports/STAGE_6B_1_DIRECT_PM_ARCHIVE_FAILURE_EXIT_CODE_REPORT.md).
 Stage 6C.0 SQLite writer flush failure diagnosis is recorded in [`reports/STAGE_6C_0_SQLITE_WRITER_FLUSH_FAILURE_DIAGNOSIS_REPORT.md`](reports/STAGE_6C_0_SQLITE_WRITER_FLUSH_FAILURE_DIAGNOSIS_REPORT.md).
@@ -206,6 +204,9 @@ Completed stage files under [`completed/`](completed/) are historical instructio
 
 Current completed prompt groups:
 
+- Stage 7A.3 coverage and typecheck gate precheck task prompt.
+- Stage 7A.2 fixture contract snapshot gate task prompt.
+- Stage 7A.1 pytest authority and CI gate alignment task prompt.
 - Stage 7A.0 test infrastructure baseline and hardening plan task prompt.
 - Stage 6H.0 package changelog version history cleanup task prompt.
 - Stage 6G.2 SQLite write path aggregator shrink task prompt.

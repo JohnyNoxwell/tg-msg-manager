@@ -14,7 +14,7 @@ format-check:
 	$(RUFF) format --check tg_msg_manager tests
 
 test:
-	$(PYTHON) -m unittest discover -s tests -q
+	$(PYTHON) -m pytest tests -q
 
 verify:
 	$(MAKE) lint

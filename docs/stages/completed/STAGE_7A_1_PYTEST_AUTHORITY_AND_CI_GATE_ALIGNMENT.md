@@ -1,6 +1,6 @@
 # STAGE 7A.1 — PYTEST AUTHORITY AND CI GATE ALIGNMENT
 
-Status: active task
+Status: complete
 Stage: 7A.1
 Type: implementation
 Depends on: `docs/stages/reports/STAGE_7A_0_TEST_INFRASTRUCTURE_BASELINE_AND_HARDENING_PLAN_REPORT.md`

@@ -38,6 +38,7 @@ tests/cli/test_non_channel_contract_cli.py
 Implemented focused fixture-backed tests:
 
 ```text
+tests/test_fixture_contract_snapshots.py
 tests/services/rendering/test_non_channel_contract_fixtures.py
 tests/services/db_export/test_non_channel_contract_jsonl.py
 tests/cli/test_non_channel_contract_cli.py
@@ -90,10 +91,9 @@ Generated-output comparisons are appropriate for filenames, part files, writer
 state, and DB-backed skip/no-new-work behavior. Golden-file comparisons are
 appropriate for the small TXT and compact JSONL fixture outputs.
 
-The current focused tests are discovered by the routine unittest suite:
+The current focused tests are discovered by the routine pytest suite:
 
 ```bash
-python3 -m unittest discover -s tests -q
 make test
 ```
 

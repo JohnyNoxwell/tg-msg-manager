@@ -24,6 +24,7 @@ Development docs define how changes are made. They do not define product roadmap
 - Stage reports under [`../stages/reports/`](../stages/reports/) record verification results for completed stages.
 
 Routine verification commands are defined by the active task. Do not claim unrun checks passed.
+The routine local test target is `make test`, which runs `python3 -m pytest tests -q`.
 
 ## CLI contracts
 

@@ -1,7 +1,7 @@
 # PR Checklist
 
 - [ ] CLI behavior unchanged
-- [ ] Tests pass
+- [ ] `make test` / `python3 -m pytest tests -q` passed
 - [ ] `make verify` passed after code/test changes when CI uses it
 - [ ] `make pre-commit` run before push/handoff for code/test changes, or reason recorded
 - [ ] Smoke scenario checked
