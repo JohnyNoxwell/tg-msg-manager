@@ -1,0 +1,10 @@
+[Unit]
+Description=tg-msg-manager scheduled destructive clean
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/tg-msg-manager
+ExecStart=/opt/tg-msg-manager/deploy/vps/run-scheduled.sh clean --apply --yes
+SuccessExitStatus=75
+StandardOutput=journal
+StandardError=journal

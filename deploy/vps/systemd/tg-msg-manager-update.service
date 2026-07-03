@@ -1,0 +1,10 @@
+[Unit]
+Description=tg-msg-manager scheduled update
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/tg-msg-manager
+ExecStart=/opt/tg-msg-manager/deploy/vps/run-scheduled.sh update
+SuccessExitStatus=75
+StandardOutput=journal
+StandardError=journal

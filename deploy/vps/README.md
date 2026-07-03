@@ -59,6 +59,57 @@ tgd
 
 Внимание: `tgd` запускает `clean --apply --yes`. Перед ним используйте `tgr`, чтобы проверить dry-run.
 
+## Systemd schedule
+
+Планировщик на VPS не использует cron и не зависит от shell aliases или `~/.bashrc`. Все scheduled-запуски проходят через:
+
+```bash
+/opt/tg-msg-manager/deploy/vps/run-scheduled.sh
+```
+
+Launcher вызывает `/opt/tg-msg-manager/deploy/vps/tgm` с переданными аргументами и использует общий non-blocking lock:
+
+```text
+/run/lock/tg-msg-manager-scheduler.lock
+```
+
+Если lock занят, запуск пропускается с exit code `75`; для systemd это настроено как successful skip. Общий lock не допускает одновременную работу scheduled `tgu` (`update`) и scheduled `tgd` (`clean --apply --yes`). Логи остаются только в `journalctl`.
+
+Расписание указано прямо в `OnCalendar` с timezone `Europe/Kyiv`; timezone всей VPS не меняется. `Persistent=true` не используется, поэтому пропущенные во время выключенного сервера запуски не выполняются при следующей загрузке.
+
+- `tg-msg-manager-update.timer`: каждый час ровно в `:00` по `Europe/Kyiv`.
+- `tg-msg-manager-clean.timer`: каждый день ровно в `04:30` по `Europe/Kyiv`.
+
+`tgd` является destructive-командой `clean --apply --yes`. Не запускайте clean service вручную для проверки.
+
+Установка timers:
+
+```bash
+cd /opt/tg-msg-manager
+sudo ./deploy/vps/install-systemd-schedules.sh
+```
+
+Проверка:
+
+```bash
+systemctl list-timers 'tg-msg-manager-*'
+systemctl status tg-msg-manager-update.timer
+systemctl status tg-msg-manager-clean.timer
+journalctl -u tg-msg-manager-update.service
+journalctl -u tg-msg-manager-clean.service
+```
+
+Откат:
+
+```bash
+sudo systemctl disable --now tg-msg-manager-update.timer tg-msg-manager-clean.timer
+sudo rm -f /etc/systemd/system/tg-msg-manager-update.service
+sudo rm -f /etc/systemd/system/tg-msg-manager-update.timer
+sudo rm -f /etc/systemd/system/tg-msg-manager-clean.service
+sudo rm -f /etc/systemd/system/tg-msg-manager-clean.timer
+sudo systemctl daemon-reload
+```
+
 ## Перенос состояния с Mac
 
 На локальной машине остановите локальный запуск приложения перед push, чтобы не копировать состояние во время записи.
