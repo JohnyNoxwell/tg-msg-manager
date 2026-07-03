@@ -1,0 +1,8 @@
+#!/bin/sh
+set -eu
+
+SCRIPT_DIR=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd)
+TGMM_ROOT=$(CDPATH= cd -- "$SCRIPT_DIR/../.." && pwd)
+
+cd "$TGMM_ROOT"
+exec docker compose run --rm tg-msg-manager "$@"
