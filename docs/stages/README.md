@@ -29,6 +29,7 @@ Stage 7A.2 fixture contract snapshot gate is recorded in [`reports/STAGE_7A_2_FI
 Stage 7A.3 coverage and typecheck gate precheck is recorded in [`reports/STAGE_7A_3_COVERAGE_AND_TYPECHECK_GATE_PRECHECK_REPORT.md`](reports/STAGE_7A_3_COVERAGE_AND_TYPECHECK_GATE_PRECHECK_REPORT.md).
 Stage 7B.0 VPS Docker Compose deployment wrapper is recorded in [`reports/STAGE_7B_0_VPS_DOCKER_COMPOSE_DEPLOYMENT_REPORT.md`](reports/STAGE_7B_0_VPS_DOCKER_COMPOSE_DEPLOYMENT_REPORT.md).
 Stage 7B.1 VPS state sync safety correction is recorded in [`reports/STAGE_7B_1_VPS_STATE_SYNC_SAFETY_CORRECTION_REPORT.md`](reports/STAGE_7B_1_VPS_STATE_SYNC_SAFETY_CORRECTION_REPORT.md).
+Stage 7B.2 VPS systemd scheduler is recorded in [`reports/STAGE_7B_2_VPS_SYSTEMD_SCHEDULER_REPORT.md`](reports/STAGE_7B_2_VPS_SYSTEMD_SCHEDULER_REPORT.md).
 Stage 6B.0 direct export failure exit code is recorded in [`reports/STAGE_6B_0_DIRECT_EXPORT_FAILURE_EXIT_CODE_REPORT.md`](reports/STAGE_6B_0_DIRECT_EXPORT_FAILURE_EXIT_CODE_REPORT.md).
 Stage 6B.1 direct PM archive failure exit code is recorded in [`reports/STAGE_6B_1_DIRECT_PM_ARCHIVE_FAILURE_EXIT_CODE_REPORT.md`](reports/STAGE_6B_1_DIRECT_PM_ARCHIVE_FAILURE_EXIT_CODE_REPORT.md).
 Stage 6C.0 SQLite writer flush failure diagnosis is recorded in [`reports/STAGE_6C_0_SQLITE_WRITER_FLUSH_FAILURE_DIAGNOSIS_REPORT.md`](reports/STAGE_6C_0_SQLITE_WRITER_FLUSH_FAILURE_DIAGNOSIS_REPORT.md).
@@ -207,6 +208,7 @@ Completed stage files under [`completed/`](completed/) are historical instructio
 Current completed prompt groups:
 
 - Stage 7B.1 VPS state sync safety correction task prompt.
+- Stage 7B.2 VPS systemd scheduler task prompt.
 - Stage 7B.0 VPS Docker Compose deployment wrapper task prompt.
 - Stage 7A.3 coverage and typecheck gate precheck task prompt.
 - Stage 7A.2 fixture contract snapshot gate task prompt.
