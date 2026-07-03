@@ -63,9 +63,11 @@ tgd
 
 На локальной машине остановите локальный запуск приложения перед push, чтобы не копировать состояние во время записи.
 
+По умолчанию local source — корень текущего checkout, из которого запускается helper, например `/Users/maczone/dev/TG_CLEANER`. Это удобно, если runtime-файлы лежат рядом с исходным кодом, но helper синхронизирует только allowlist runtime state, а не исходный код, `.git`, `docs`, `tests`, `deploy`, virtualenv или build artifacts.
+
 ```bash
+cd /Users/maczone/dev/TG_CLEANER
 export TGMM_SSH_HOST=vps
-export TGMM_LOCAL_STATE_DIR="$HOME/TG_MSG_MANAGER"
 export TGMM_REMOTE_STATE_DIR=/opt/tg-msg-manager/state
 
 ./deploy/local/tg-state-sync.sh push --dry-run
@@ -75,4 +77,21 @@ export TGMM_REMOTE_STATE_DIR=/opt/tg-msg-manager/state
 ./deploy/local/tg-state-sync.sh pull all
 ```
 
-Sync helper использует `rsync` over SSH, `--partial` и `--info=progress2`. Он не использует `--delete`.
+Если state находится не в checkout root, задайте `TGMM_LOCAL_STATE_DIR` вручную перед запуском.
+
+`push` передаёт только:
+
+- `config.json`, `config.local.json`, `DB_TARGETS.txt`, `delete_log.txt`;
+- root-level `*.log`;
+- root-level Telegram `*.session` вместе с `*.session-shm`, `*.session-wal`, `*.session-journal`;
+- root-level SQLite `*.db`, `*.sqlite`, `*.sqlite3` вместе с WAL/SHM/journal sidecars;
+- `*_state.json` из поддерживаемых runtime state-файлов;
+- директории `DB_EXPORTS/`, `PUBLIC_GROUPS/`, `PRIVAT_DIALOGS/`, `exports/`, `LOGS/`.
+
+`.tg_msg_manager.lock` не синхронизируется. Если lock существует, helper выводит предупреждение; остановите локальное приложение и повторите push.
+
+`pull exports` забирает только export directories: `exports/`, `DB_EXPORTS/`, `PUBLIC_GROUPS/`, `PRIVAT_DIALOGS/`. `pull logs` забирает `LOGS/`, `delete_log.txt` и root-level `*.log`. Pull не загружает обратно `config.json`, `config.local.json`, Telegram sessions или SQLite databases.
+
+Sync helper использует `rsync` over SSH, archive mode, compression, `--partial` и `--info=progress2`. Он не использует `--delete`.
+
+Не коммитьте `config.json`, `config.local.json`, Telegram sessions, SQLite databases, exports или logs; не прикладывайте их к PR/issues и не включайте в Docker image.
