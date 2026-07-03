@@ -1,0 +1,11 @@
+services:
+  tg-msg-manager:
+    build: .
+    working_dir: /root/TG_MSG_MANAGER
+    environment:
+      HOME: /root
+    volumes:
+      - ${TGMM_STATE_DIR:-/opt/tg-msg-manager/state}:/root/TG_MSG_MANAGER
+    stdin_open: true
+    tty: true
+    init: true
