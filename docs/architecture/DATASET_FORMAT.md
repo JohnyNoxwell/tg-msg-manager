@@ -255,6 +255,11 @@ comments_exported
 included_files
 ```
 
+Current writers emit a discussion object. The `update-channels` batch reader also
+accepts legacy manifests where `discussion` is missing or JSON `null`, treating
+them as mode `none` without rewriting the artifact. Non-null scalar/list values
+remain invalid.
+
 For `--discussion full`, it includes:
 
 ```text

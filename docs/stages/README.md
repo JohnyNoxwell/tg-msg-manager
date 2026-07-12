@@ -207,6 +207,7 @@ Completed stage files under [`completed/`](completed/) are historical instructio
 
 Current completed prompt groups:
 
+- Stage 7C.2 legacy null discussion batch compatibility bugfix prompt.
 - Stage 7C.1 channel update interactive-menu parity task prompt.
 - Stage 7C.0 bulk incremental channel update task prompt.
 - Stage 7B.1 VPS state sync safety correction task prompt.

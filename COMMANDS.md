@@ -162,6 +162,7 @@ python3 -m tg_msg_manager.cli update-channels --output-dir /path/to/channels
 - `--output-dir` is optional and defaults to the normal channel export root.
 - Immediate child directories containing `channel_export_state.json` or `manifest.json` are processed in sorted order; unrelated directories are ignored.
 - Each valid dataset reuses its committed media, discussion, and JSONL/TXT settings and delegates to the existing `export-channel` incremental path with `force=False` and no message limit.
+- For batch-read compatibility, legacy manifests with missing or null `discussion` are treated as `discussion.mode=none`; the source manifest is not rewritten. Other non-object discussion values remain invalid.
 - Processing is sequential. Invalid datasets and per-channel Telegram/export failures are reported without stopping later channels.
 - The command prints `updated`, `no_new_posts`, and `failed` totals and exits non-zero after all candidates are processed when any candidate failed.
 - For channels without a username, the stored numeric channel ID is used. Private channels still depend on Telegram being able to resolve that ID from the current session/entity cache.

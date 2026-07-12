@@ -41,7 +41,11 @@ class ChannelBatchOptionsBuilder:
         manifest = self._load_manifest(manifest_path)
         source = self._mapping(manifest, "source")
         export = self._mapping(manifest, "export")
-        discussion = self._mapping(manifest, "discussion")
+        discussion = (
+            {"mode": "none"}
+            if manifest.get("discussion") is None
+            else self._mapping(manifest, "discussion")
+        )
 
         if manifest.get("dataset_type") != DIRECT_CHANNEL_EXPORT_DATASET_TYPE:
             raise ValueError("Manifest dataset_type is not direct_channel_export")

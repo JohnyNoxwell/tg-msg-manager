@@ -139,6 +139,52 @@ class TestChannelBatchOptionsBuilder(unittest.TestCase):
             self.assertEqual(options.channel, "22")
             self.assertEqual(options.max_comments_per_post, 100)
 
+    def test_legacy_null_or_missing_discussion_uses_none_without_mutation(self):
+        for legacy_value in (None, "missing"):
+            with (
+                self.subTest(legacy_value=legacy_value),
+                tempfile.TemporaryDirectory() as tmpdir,
+            ):
+                root = Path(tmpdir)
+                dataset = _write_dataset(
+                    root, "channel", channel_id=22, username="legacy"
+                )
+                manifest_path = dataset / "manifest.json"
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                if legacy_value == "missing":
+                    manifest.pop("discussion")
+                else:
+                    manifest["discussion"] = None
+                manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+                before = manifest_path.read_bytes()
+
+                options = ChannelBatchOptionsBuilder().build(dataset, root=root)
+
+                self.assertEqual(options.discussion_mode, "none")
+                self.assertEqual(options.max_comments_per_post, 100)
+                self.assertFalse(options.force)
+                self.assertEqual(manifest_path.read_bytes(), before)
+
+    def test_rejects_non_object_legacy_discussion(self):
+        for invalid_value in ("none", []):
+            with (
+                self.subTest(invalid_value=invalid_value),
+                tempfile.TemporaryDirectory() as tmpdir,
+            ):
+                root = Path(tmpdir)
+                dataset = _write_dataset(
+                    root, "channel", channel_id=22, username="invalid"
+                )
+                manifest_path = dataset / "manifest.json"
+                manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
+                manifest["discussion"] = invalid_value
+                manifest_path.write_text(json.dumps(manifest), encoding="utf-8")
+
+                with self.assertRaisesRegex(
+                    ValueError, "Manifest discussion must be a JSON object"
+                ):
+                    ChannelBatchOptionsBuilder().build(dataset, root=root)
+
     def test_rejects_missing_manifest(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir)
