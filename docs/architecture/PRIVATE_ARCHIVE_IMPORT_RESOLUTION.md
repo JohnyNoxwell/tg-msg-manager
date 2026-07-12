@@ -13,7 +13,7 @@ Observed result:
 
 ```text
 module: <module 'tg_msg_manager.services.private_archive' from '.../tg_msg_manager/services/private_archive/__init__.py'>
-file: /Users/maczone/dev/TG_CLEANER/tg_msg_manager/services/private_archive/__init__.py
+file: /Users/maczone/dev/tg-msg-manager/tg_msg_manager/services/private_archive/__init__.py
 has service: True
 ```
 

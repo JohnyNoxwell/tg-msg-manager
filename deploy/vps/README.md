@@ -114,10 +114,10 @@ sudo systemctl daemon-reload
 
 На локальной машине остановите локальный запуск приложения перед push, чтобы не копировать состояние во время записи.
 
-По умолчанию local source — корень текущего checkout, из которого запускается helper, например `/Users/maczone/dev/TG_CLEANER`. Это удобно, если runtime-файлы лежат рядом с исходным кодом, но helper синхронизирует только allowlist runtime state, а не исходный код, `.git`, `docs`, `tests`, `deploy`, virtualenv или build artifacts.
+По умолчанию local source — корень текущего checkout, из которого запускается helper, например `/Users/maczone/dev/tg-msg-manager`. Это удобно, если runtime-файлы лежат рядом с исходным кодом, но helper синхронизирует только allowlist runtime state, а не исходный код, `.git`, `docs`, `tests`, `deploy`, virtualenv или build artifacts.
 
 ```bash
-cd /Users/maczone/dev/TG_CLEANER
+cd /Users/maczone/dev/tg-msg-manager
 export TGMM_SSH_HOST=vps
 export TGMM_REMOTE_STATE_DIR=/opt/tg-msg-manager/state
 

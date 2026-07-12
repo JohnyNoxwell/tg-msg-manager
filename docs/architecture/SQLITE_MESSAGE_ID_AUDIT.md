@@ -39,8 +39,8 @@ CREATE TABLE IF NOT EXISTS message_context_links (
 
 Implemented behavior:
 
-- [`_sqlite_schema.py`](/Users/maczone/dev/TG_CLEANER/tg_msg_manager/infrastructure/storage/_sqlite_schema.py) creates the chat-safe table on fresh databases and migrates legacy rows from the old schema.
-- [`_sqlite_write_path.py`](/Users/maczone/dev/TG_CLEANER/tg_msg_manager/infrastructure/storage/_sqlite_write_path.py) now writes `chat_id`, `distance`, `algorithm_version`, and `created_at` for new reply links.
+- [`_sqlite_schema.py`](/Users/maczone/dev/tg-msg-manager/tg_msg_manager/infrastructure/storage/_sqlite_schema.py) creates the chat-safe table on fresh databases and migrates legacy rows from the old schema.
+- [`_sqlite_write_path.py`](/Users/maczone/dev/tg-msg-manager/tg_msg_manager/infrastructure/storage/_sqlite_write_path.py) now writes `chat_id`, `distance`, `algorithm_version`, and `created_at` for new reply links.
 - legacy rows are copied into the new table with `link_type='legacy'` and `algorithm_version='legacy'`.
 - the first migration keeps a `message_context_links_legacy_backup` table instead of deleting the old rows immediately.
 
