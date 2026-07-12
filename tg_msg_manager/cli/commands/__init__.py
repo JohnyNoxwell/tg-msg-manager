@@ -1,4 +1,7 @@
-from .channel_export import _handle_export_channel_command
+from .channel_export import (
+    _handle_export_channel_command,
+    _handle_update_channels_command,
+)
 from .dataset import (
     _handle_inspect_dataset_command,
     _handle_validate_dataset_command,
@@ -30,5 +33,6 @@ __all__ = [
     "_handle_setup_command",
     "_handle_target_command",
     "_handle_update_command",
+    "_handle_update_channels_command",
     "_handle_validate_dataset_command",
 ]

@@ -170,4 +170,6 @@ def build_cli_parser() -> argparse.ArgumentParser:
     )
     export_channel_parser.add_argument("--output-dir", default=None)
     export_channel_parser.add_argument("--force", action="store_true", default=False)
+    update_channels_parser = subparsers.add_parser("update-channels")
+    update_channels_parser.add_argument("--output-dir", default=None)
     return parser

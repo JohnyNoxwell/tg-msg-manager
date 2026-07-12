@@ -59,6 +59,7 @@ and infrastructure must not import CLI modules.
 Current channel export service organization:
 
 - `tg_msg_manager/services/channel_export/service.py` is the orchestration facade.
+- Bulk dataset discovery, committed-option reconstruction, and sequential multi-channel orchestration live in focused `batch_*` modules and delegate each update to `ChannelExportService`.
 - Full, incremental, and no-new-posts run paths are delegated to `tg_msg_manager/services/channel_export/workflows/`.
 - Dataset included-file construction is delegated to `included_files_builder.py`.
 - Manifest construction coordination is delegated to `manifest_coordinator.py`.

@@ -20,6 +20,7 @@ class TestCLIParser(unittest.TestCase):
                 "clean",
                 "export-pm",
                 "export-channel",
+                "update-channels",
                 "delete",
                 "schedule",
                 "setup",
@@ -54,6 +55,7 @@ class TestCLIParser(unittest.TestCase):
         self.assertIn("retry", root_help)
         self.assertIn("report", root_help)
         self.assertIn("export-channel", root_help)
+        self.assertIn("update-channels", root_help)
         self.assertIn("validate-dataset", root_help)
         self.assertIn("inspect-dataset", root_help)
         self.assertIn("target", root_help)

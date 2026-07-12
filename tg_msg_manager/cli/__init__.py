@@ -20,6 +20,7 @@ from ..cli.commands import (
     _handle_setup_command,
     _handle_target_command,
     _handle_update_command,
+    _handle_update_channels_command,
     _handle_validate_dataset_command,
 )
 from ..cli_menu import (
@@ -130,6 +131,7 @@ class CLIContext:
         self.db_exporter = None
         self.private_archive = None
         self.channel_exporter = None
+        self.channel_batch_updater = None
         self.retry_worker = None
         self.alias_manager = None
 
@@ -162,6 +164,7 @@ class CLIContext:
         self.db_exporter = services.db_exporter
         self.private_archive = services.private_archive
         self.channel_exporter = services.channel_exporter
+        self.channel_batch_updater = getattr(services, "channel_batch_updater", None)
         self.retry_worker = services.retry_worker
         self.alias_manager = services.alias_manager
 
@@ -257,6 +260,7 @@ async def run_cli(runtime: Optional[AppRuntime] = None):
                 "clean": _handle_clean_command,
                 "export-pm": _handle_export_pm_command,
                 "export-channel": _handle_export_channel_command,
+                "update-channels": _handle_update_channels_command,
                 "validate-dataset": _handle_validate_dataset_command,
                 "inspect-dataset": _handle_inspect_dataset_command,
                 "target": _handle_target_command,

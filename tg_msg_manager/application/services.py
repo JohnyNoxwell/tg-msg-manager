@@ -7,7 +7,7 @@ from ..core.runtime import AppRuntime
 from ..core.service_events import ServiceEventSink
 from ..core.telegram.interface import TelegramClientInterface
 from ..services.alias_manager import AliasManager
-from ..services.channel_export import ChannelExportService
+from ..services.channel_export import ChannelBatchUpdateService, ChannelExportService
 from ..services.cleaner import CleanerService
 from ..services.db_export.service import DBExportService
 from ..services.export.service import ExportService
@@ -22,6 +22,7 @@ class ServiceBundle:
     db_exporter: DBExportService
     private_archive: Optional[PrivateArchiveService]
     channel_exporter: Optional[ChannelExportService]
+    channel_batch_updater: Optional[ChannelBatchUpdateService]
     retry_worker: Optional[RetryWorker]
     alias_manager: AliasManager
 
@@ -45,6 +46,7 @@ def create_service_bundle(
     exporter = None
     private_archive = None
     channel_exporter = None
+    channel_batch_updater = None
     retry_worker = None
     if needs_client:
         exporter = ExportService(client, storage, event_sink=event_sink)
@@ -58,6 +60,9 @@ def create_service_bundle(
             client=client,
             base_dir=paths.channel_exports_dir,
             event_sink=event_sink,
+        )
+        channel_batch_updater = ChannelBatchUpdateService(
+            channel_exporter=channel_exporter
         )
         retry_worker = RetryWorker(
             storage=storage,
@@ -85,6 +90,7 @@ def create_service_bundle(
         db_exporter=db_exporter,
         private_archive=private_archive,
         channel_exporter=channel_exporter,
+        channel_batch_updater=channel_batch_updater,
         retry_worker=retry_worker,
         alias_manager=alias_manager,
     )

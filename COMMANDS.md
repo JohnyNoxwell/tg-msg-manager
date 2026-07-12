@@ -150,6 +150,23 @@ Notes:
 - `channel_export_state.json` and `discussion_export_state.json` advance only after required payload and manifest writes succeed.
 - If there are no new posts, the command reports that state clearly and does not advance the export cursor.
 
+## `update-channels`
+
+Incrementally update every existing broadcast-channel dataset under one export root.
+
+```bash
+python3 -m tg_msg_manager.cli update-channels
+python3 -m tg_msg_manager.cli update-channels --output-dir /path/to/channels
+```
+
+- `--output-dir` is optional and defaults to the normal channel export root.
+- Immediate child directories containing `channel_export_state.json` or `manifest.json` are processed in sorted order; unrelated directories are ignored.
+- Each valid dataset reuses its committed media, discussion, and JSONL/TXT settings and delegates to the existing `export-channel` incremental path with `force=False` and no message limit.
+- Processing is sequential. Invalid datasets and per-channel Telegram/export failures are reported without stopping later channels.
+- The command prints `updated`, `no_new_posts`, and `failed` totals and exits non-zero after all candidates are processed when any candidate failed.
+- For channels without a username, the stored numeric channel ID is used. Private channels still depend on Telegram being able to resolve that ID from the current session/entity cache.
+- The command does not backfill historical media or discussion threads and does not change dataset or SQLite schemas.
+
 ## `validate-dataset`
 
 Validate a completed channel export dataset from local files only.

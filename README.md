@@ -167,6 +167,10 @@ python3 -m pip install --upgrade tg-msg-manager
     В `full` режиме `media_manifest.jsonl` фиксирует итоговые статусы `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type` и `failed`.
     `run_changelog.jsonl` получает одну строку на каждый завершенный запуск с предыдущим/новым cursor, run mode, списком новых message IDs и artifact paths; no-new-posts run пишет строку с `new_message_count: 0`.
     Интерактивный пункт меню `10` теперь запрашивает discussion mode, max comments per post, force, output directory, max media size и media types; пустой ввод сохраняет defaults прямой CLI-команды.
+*   **Обновление всех экспортированных каналов**:
+    `python3 -m tg_msg_manager.cli update-channels`
+    `python3 -m tg_msg_manager.cli update-channels --output-dir /path/to/channels`
+    Команда последовательно обходит channel datasets в отсортированном порядке и запускает существующий инкрементальный экспорт без `--force` и без лимита сообщений. Настройки media, discussion и JSONL/TXT восстанавливаются из committed manifest/state. Ошибка одного dataset не останавливает остальные; после полного прохода печатается сводка, а при наличии ошибок возвращается ненулевой exit code. Для каналов без username используется сохранённый numeric ID, который Telegram должен разрешить через текущую session/entity cache.
 *   **Проверка / инспекция channel dataset**:
     `python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example`
     `python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example --json`
@@ -472,6 +476,10 @@ Subcommands can be executed directly for automation:
     In `full` mode, `media_manifest.jsonl` records final statuses such as `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type`, and `failed`.
     `run_changelog.jsonl` gets one row per completed run with previous/new cursor, run mode, new message IDs, and artifact paths; no-new-posts runs write a row with `new_message_count: 0`.
     Interactive menu item `10` now prompts for discussion mode, max comments per post, force, output directory, max media size, and media types; empty input preserves the direct CLI defaults.
+*   **Update All Exported Channels**:
+    `python3 -m tg_msg_manager.cli update-channels`
+    `python3 -m tg_msg_manager.cli update-channels --output-dir /path/to/channels`
+    The command scans channel datasets in sorted order and delegates each one to the existing incremental exporter with `force=False` and no message limit. Media, discussion, and JSONL/TXT settings are reconstructed from committed manifest/state files. One invalid or failed dataset does not stop later channels; a final summary is printed and any failure produces a non-zero exit code after the full pass. Channels without usernames use the stored numeric ID, which Telegram must resolve through the current session/entity cache.
 *   **Channel Dataset Validation / Inspection**:
     `python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example`
     `python3 -m tg_msg_manager.cli validate-dataset --path exports/channels/example --json`

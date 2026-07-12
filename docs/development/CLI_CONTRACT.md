@@ -41,6 +41,7 @@ must not construct a Telegram client.
 | `inspect-dataset` | `--path` | `--json=False`, `--doctor=False` | Summarize deterministic counts/statuses, or emit a read-only doctor report for an exported channel dataset |
 | `target names` | `<target>` | `--field=all`, `--format=text` | Show locally stored username/display-name/title history for a known target without Telegram access |
 | `export-channel` | `--channel` | `--limit=None`, `--media=metadata`, `--max-media-size=None`, `--media-types=None`, `--discussion=none`, `--max-comments-per-post=100`, `--output-dir=None`, `--force=False` | Export broadcast-channel posts into the filesystem dataset layout |
+| `update-channels` | none | `--output-dir=None` | Sequentially run incremental export for every discovered broadcast-channel dataset and summarize isolated failures |
 
 ## Contract Tests
 
@@ -51,3 +52,5 @@ Protected by:
 - `tests.cli.test_cli.TestCLIContext.test_run_cli_without_command_in_non_tty_prints_help`
 - `tests.cli.test_channel_export_cli.TestChannelExportCLIParser`
 - `tests.services.dataset_validation.test_dataset_validation_contracts.TestDatasetValidationCLI`
+- `tests.cli.test_channel_export_cli.TestChannelExportCLIHandler.test_run_cli_dispatches_update_channels_and_requires_client`
+- `tests.services.channel_export.test_channel_batch_update`

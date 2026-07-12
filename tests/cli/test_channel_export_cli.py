@@ -11,12 +11,17 @@ from tg_msg_manager.cli.channel_export_options import (
     build_channel_export_service_options,
     channel_export_options_from_namespace,
 )
+from tg_msg_manager.cli.commands.channel_export import _handle_update_channels_command
 from tg_msg_manager.cli_commands import _handle_export_channel_command
 from tg_msg_manager.cli_menu import _handle_menu_export_channel
 from tg_msg_manager.cli_parser import build_cli_parser
 from tg_msg_manager.core.config import Settings
 from tg_msg_manager.core.runtime import AppPaths, AppRuntime
-from tg_msg_manager.services.channel_export import ChannelResolveError
+from tg_msg_manager.services.channel_export import (
+    ChannelBatchUpdateItem,
+    ChannelBatchUpdateResult,
+    ChannelResolveError,
+)
 
 
 class TestChannelExportCLIParser(unittest.TestCase):
@@ -24,6 +29,18 @@ class TestChannelExportCLIParser(unittest.TestCase):
         parser = build_cli_parser()
 
         self.assertIn("export-channel", parser.format_help())
+        self.assertIn("update-channels", parser.format_help())
+
+    def test_update_channels_parses_optional_output_dir(self):
+        parser = build_cli_parser()
+
+        default_args = parser.parse_args(["update-channels"])
+        custom_args = parser.parse_args(
+            ["update-channels", "--output-dir", "/tmp/channels"]
+        )
+
+        self.assertIsNone(default_args.output_dir)
+        self.assertEqual(custom_args.output_dir, "/tmp/channels")
 
     def test_export_channel_help_exits_cleanly(self):
         parser = build_cli_parser()
@@ -391,6 +408,72 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
             "Channel export failed: Object of type datetime is not JSON serializable",
         )
 
+    async def test_update_channels_renders_summary_with_default_root(self):
+        ctx = MagicMock()
+        ctx.paths.channel_exports_dir = "/tmp/default/channels"
+        ctx.channel_batch_updater.update_all = AsyncMock(
+            return_value=ChannelBatchUpdateResult(
+                items=(
+                    ChannelBatchUpdateItem(
+                        dataset_dir=Path("/tmp/default/channels/a"),
+                        channel="@a",
+                        status="updated",
+                        posts_exported=2,
+                    ),
+                    ChannelBatchUpdateItem(
+                        dataset_dir=Path("/tmp/default/channels/b"),
+                        channel="@b",
+                        status="no_new_posts",
+                    ),
+                )
+            )
+        )
+
+        with patch("builtins.print") as mock_print:
+            await _handle_update_channels_command(ctx, Namespace(output_dir=None))
+
+        ctx.channel_batch_updater.update_all.assert_awaited_once_with(
+            Path("/tmp/default/channels")
+        )
+        mock_print.assert_any_call("updated: @a: posts=2")
+        mock_print.assert_any_call("no_new_posts: @b: posts=0")
+        mock_print.assert_any_call(
+            "Channel batch update summary: updated=1 no_new_posts=1 failed=0"
+        )
+
+    async def test_update_channels_renders_failures_then_exits_nonzero(self):
+        ctx = MagicMock()
+        ctx.paths.channel_exports_dir = "/tmp/default/channels"
+        ctx.channel_batch_updater.update_all = AsyncMock(
+            return_value=ChannelBatchUpdateResult(
+                items=(
+                    ChannelBatchUpdateItem(
+                        dataset_dir=Path("/tmp/custom/broken"),
+                        channel="broken",
+                        status="failed",
+                        error="invalid manifest",
+                    ),
+                )
+            )
+        )
+
+        with (
+            patch("builtins.print") as mock_print,
+            self.assertRaises(SystemExit) as raised,
+        ):
+            await _handle_update_channels_command(
+                ctx, Namespace(output_dir="/tmp/custom")
+            )
+
+        self.assertEqual(raised.exception.code, 1)
+        ctx.channel_batch_updater.update_all.assert_awaited_once_with(
+            Path("/tmp/custom")
+        )
+        mock_print.assert_any_call("failed: broken: invalid manifest")
+        mock_print.assert_any_call(
+            "Channel batch update summary: updated=0 no_new_posts=0 failed=1"
+        )
+
     async def _run_menu_export_channel(self, inputs):
         ctx = MagicMock()
 
@@ -575,6 +658,29 @@ class TestChannelExportCLIHandler(unittest.IsolatedAsyncioTestCase):
         self.assertTrue(mock_ctx_cls.call_args.kwargs["needs_client"])
         mock_handler.assert_awaited_once()
         self.assertTrue(_command_needs_client("export-channel"))
+
+    @patch("tg_msg_manager.cli.CLIContext")
+    async def test_run_cli_dispatches_update_channels_and_requires_client(
+        self,
+        mock_ctx_cls,
+    ):
+        mock_ctx = MagicMock()
+        mock_ctx.initialize = AsyncMock()
+        mock_ctx.shutdown = AsyncMock()
+        mock_ctx_cls.return_value = mock_ctx
+
+        with (
+            patch.object(sys, "argv", ["prog", "update-channels"]),
+            patch(
+                "tg_msg_manager.cli._handle_update_channels_command",
+                new_callable=AsyncMock,
+            ) as mock_handler,
+        ):
+            await run_cli(runtime=self.runtime)
+
+        self.assertTrue(mock_ctx_cls.call_args.kwargs["needs_client"])
+        mock_handler.assert_awaited_once()
+        self.assertTrue(_command_needs_client("update-channels"))
 
 
 if __name__ == "__main__":
