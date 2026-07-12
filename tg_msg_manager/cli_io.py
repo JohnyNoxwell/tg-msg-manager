@@ -492,17 +492,18 @@ def render_main_menu(me_id: Any) -> None:
     print(UI.rule(105))
     menu_items = [
         ("01", "menu_1", "menu_1_desc"),
-        ("02", "menu_2", "menu_2_desc"),
-        ("03", "menu_3", "menu_3_desc"),
-        ("04", "menu_4", "menu_4_desc"),
-        ("05", "menu_5", "menu_5_desc"),
-        ("06", "menu_6", "menu_6_desc"),
-        ("07", "menu_7", "menu_7_desc"),
-        ("08", "menu_8", "menu_8_desc"),
-        ("09", "menu_9", "menu_9_desc"),
-        ("10", "menu_10", "menu_10_desc"),
-        ("11", "menu_retry", "menu_retry_desc"),
+        ("02", "menu_4", "menu_4_desc"),
+        ("03", "menu_9", "menu_9_desc"),
+        ("04", "menu_10", "menu_10_desc"),
+        ("05", "menu_2", "menu_2_desc"),
+        ("06", "menu_update_channels", "menu_update_channels_desc"),
+        ("07", "menu_retry", "menu_retry_desc"),
+        ("08", "menu_3", "menu_3_desc"),
+        ("09", "menu_5", "menu_5_desc"),
+        ("10", "menu_6", "menu_6_desc"),
+        ("11", "menu_7", "menu_7_desc"),
         ("12", "menu_report", "menu_report_desc"),
+        ("13", "menu_8", "menu_8_desc"),
     ]
     for hotkey, label_key, desc_key in menu_items:
         print(UI.menu_row(hotkey, _(label_key), _(desc_key)))

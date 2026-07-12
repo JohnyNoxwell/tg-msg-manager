@@ -35,6 +35,23 @@ def test_render_main_menu_uses_compact_menu_rows_without_tty():
     text = output.getvalue()
     assert "[01]" not in text
     assert "01 ▸ Экспорт" in text
+    expected_rows = [
+        "01 ▸ Экспорт",
+        "02 ▸ Архив лички",
+        "03 ▸ Экспорт из БД",
+        "04 ▸ Экспорт канала",
+        "05 ▸ Обновление",
+        "06 ▸ Обновить экспорты каналов",
+        "07 ▸ Retry Queue",
+        "08 ▸ Глобальная очистка",
+        "09 ▸ Удалить данные",
+        "10 ▸ Расписание",
+        "11 ▸ Настройка",
+        "12 ▸ Audit Report",
+        "13 ▸ О программе",
+    ]
+    positions = [text.index(row) for row in expected_rows]
+    assert positions == sorted(positions)
     assert "12 ▸ Audit Report" in text
 
 

@@ -166,7 +166,7 @@ python3 -m pip install --upgrade tg-msg-manager
     `media_manifest.jsonl` фиксирует итоговый путь media. OCR, speech-to-text, media analysis, transcoding и ffmpeg processing не выполняются.
     В `full` режиме `media_manifest.jsonl` фиксирует итоговые статусы `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type` и `failed`.
     `run_changelog.jsonl` получает одну строку на каждый завершенный запуск с предыдущим/новым cursor, run mode, списком новых message IDs и artifact paths; no-new-posts run пишет строку с `new_message_count: 0`.
-    Интерактивный пункт меню `10` теперь запрашивает discussion mode, max comments per post, force, output directory, max media size и media types; пустой ввод сохраняет defaults прямой CLI-команды.
+    Интерактивный пункт меню `04` запрашивает discussion mode, max comments per post, force, output directory, max media size и media types; пустой ввод сохраняет defaults прямой CLI-команды. Пункт `06` последовательно обновляет все существующие экспорты каналов через тот же batch workflow.
 *   **Обновление всех экспортированных каналов**:
     `python3 -m tg_msg_manager.cli update-channels`
     `python3 -m tg_msg_manager.cli update-channels --output-dir /path/to/channels`
@@ -475,7 +475,7 @@ Subcommands can be executed directly for automation:
     `media_manifest.jsonl` records the final media path. OCR, speech-to-text, media analysis, transcoding, and ffmpeg processing are not performed.
     In `full` mode, `media_manifest.jsonl` records final statuses such as `downloaded`, `already_exists`, `skipped_by_size`, `skipped_by_type`, and `failed`.
     `run_changelog.jsonl` gets one row per completed run with previous/new cursor, run mode, new message IDs, and artifact paths; no-new-posts runs write a row with `new_message_count: 0`.
-    Interactive menu item `10` now prompts for discussion mode, max comments per post, force, output directory, max media size, and media types; empty input preserves the direct CLI defaults.
+    Interactive menu item `04` prompts for discussion mode, max comments per post, force, output directory, max media size, and media types; empty input preserves the direct CLI defaults. Item `06` sequentially updates all existing channel exports through the same batch workflow.
 *   **Update All Exported Channels**:
     `python3 -m tg_msg_manager.cli update-channels`
     `python3 -m tg_msg_manager.cli update-channels --output-dir /path/to/channels`

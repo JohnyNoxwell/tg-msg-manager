@@ -1,4 +1,9 @@
-from .cli.commands import _handle_export_channel_command
+from argparse import Namespace
+
+from .cli.commands import (
+    _handle_export_channel_command,
+    _handle_update_channels_command,
+)
 from .cli.channel_export_options import build_channel_export_command_options
 from .cli_io import (
     TerminalInput,
@@ -151,6 +156,16 @@ async def _handle_menu_update(ctx) -> None:
     )
     if updated_stats:
         print_update_summary(updated_stats, title="Update")
+    pause_for_enter()
+
+
+async def _handle_menu_update_channels(ctx) -> None:
+    UI.print_header(_("menu_update_channels"), _("menu_update_channels_desc"))
+    try:
+        await _handle_update_channels_command(ctx, Namespace(output_dir=None))
+    except SystemExit as exc:
+        if exc.code not in (None, 0, 1):
+            print(str(exc))
     pause_for_enter()
 
 
@@ -460,33 +475,36 @@ async def _dispatch_main_menu_choice(ctx, choice: str) -> bool:
         return True
     if normalized in {"0", "00"}:
         return False
-    if normalized in {"R", "11"}:
+    if normalized == "R":
         await _handle_menu_retry(ctx)
         return True
-    if normalized in {"P", "12"}:
+    if normalized == "P":
         await _handle_menu_report(ctx)
         return True
 
     handlers = {
         "1": _handle_menu_export,
         "01": _handle_menu_export,
-        "2": _handle_menu_update,
-        "02": _handle_menu_update,
-        "3": _handle_menu_clean,
-        "03": _handle_menu_clean,
-        "4": _handle_menu_export_pm,
-        "04": _handle_menu_export_pm,
-        "5": _handle_menu_delete_data,
-        "05": _handle_menu_delete_data,
-        "6": _handle_menu_schedule,
-        "06": _handle_menu_schedule,
-        "7": _handle_menu_setup,
-        "07": _handle_menu_setup,
-        "8": _handle_menu_about,
-        "08": _handle_menu_about,
-        "9": _handle_menu_db_export,
-        "09": _handle_menu_db_export,
-        "10": _handle_menu_export_channel,
+        "2": _handle_menu_export_pm,
+        "02": _handle_menu_export_pm,
+        "3": _handle_menu_db_export,
+        "03": _handle_menu_db_export,
+        "4": _handle_menu_export_channel,
+        "04": _handle_menu_export_channel,
+        "5": _handle_menu_update,
+        "05": _handle_menu_update,
+        "6": _handle_menu_update_channels,
+        "06": _handle_menu_update_channels,
+        "7": _handle_menu_retry,
+        "07": _handle_menu_retry,
+        "8": _handle_menu_clean,
+        "08": _handle_menu_clean,
+        "9": _handle_menu_delete_data,
+        "09": _handle_menu_delete_data,
+        "10": _handle_menu_schedule,
+        "11": _handle_menu_setup,
+        "12": _handle_menu_report,
+        "13": _handle_menu_about,
     }
     handler = handlers.get(normalized)
     if handler is not None:

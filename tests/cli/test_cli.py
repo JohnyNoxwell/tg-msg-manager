@@ -709,10 +709,43 @@ class TestCLIContext(unittest.IsolatedAsyncioTestCase):
     ):
         ctx = MagicMock()
 
-        keep_running = await _dispatch_main_menu_choice(ctx, "10")
+        keep_running = await _dispatch_main_menu_choice(ctx, "04")
 
         self.assertTrue(keep_running)
         mock_export_channel_menu.assert_awaited_once_with(ctx)
+
+    @patch(
+        "tg_msg_manager.cli_menu._handle_menu_update_channels",
+        new_callable=AsyncMock,
+    )
+    async def test_dispatch_main_menu_choice_routes_channel_update_menu_item(
+        self,
+        mock_update_channels_menu,
+    ):
+        ctx = MagicMock()
+
+        keep_running = await _dispatch_main_menu_choice(ctx, "06")
+
+        self.assertTrue(keep_running)
+        mock_update_channels_menu.assert_awaited_once_with(ctx)
+
+    async def test_channel_update_menu_survives_aggregate_failure(self):
+        from tg_msg_manager.cli_menu import _handle_menu_update_channels
+
+        ctx = MagicMock()
+        with (
+            patch(
+                "tg_msg_manager.cli_menu._handle_update_channels_command",
+                new_callable=AsyncMock,
+                side_effect=SystemExit(1),
+            ) as handler,
+            patch("tg_msg_manager.cli_menu.pause_for_enter") as pause,
+            patch("tg_msg_manager.cli_menu.UI.print_header"),
+        ):
+            await _handle_menu_update_channels(ctx)
+
+        self.assertIsNone(handler.await_args.args[1].output_dir)
+        pause.assert_called_once_with()
 
     @patch("tg_msg_manager.cli_menu.set_lang")
     async def test_dispatch_main_menu_choice_routes_two_digit_language_toggle(
@@ -1165,6 +1198,7 @@ class TestMainMenuRendering(unittest.TestCase):
         self.assertIn("10 ▸", rendered)
         self.assertIn("11 ▸", rendered)
         self.assertIn("12 ▸", rendered)
+        self.assertIn("13 ▸", rendered)
         self.assertIn("98 ▸", rendered)
         self.assertIn("00 ▸", rendered)
         self.assertNotIn("[01]", rendered)

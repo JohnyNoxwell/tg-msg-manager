@@ -252,26 +252,31 @@ Notes:
 
 ## Interactive Menu
 
-The interactive `tg` menu now uses two-digit item codes:
+The interactive `tg` menu uses this ordered two-digit mapping:
 
-- `01`..`10` for primary actions
-- `11` for `Retry Queue`
-- `12` for `Audit Report`
+- exports: `01` user export, `02` PM archive, `03` DB export, `04` channel export;
+- updates: `05` tracked-target update, `06` channel-export update, `07` Retry Queue;
+- maintenance/settings: `08` global clean, `09` delete data, `10` scheduler, `11` setup;
+- information: `12` Audit Report, `13` About;
 - `98` for language toggle
 - `00` for exit
 
 Legacy short inputs remain accepted for compatibility:
 
-- `1`..`9`
+- `1`..`9` as short forms of the current two-digit mapping
 - `R`
 - `P`
 - `L`
 - `0`
 
-Interactive menu item `10` / `export-channel` asks for the same channel export
+Interactive menu item `04` / `export-channel` asks for the same channel export
 controls as the direct command path: discussion mode (`none` / `metadata` /
 `full`), max comments per post, force re-export, output directory, max media
 size, and media types. Empty answers preserve the direct CLI defaults.
+
+Interactive menu item `06` invokes `update-channels` with the default channel
+export root. It renders the complete per-channel summary, remains in the menu
+after aggregate failures, and does not add force/backfill behavior.
 
 Interactive menu item `01` / `export` can generate TXT output and prompts for
 the same TXT profile behavior when TXT is selected. Empty TXT profile input uses

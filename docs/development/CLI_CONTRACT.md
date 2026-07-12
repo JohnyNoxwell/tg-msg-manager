@@ -54,3 +54,5 @@ Protected by:
 - `tests.services.dataset_validation.test_dataset_validation_contracts.TestDatasetValidationCLI`
 - `tests.cli.test_channel_export_cli.TestChannelExportCLIHandler.test_run_cli_dispatches_update_channels_and_requires_client`
 - `tests.services.channel_export.test_channel_batch_update`
+- `tests.cli.test_cli_ui_refresh.test_render_main_menu_uses_compact_menu_rows_without_tty`
+- `tests.cli.test_cli.TestCLIContext.test_dispatch_main_menu_choice_routes_channel_update_menu_item`
